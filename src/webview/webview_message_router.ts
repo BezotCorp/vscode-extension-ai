@@ -20,6 +20,13 @@ export class WebviewMessageRouter {
   ) {}
 
   async handle(webviewView: vscode.WebviewView, message: WebviewMessage): Promise<void> {
+    if (message.type === 'copyMessage') {
+      if (typeof message.text === 'string') {
+        await vscode.env.clipboard.writeText(message.text);
+      }
+      return;
+    }
+
     if (message.type === 'openSettings') {
       await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:bezotcorp.bezotcorp-ai');
       return;

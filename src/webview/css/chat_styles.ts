@@ -124,6 +124,8 @@ export function getChatStyles(): string {
 }
 
 .message {
+  user-select: text;
+  -webkit-user-select: text;
   padding: 8px 12px;
   border-radius: 6px;
   max-width: 90%;
@@ -141,6 +143,30 @@ export function getChatStyles(): string {
 .assistant {
   background: var(--vscode-editor-inactiveSelectionBackground);
   align-self: flex-start;
+}
+
+.message-content {
+  user-select: text;
+  -webkit-user-select: text;
+  white-space: pre-wrap;
+}
+
+.copy-message {
+  display: block;
+  margin-top: 6px;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85em;
+}
+
+.copy-message:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
 }
 
 #input-area {
