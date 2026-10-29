@@ -69,6 +69,38 @@
             "rich"
           ],
           "description": "Context mode. Basic sends focused context. Rich sends more workspace information."
+        },
+        "bezotcorpAi.autonomyMode": {
+          "type": "string",
+          "scope": "application",
+          "default": "confirm",
+          "enum": [
+            "readOnly",
+            "confirm",
+            "auto"
+          ],
+          "enumDescriptions": [
+            "Only read and search tools are available.",
+            "Everything except reading inside the workspace asks for permission unless already granted.",
+            "Every tool runs without a prompt. Choose this explicitly."
+          ],
+          "description": "How much the AI may do on its own. Only read from user settings."
+        },
+        "bezotcorpAi.mcpServers": {
+          "type": "object",
+          "scope": "application",
+          "default": {},
+          "description": "MCP servers started over stdio, keyed by name: { \"name\": { \"command\": \"npx\", \"args\": [\"-y\", \"server\"], \"env\": {}, \"cwd\": \"\" } }. Only read from user settings.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["command"],
+            "properties": {
+              "command": { "type": "string" },
+              "args": { "type": "array", "items": { "type": "string" } },
+              "env": { "type": "object", "additionalProperties": { "type": "string" } },
+              "cwd": { "type": "string" }
+            }
+          }
         }
       }
     },
@@ -99,6 +131,14 @@
       {
         "command": "bezotcorp-ai.openSettings",
         "title": "BezotCorp AI: Open Settings"
+      },
+      {
+        "command": "bezotcorp-ai.managePermissions",
+        "title": "BezotCorp AI: Manage Permissions"
+      },
+      {
+        "command": "bezotcorp-ai.revokeAllPermissions",
+        "title": "BezotCorp AI: Revoke All Permissions"
       }
     ]
   },
@@ -112,13 +152,13 @@
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^12.0.8",
+    "@semantic-release/github": "^12.0.10",
     "@semantic-release/release-notes-generator": "^14.1.1",
-    "@types/node": "^25.9.2",
-    "@types/vscode": "^1.120.0",
+    "@types/node": "^25.9.9",
+    "@types/vscode": "^1.140.0",
     "@vscode/vsce": "^3.9.2",
-    "semantic-release": "^25.0.3",
-    "semantic-release-vsce": "^6.1.5",
+    "semantic-release": "^25.0.9",
+    "semantic-release-vsce": "^6.1.8",
     "typescript": "^6.0.3"
   }
 }

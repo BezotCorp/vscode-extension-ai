@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 
 import { ContextMode } from '../config/extension_config';
+import { truncateContent, WORKSPACE_EXCLUDE_GLOB } from '../workspace';
 import { ChatContext, ContextFile, ContextSelection } from '.';
 
-const MAX_FILE_CHARS = 40_000;
 const MAX_OPEN_FILES = 8;
 const MAX_WORKSPACE_FILES = 200;
 
@@ -39,7 +39,7 @@ function getActiveFile(): ContextFile | undefined {
   return documentToContextFile(editor.document);
 }
 
-function getSelectedText(): ContextSelection | undefined {
+export function getSelectedText(): ContextSelection | undefined {
   const editor = vscode.window.activeTextEditor;
 
   if (!editor || editor.document.isUntitled || editor.document.uri.scheme !== 'file') {
@@ -71,8 +71,8 @@ function getOpenFiles(activeFilePath?: string): ContextFile[] {
     .map(documentToContextFile);
 }
 
-async function getWorkspaceFiles(): Promise<string[]> {
-  const files = await vscode.workspace.findFiles('**/*', '**/{node_modules,out,.git,.vscode}/**', MAX_WORKSPACE_FILES);
+export async function getWorkspaceFiles(): Promise<string[]> {
+  const files = await vscode.workspace.findFiles('**/*', WORKSPACE_EXCLUDE_GLOB, MAX_WORKSPACE_FILES);
 
   return files.map((file) => vscode.workspace.asRelativePath(file, false)).sort();
 }
@@ -85,12 +85,4 @@ function documentToContextFile(document: vscode.TextDocument): ContextFile {
     languageId: document.languageId,
     content: truncateContent(content),
   };
-}
-
-function truncateContent(content: string): string {
-  if (content.length <= MAX_FILE_CHARS) {
-    return content;
-  }
-
-  return `${content.slice(0, MAX_FILE_CHARS)}\n\n/* Content truncated by BezotCorp AI */`;
 }

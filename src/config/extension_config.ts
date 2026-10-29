@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 
+import { McpServerConfig } from '../mcp';
+import { AutonomyMode, DEFAULT_AUTONOMY_MODE } from '../permissions';
+
 export type AiProviderKind = 'ollama' | 'customBackend' | 'bezotcorp';
 export type ContextMode = 'basic' | 'rich';
 
@@ -13,6 +16,8 @@ export type ExtensionConfig = {
   providerUrl: string;
   model: string;
   contextMode: ContextMode;
+  autonomyMode: AutonomyMode;
+  mcpServers: Record<string, McpServerConfig>;
 };
 
 export function getExtensionConfig(): ExtensionConfig {
@@ -23,7 +28,17 @@ export function getExtensionConfig(): ExtensionConfig {
     providerUrl: normalizeProviderUrl(config.get<string>('providerUrl', DEFAULT_PROVIDER_URL)),
     model: config.get<string>('model', DEFAULT_MODEL),
     contextMode: config.get<ContextMode>('contextMode', DEFAULT_CONTEXT_MODE),
+    autonomyMode: getUserSetting<AutonomyMode>('autonomyMode', DEFAULT_AUTONOMY_MODE),
+    mcpServers: getUserSetting<Record<string, McpServerConfig>>('mcpServers', {}),
   };
+}
+
+// Security-sensitive settings are read from user settings only, so a workspace (or a tool writing
+// .vscode/settings.json) cannot raise autonomy or declare programs to launch.
+function getUserSetting<T>(key: string, fallback: T): T {
+  const inspected = vscode.workspace.getConfiguration('bezotcorpAi').inspect<T>(key);
+
+  return inspected?.globalValue ?? fallback;
 }
 
 export async function updateExtensionModel(model: string): Promise<void> {

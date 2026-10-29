@@ -13,6 +13,8 @@ export function createProvider(config: ExtensionConfig): AiProvider {
   }
 
   return {
+    supportsTools: false,
+
     async health() {
       return {
         status: 'disconnected',

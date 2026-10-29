@@ -1,0 +1,12 @@
+export { AutonomyMode, DEFAULT_AUTONOMY_MODE } from './autonomy_mode';
+export { describeScope, sanitizeForPrompt } from './describe_scope';
+export { managePermissions } from './manage_permissions';
+export { PermissionCapability, READ_ONLY_CAPABILITIES } from './permission_capability';
+export { PermissionDecision } from './permission_decision';
+export { contentEffect, removalEffect } from './permission_effects';
+export { PermissionError, PermissionFailureKind } from './permission_error';
+export { PermissionGrant, PermissionPersistence } from './permission_grant';
+export { PermissionRequest } from './permission_request';
+export { PermissionScope, PermissionScopeKind } from './permission_scope';
+export { PermissionStore } from './permission_store';
+export { scopeCovers } from './scope_covers';

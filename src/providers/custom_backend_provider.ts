@@ -8,6 +8,8 @@ type CustomBackendResponse = {
 };
 
 export class CustomBackendProvider implements AiProvider {
+  readonly supportsTools = false;
+
   constructor(private readonly config: ExtensionConfig) {}
 
   async health(): Promise<ProviderStatus> {

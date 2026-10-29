@@ -5,20 +5,41 @@ import { getExtensionConfig } from '../config/extension_config';
 import { buildChatContext } from '../context/context_builder';
 import { PatchPreview } from '../patch/patch_preview';
 import { createProvider } from '../providers/provider_factory';
+import { McpManager } from '../mcp';
+import { PermissionStore } from '../permissions';
+import { createDefaultToolRegistry, ToolAccessGuard, ToolRegistry } from '../tools';
 import { ContextOptions } from './context_options';
 import { sendChatStore } from './chat_store_presenter';
 import { detectAndSendPatchPreviews } from './patch_preview_controller';
+import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
 
 export class GenerationController {
   private currentAbortController: AbortController | undefined;
+  private readonly toolAccessGuard: ToolAccessGuard;
 
   constructor(
     private readonly chatManager: ChatManager,
     private readonly patchPreviews: Map<string, PatchPreview>,
-  ) {}
+    permissionStore: PermissionStore,
+    private readonly mcpManager: McpManager,
+  ) {
+    this.toolAccessGuard = new ToolAccessGuard(permissionStore, () => getExtensionConfig().autonomyMode);
+  }
 
   stopGeneration(): void {
     this.currentAbortController?.abort();
+  }
+
+  private async createTools(): Promise<ToolRegistry> {
+    const registry = createDefaultToolRegistry(this.toolAccessGuard);
+
+    if (this.toolAccessGuard.mode !== 'readOnly') {
+      for (const tool of await this.mcpManager.createTools(this.toolAccessGuard)) {
+        registry.register(tool);
+      }
+    }
+
+    return registry;
   }
 
   async sendChatMessage(webviewView: vscode.WebviewView, text: string, contextOptions: ContextOptions): Promise<void> {
@@ -28,6 +49,7 @@ export class GenerationController {
 
     this.currentAbortController?.abort();
     this.currentAbortController = abortController;
+    this.toolAccessGuard.beginTurn();
 
     let assistantText = '';
 
@@ -42,10 +64,13 @@ export class GenerationController {
       await this.chatManager.addMessage('user', text);
       sendChatStore(webviewView, this.chatManager);
 
+      const tools = provider.supportsTools ? await this.createTools() : undefined;
+
       await provider.streamChat(
         {
           message: text,
           context,
+          tools,
         },
         {
           onStart: () => {
@@ -61,6 +86,9 @@ export class GenerationController {
               text: chunk,
             });
           },
+          onToolCall: (call) => sendToolCall(webviewView, call),
+          onToolResult: (_call, result) => sendToolResult(webviewView, result),
+          onNotice: (text) => sendToolNotice(webviewView, text),
           onEnd: () => {
             webviewView.webview.postMessage({
               type: 'responseEnd',

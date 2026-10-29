@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 
 import { ChatManager } from '../chat/chat_manager';
 import { ChatStorage } from '../chat/chat_storage';
+import { McpManager } from '../mcp';
 import { ModelManager } from '../models/model_manager';
 import { PatchPreview } from '../patch/patch_preview';
+import { PermissionStore } from '../permissions';
 import { getChatHtml } from './html/chat_html';
 import { WebviewMessage } from '.';
 import { sendChatStore } from './chat_store_presenter';
@@ -22,9 +24,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     storageUri: vscode.Uri,
+    permissionStore: PermissionStore,
+    mcpManager: McpManager,
   ) {
     this.chatManager = new ChatManager(new ChatStorage(storageUri));
-    this.generationController = new GenerationController(this.chatManager, this.patchPreviews);
+    this.generationController = new GenerationController(this.chatManager, this.patchPreviews, permissionStore, mcpManager);
     this.messageRouter = new WebviewMessageRouter(
       this.chatManager,
       this.modelManager,

@@ -1,12 +1,11 @@
-export type ToolExecutionResult = {
-  success: boolean;
-  content?: string;
-  error?: string;
-};
+import { ToolExecutionContext, ToolExecutionResult, ToolParametersSchema } from '.';
 
 export interface Tool {
   id: string;
   name: string;
   description: string;
-  execute(input: unknown): Promise<ToolExecutionResult>;
+  parameters: ToolParametersSchema;
+  // True only when the tool can never change anything: it stays available in read-only mode.
+  readOnlyCompatible: boolean;
+  execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult>;
 }
