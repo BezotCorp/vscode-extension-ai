@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { ChatManager } from '../chat/chat_manager';
+import { displayContent } from './tool_call_presenter';
 
 export function sendChatStore(webviewView: vscode.WebviewView, chatManager: ChatManager): void {
   const store = chatManager.getStore();
@@ -16,6 +17,10 @@ export function sendChatStore(webviewView: vscode.WebviewView, chatManager: Chat
       updatedAt: session.updatedAt,
       messageCount: session.messages.length,
     })),
-    messages: activeSession?.messages ?? [],
+    messages: (activeSession?.messages ?? []).map((message) => ({
+      role: message.role,
+      content: displayContent(message),
+      createdAt: message.createdAt,
+    })),
   });
 }

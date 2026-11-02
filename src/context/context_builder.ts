@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { ContextMode } from '../config/extension_config';
+import { isProtectedResource } from '../permissions';
 import { truncateContent, WORKSPACE_EXCLUDE_GLOB } from '../workspace';
 import { ChatContext, ContextFile, ContextSelection } from '.';
 
@@ -36,13 +37,18 @@ function getActiveFile(): ContextFile | undefined {
     return undefined;
   }
 
-  return documentToContextFile(editor.document);
+  return isHidden(editor.document.uri.fsPath) ? undefined : documentToContextFile(editor.document);
 }
 
 export function getSelectedText(): ContextSelection | undefined {
   const editor = vscode.window.activeTextEditor;
 
-  if (!editor || editor.document.isUntitled || editor.document.uri.scheme !== 'file') {
+  if (
+    !editor ||
+    editor.document.isUntitled ||
+    editor.document.uri.scheme !== 'file' ||
+    isHidden(editor.document.uri.fsPath)
+  ) {
     return undefined;
   }
 
@@ -66,7 +72,7 @@ export function getSelectedText(): ContextSelection | undefined {
 function getOpenFiles(activeFilePath?: string): ContextFile[] {
   return vscode.workspace.textDocuments
     .filter((document) => !document.isUntitled && document.uri.scheme === 'file')
-    .filter((document) => document.uri.fsPath !== activeFilePath)
+    .filter((document) => document.uri.fsPath !== activeFilePath && !isHidden(document.uri.fsPath))
     .slice(0, MAX_OPEN_FILES)
     .map(documentToContextFile);
 }
@@ -74,7 +80,10 @@ function getOpenFiles(activeFilePath?: string): ContextFile[] {
 export async function getWorkspaceFiles(): Promise<string[]> {
   const files = await vscode.workspace.findFiles('**/*', WORKSPACE_EXCLUDE_GLOB, MAX_WORKSPACE_FILES);
 
-  return files.map((file) => vscode.workspace.asRelativePath(file, false)).sort();
+  return files
+    .filter((file) => !isHidden(file.fsPath))
+    .map((file) => vscode.workspace.asRelativePath(file, false))
+    .sort();
 }
 
 function documentToContextFile(document: vscode.TextDocument): ContextFile {
@@ -85,4 +94,9 @@ function documentToContextFile(document: vscode.TextDocument): ContextFile {
     languageId: document.languageId,
     content: truncateContent(content),
   };
+}
+
+// Protected resources (credentials, keys, .git) never enter the context unasked.
+function isHidden(fsPath: string): boolean {
+  return isProtectedResource(fsPath) !== undefined;
 }

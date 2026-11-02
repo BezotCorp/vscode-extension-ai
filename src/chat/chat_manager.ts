@@ -1,4 +1,6 @@
-import { ChatMessage, ChatRole } from './chat_message';
+import { ToolRound } from '../tools/tool_round';
+import { ChatMessage } from './chat_message';
+import type { ChatRole } from './chat_role';
 import { addMessageToChatSession, ChatSession, cloneChatSession } from './chat_session';
 import {
   ChatStore,
@@ -64,10 +66,21 @@ export class ChatManager {
     await this.persist();
   }
 
-  async addMessage(role: ChatRole, content: string): Promise<void> {
+  async addMessage(role: ChatRole, content: string, toolRounds?: ToolRound[]): Promise<void> {
     const activeSession = getActiveChatSession(this.store);
     if (activeSession) {
-      addMessageToChatSession(activeSession, role, content);
+      addMessageToChatSession(activeSession, role, content, toolRounds);
+      await this.persist();
+    }
+  }
+
+  // Remembers the decision on a patch of the latest assistant message, so it survives a reload.
+  async setPatchStatus(patchId: string, status: 'accepted' | 'rejected'): Promise<void> {
+    const messages = getActiveChatSession(this.store)?.messages ?? [];
+    const message = [...messages].reverse().find((candidate) => candidate.role === 'assistant');
+
+    if (message) {
+      message.patchStatuses = { ...message.patchStatuses, [patchId]: status };
       await this.persist();
     }
   }

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { findOpenDocument, resolvePath, WORKSPACE_EXCLUDE_GLOB } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readStringArg } from '../../tool_input';
-import { toolSuccess } from '../../tool_result';
+import { toolFailure, toolSuccess } from '../../tool_result';
 
 const MAX_FILES = 500;
 const MAX_MATCHES = 50;
@@ -14,6 +14,7 @@ export class SearchTextTool implements Tool {
   readonly id = 'search_text';
   readonly name = 'Search Text';
   readonly readOnlyCompatible = true;
+  readonly permissionDefault = 'allow' as const;
   readonly description =
     'Searches the workspace for a case-insensitive text snippet and returns matching lines. Open editors are searched with their unsaved content.';
   readonly parameters = {
@@ -30,13 +31,23 @@ export class SearchTextTool implements Tool {
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
     const query = readStringArg(input, 'query') ?? '';
 
-    await this.accessGuard.assertPath('search', resolvePath('.'), true, {
-      operation: this.id,
+    if (!query) {
+      return toolFailure('error', this.id, undefined, {
+        reason: 'invalid_arguments',
+        message: 'Argument "query" must contain text to search for.',
+        executed: false,
+        retryable: true,
+      });
+    }
+
+    await this.accessGuard.assertPath(this, 'search', resolvePath('.'), true, {
       signal: context?.signal,
     });
 
     const glob = readStringArg(input, 'glob') ?? '**/*';
-    const files = await vscode.workspace.findFiles(glob, WORKSPACE_EXCLUDE_GLOB, MAX_FILES);
+    const files = (await vscode.workspace.findFiles(glob, WORKSPACE_EXCLUDE_GLOB, MAX_FILES)).filter(
+      (file) => !this.accessGuard.isProtected(file.fsPath),
+    );
     const needle = query.toLowerCase();
     const decoder = new TextDecoder();
     const matches: string[] = [];
@@ -56,7 +67,15 @@ export class SearchTextTool implements Tool {
         text = document.getText();
         fromEditors++;
       } else {
-        const bytes = await vscode.workspace.fs.readFile(file);
+        let bytes: Uint8Array;
+
+        try {
+          bytes = await vscode.workspace.fs.readFile(file);
+        } catch {
+          // A file that vanished or cannot be read must not abort the whole search.
+          skipped++;
+          continue;
+        }
 
         if (bytes.length > MAX_FILE_BYTES || bytes.includes(0)) {
           skipped++;
@@ -77,13 +96,22 @@ export class SearchTextTool implements Tool {
       });
     }
 
+    if (context?.signal?.aborted) {
+      return toolFailure('cancelled', this.id, query, {
+        reason: 'cancelled_by_user',
+        message: 'The search was cancelled; no result is reported because it would be incomplete.',
+        executed: false,
+        retryable: true,
+      });
+    }
+
     return toolSuccess(this.id, query, {
       content: matches.join('\n') || 'No matches found.',
       details: {
         matches: matches.length,
         matchLimitReached: matches.length >= MAX_MATCHES,
         filesScanned: scanned,
-        filesSkippedBinaryOrLarge: skipped,
+        filesSkippedBinaryLargeOrUnreadable: skipped,
         filesFromEditorBuffers: fromEditors,
         fileLimitReached: files.length >= MAX_FILES,
       },

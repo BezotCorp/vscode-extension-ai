@@ -16,27 +16,63 @@ export class ChatStorage {
       const bytes = await vscode.workspace.fs.readFile(fileUri);
       const content = Buffer.from(bytes).toString('utf8');
       const parsed = JSON.parse(content) as unknown;
+      const store = migrateChatData(parsed);
 
-      return migrateChatData(parsed);
+      if (!store) {
+        await this.keepUnreadableCopy(fileUri, 'unknown format');
+      }
+
+      return store;
     } catch (error) {
+      if (isFileNotFound(error)) {
+        return undefined;
+      }
+
       console.error(`Failed to load chat storage: ${error}`);
+      await this.keepUnreadableCopy(fileUri, String(error));
       return undefined;
     }
   }
 
+  // Throws when the conversations could not be written: the caller decides how to tell the user.
   async save(store: ChatStore): Promise<void> {
     await vscode.workspace.fs.createDirectory(this.storageUri);
 
     const fileUri = vscode.Uri.joinPath(this.storageUri, CHAT_FILE_NAME);
+    const temporaryUri = vscode.Uri.joinPath(this.storageUri, `${CHAT_FILE_NAME}.tmp`);
     const content = JSON.stringify(normalizeChatStore(store), null, 2);
     const bytes = Buffer.from(content, 'utf8');
 
     try {
-      await vscode.workspace.fs.writeFile(fileUri, bytes);
+      // Write the complete file aside, then swap it in: an interrupted write never leaves a half-written chat.json.
+      await vscode.workspace.fs.writeFile(temporaryUri, bytes);
+      await vscode.workspace.fs.rename(temporaryUri, fileUri, { overwrite: true });
     } catch (error) {
       console.error(`Failed to save chat storage: ${error}`);
+      await Promise.resolve(vscode.workspace.fs.delete(temporaryUri)).catch(() => undefined);
+      throw new Error(`Could not save the conversations: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+
+  // The next save replaces chat.json, so a file that could not be read is copied aside first instead of being lost.
+  private async keepUnreadableCopy(fileUri: vscode.Uri, reason: string): Promise<void> {
+    const backupUri = vscode.Uri.joinPath(this.storageUri, `chat.unreadable-${Date.now()}.json`);
+
+    try {
+      await vscode.workspace.fs.copy(fileUri, backupUri, { overwrite: false });
+      void vscode.window.showWarningMessage(
+        `BezotCorp AI: the saved conversations could not be read (${reason}). The file was kept as ${backupUri.fsPath}.`,
+      );
+    } catch (error) {
+      console.error(`Failed to keep a copy of the unreadable chat storage: ${error}`);
+    }
+  }
+}
+
+function isFileNotFound(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+
+  return code === 'FileNotFound' || code === 'ENOENT';
 }
 
 function migrateChatData(data: unknown): ChatStore | undefined {

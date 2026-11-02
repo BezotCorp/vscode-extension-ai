@@ -10,6 +10,8 @@ export const DEFAULT_PROVIDER: AiProviderKind = 'ollama';
 export const DEFAULT_PROVIDER_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_MODEL = 'qwen2.5-coder:7b';
 export const DEFAULT_CONTEXT_MODE: ContextMode = 'basic';
+export const DEFAULT_CONTEXT_TOKENS = 16_384;
+export const MIN_CONTEXT_TOKENS = 2_048;
 
 export type ExtensionConfig = {
   provider: AiProviderKind;
@@ -17,6 +19,8 @@ export type ExtensionConfig = {
   model: string;
   contextMode: ContextMode;
   autonomyMode: AutonomyMode;
+  // Context window requested from the model, in tokens (the model's own maximum applies if it is lower).
+  contextTokens: number;
   mcpServers: Record<string, McpServerConfig>;
 };
 
@@ -29,6 +33,7 @@ export function getExtensionConfig(): ExtensionConfig {
     model: config.get<string>('model', DEFAULT_MODEL),
     contextMode: config.get<ContextMode>('contextMode', DEFAULT_CONTEXT_MODE),
     autonomyMode: getUserSetting<AutonomyMode>('autonomyMode', DEFAULT_AUTONOMY_MODE),
+    contextTokens: Math.max(config.get<number>('contextTokens', DEFAULT_CONTEXT_TOKENS), MIN_CONTEXT_TOKENS),
     mcpServers: getUserSetting<Record<string, McpServerConfig>>('mcpServers', {}),
   };
 }

@@ -1,17 +1,17 @@
-import { PermissionCapability, PermissionScope } from '.';
+import { ToolAccessProfile } from '.';
 
 export type PermissionRequest = {
-  capability: PermissionCapability;
-  // What is being accessed right now.
-  scope: PermissionScope;
-  // Scopes a stored grant can cover, from the narrowest to the widest.
-  grantScopes: PermissionScope[];
-  // Allowed without any grant or prompt (for example reading inside the workspace).
-  implicit?: boolean;
-  // Tool performing the operation, shown in the prompt.
-  operation?: string;
-  // Extra human-readable context shown in the prompt.
+  tool: ToolAccessProfile;
+  // What the user is asked about, for example "modify /project/src/a.ts".
+  action: string;
+  // Absolute paths the operation touches.
+  resources: string[];
+  // False when a path lies outside every workspace folder: an allow decision does not cover it.
+  inPerimeter: boolean;
+  // Extra human-readable context shown in the dialog.
   detail?: string;
-  // Keys of the effects this operation produces. Defaults to capability and scope.
+  // Keys of the effects this operation produces. Defaults to the tool and its resources.
   effects?: string[];
+  // Shown after the detail, in the dialog's own words.
+  warning?: string;
 };

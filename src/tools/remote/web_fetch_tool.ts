@@ -1,3 +1,4 @@
+import { networkEffect, sanitizeForPrompt } from '../../permissions';
 import { truncateText } from '../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '..';
 import { describeContent, readStringArg } from '../tool_input';
@@ -21,6 +22,7 @@ export class WebFetchTool implements Tool {
   readonly name = 'Web Fetch';
   // Even a GET can have side effects on a remote service, so this is never offered in read-only mode.
   readonly readOnlyCompatible = false;
+  readonly permissionDefault = 'ask' as const;
   readonly description =
     'Sends an HTTP(S) request and returns the HTTP status, content type and body as received. Redirects are not followed: call again with the Location URL.';
   readonly parameters = {
@@ -60,17 +62,25 @@ export class WebFetchTool implements Tool {
       return invalid('unsupported_protocol', 'Only http and https URLs are supported.');
     }
 
-    // Safe methods are scoped by domain; other operations are scoped per method and domain.
-    const operationScope = safe ? url.hostname : `${method} ${url.hostname}`;
     const resource = `${method} ${url.href}`;
 
     await this.accessGuard.authorize(
       {
-        capability: 'network',
-        scope: { kind: 'domain', value: operationScope },
-        grantScopes: [{ kind: 'domain', value: operationScope }],
-        operation: this.id,
-        detail: `${method} ${url.origin}${url.pathname}${bodyText ? `\nBody: ${describeContent(bodyText)}` : ''}`,
+        tool: this,
+        action: `send a ${method} request to ${sanitizeForPrompt(url.host)}`,
+        resources: [],
+        inPerimeter: true,
+        // A refusal covers every method to that server.
+        effects: [networkEffect(url.hostname.toLowerCase())],
+        detail: [
+          `${method} ${url.origin}${url.pathname}`,
+          bodyText ? `Body: ${describeContent(bodyText)}` : undefined,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        warning: isLocalOrPrivateHost(url.hostname)
+          ? 'Warning: this address is on the local or private network, not the public internet.'
+          : undefined,
       },
       context?.signal,
     );
@@ -286,4 +296,31 @@ function charsetOf(contentType: string | undefined): string {
   } catch {
     return 'utf-8';
   }
+}
+
+// Loopback, link-local (cloud metadata), private ranges and local names: services that were never meant to be public.
+function isLocalOrPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
+    return true;
+  }
+
+  const octets = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
+
+  if (octets) {
+    const [first, second] = [Number(octets[1]), Number(octets[2])];
+
+    return (
+      first === 0 ||
+      first === 10 ||
+      first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    );
+  }
+
+  // IPv6 literals only: a name such as "fcdn.example.com" is not a unique-local address.
+  return host.includes(':') && (host === '::1' || host === '::' || /^f[cd]/.test(host) || /^fe[89ab]/.test(host));
 }

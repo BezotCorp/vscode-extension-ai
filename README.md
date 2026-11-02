@@ -61,6 +61,7 @@ Review and apply AI-generated code changes.
 - Accept patch
 - Reject patch
 - Workspace edit application
+- Exact, single-match replacement (a text that appears several times is refused instead of guessed)
 
 ### AI Providers
 
@@ -78,14 +79,20 @@ Built-in backend monitoring.
 - Status indicator
 - Provider diagnostics
 
-### Agent Foundations
+### Tools and Agent Workflows
 
-Early foundations for agent-style workflows.
+The AI can use tools when the provider supports tool calling (Ollama). It only does what an explicit tool allows: there is no tool that runs a shell command, a script or an arbitrary program, and the model is told what is unavailable so it says so instead of improvising.
 
-- Tool registry foundation
-- Selected text tool foundation
-- Workspace tree tool foundation
-- Patch workflow foundation
+- Files: read, list, search, create, edit (exact text replacement), write, move and delete; selected text and workspace tree
+- Web: fetch a page
+- Git, as specialised tools with bounded parameters: `git_status`, `git_diff`, `git_log`, `git_show`, `git_branch_list`, `git_add`, `git_unstage`, `git_commit`, `git_branch_create`, `git_switch`, `git_fetch`, `git_pull` (fast-forward only), `git_push` (no force). There is no reset, rebase, merge, stash, checkout of files or amend
+- MCP servers over stdio, configured in user settings (`bezotcorpAi.mcpServers`); each MCP tool is controlled on its own
+- Permissions are decided per tool: `allow`, `ask` or `deny`, kept for the session, the workspace or everywhere. Reading and consulting tools allow by default inside the workspace; the others ask. *BezotCorp AI: Manage Permissions* lists every tool and changes these decisions; the dialog shown at a call offers Yes, this session, this workspace, always, or No with a message for the AI
+- Autonomy modes: read-only, confirmation, accept edits, automatic
+- Protected resources (`.env`, keys, `.npmrc`, `.git`, `.ssh`…, extendable with `bezotcorpAi.protectedPaths`) always ask, whatever a tool is allowed to do, and stay out of the context, searches, git output and the local bridge. Paths outside the workspace ask too, whatever a tool is allowed to do, except in automatic mode. The workspace folders, their parents, the home folder and `.git` are never deleted or moved
+- A refusal covers every route to the same effect during the answer
+- Earlier turns, including tool calls and results, are sent back to the model
+- Without tool calling, the AI proposes changes as patches that you preview and apply
 - Model management foundation
 
 ### Local First
@@ -171,7 +178,7 @@ VS Code Extension
         ├── Context Builder
         ├── Model Management
         ├── Patch Engine
-        ├── Tool Foundations
+        ├── Tools, MCP and Permissions
         └── AI Provider
                 │
                 ├── Ollama
@@ -238,15 +245,15 @@ Privacy depends on the provider you choose.
 - Ollama integration
 - Custom backend integration
 - VS Code commands
-- Tool registry foundation
-- Selected text tool foundation
-- Workspace tree tool foundation
+- Tool calling with permissions (Ollama)
+- File, git and web tools
+- MCP client over stdio
+- Conversation history with tool traffic
 
 ### Planned
 
 - Multi-file editing
 - Workspace semantic graph
-- Tool calling execution
 - Agent orchestration
 - Memory integration
 - Provider profiles

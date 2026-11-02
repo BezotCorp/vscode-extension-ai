@@ -1,45 +1,78 @@
 import * as vscode from 'vscode';
 
 import { ChatManager } from '../chat/chat_manager';
+import { ChatMessage } from '../chat/chat_message';
+import type { ChatRole } from '../chat/chat_role';
+import { closingText } from '../chat/message_text';
 import { getExtensionConfig } from '../config/extension_config';
 import { buildChatContext } from '../context/context_builder';
 import { PatchPreview } from '../patch/patch_preview';
+import { ChatHistoryMessage } from '../providers/ai_provider';
 import { createProvider } from '../providers/provider_factory';
 import { McpManager } from '../mcp';
 import { PermissionStore } from '../permissions';
-import { createDefaultToolRegistry, ToolAccessGuard, ToolRegistry } from '../tools';
+import { createDefaultToolRegistry, FileToolServices, ToolAccessGuard, ToolRegistry, ToolRound } from '../tools';
 import { ContextOptions } from './context_options';
 import { sendChatStore } from './chat_store_presenter';
 import { detectAndSendPatchPreviews } from './patch_preview_controller';
 import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
 
+const MAX_HISTORY_MESSAGES = 40;
+// Used when the provider cannot say how large its context window is.
+const DEFAULT_HISTORY_CHARACTERS = 24_000;
+// Share of the context window earlier turns may take, and characters per token assumed (see OllamaProvider).
+const HISTORY_CONTEXT_SHARE = 0.4;
+const CHARS_PER_TOKEN = 3;
+const MAX_STORED_RESULT_CHARACTERS = 4_000;
+
 export class GenerationController {
   private currentAbortController: AbortController | undefined;
-  private readonly toolAccessGuard: ToolAccessGuard;
+  private readonly permissionStore: PermissionStore;
 
   constructor(
     private readonly chatManager: ChatManager,
     private readonly patchPreviews: Map<string, PatchPreview>,
     permissionStore: PermissionStore,
     private readonly mcpManager: McpManager,
+    private readonly files: FileToolServices,
   ) {
-    this.toolAccessGuard = new ToolAccessGuard(permissionStore, () => getExtensionConfig().autonomyMode);
+    this.permissionStore = permissionStore;
   }
 
   stopGeneration(): void {
     this.currentAbortController?.abort();
   }
 
-  private async createTools(): Promise<ToolRegistry> {
-    const registry = createDefaultToolRegistry(this.toolAccessGuard);
+  private async createTools(accessGuard: ToolAccessGuard, signal: AbortSignal): Promise<ToolRegistry> {
+    const registry = createDefaultToolRegistry(accessGuard, this.files);
 
-    if (this.toolAccessGuard.mode !== 'readOnly') {
-      for (const tool of await this.mcpManager.createTools(this.toolAccessGuard)) {
-        registry.register(tool);
+    if (accessGuard.mode !== 'readOnly') {
+      try {
+        for (const tool of await this.mcpManager.createTools(accessGuard, signal)) {
+          const reason = accessGuard.unavailableReason(tool);
+
+          if (reason) {
+            registry.markUnavailable(tool, reason);
+          } else {
+            registry.register(tool);
+          }
+        }
+      } catch (error) {
+        // A broken MCP server must not take the built-in tools down with it.
+        console.error(`BezotCorp AI: MCP tools unavailable: ${String(error)}`);
       }
     }
 
     return registry;
+  }
+
+  // The message is kept in memory even when it cannot be written to disk: the answer must not be lost with it.
+  private async remember(role: ChatRole, content: string, toolRounds?: ToolRound[]): Promise<void> {
+    try {
+      await this.chatManager.addMessage(role, content, toolRounds);
+    } catch (error) {
+      void vscode.window.showWarningMessage(`BezotCorp AI: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   async sendChatMessage(webviewView: vscode.WebviewView, text: string, contextOptions: ContextOptions): Promise<void> {
@@ -49,9 +82,10 @@ export class GenerationController {
 
     this.currentAbortController?.abort();
     this.currentAbortController = abortController;
-    this.toolAccessGuard.beginTurn();
 
+    const accessGuard = new ToolAccessGuard(this.permissionStore, () => getExtensionConfig().autonomyMode);
     let assistantText = '';
+    const toolRounds: ToolRound[] = [];
 
     try {
       const context = await buildChatContext(config.contextMode, contextOptions);
@@ -61,14 +95,23 @@ export class GenerationController {
         activeFilePath: context.activeFile?.path,
       });
 
-      await this.chatManager.addMessage('user', text);
+      const contextTokens = await provider.resolveContextTokens?.(abortController.signal);
+      const history = selectHistory(
+        this.chatManager.getMessages(),
+        contextTokens
+          ? Math.floor(contextTokens * CHARS_PER_TOKEN * HISTORY_CONTEXT_SHARE)
+          : DEFAULT_HISTORY_CHARACTERS,
+      );
+
+      await this.remember('user', text);
       sendChatStore(webviewView, this.chatManager);
 
-      const tools = provider.supportsTools ? await this.createTools() : undefined;
+      const tools = provider.supportsTools ? await this.createTools(accessGuard, abortController.signal) : undefined;
 
       await provider.streamChat(
         {
           message: text,
+          history,
           context,
           tools,
         },
@@ -88,6 +131,7 @@ export class GenerationController {
           },
           onToolCall: (call) => sendToolCall(webviewView, call),
           onToolResult: (_call, result) => sendToolResult(webviewView, result),
+          onToolRound: (round) => toolRounds.push(compactRound(round)),
           onNotice: (text) => sendToolNotice(webviewView, text),
           onEnd: () => {
             webviewView.webview.postMessage({
@@ -98,15 +142,15 @@ export class GenerationController {
         abortController.signal,
       );
 
-      if (assistantText.trim()) {
-        await this.chatManager.addMessage('assistant', assistantText);
+      if (assistantText.trim() || toolRounds.length > 0) {
+        await this.remember('assistant', assistantText, toolRounds);
         sendChatStore(webviewView, this.chatManager);
         detectAndSendPatchPreviews(webviewView, this.patchPreviews, assistantText);
       }
     } catch (error) {
       if (abortController.signal.aborted) {
-        if (assistantText.trim()) {
-          await this.chatManager.addMessage('assistant', assistantText);
+        if (assistantText.trim() || toolRounds.length > 0) {
+          await this.remember('assistant', assistantText, toolRounds);
           sendChatStore(webviewView, this.chatManager);
           detectAndSendPatchPreviews(webviewView, this.patchPreviews, assistantText);
         }
@@ -119,7 +163,7 @@ export class GenerationController {
 
       const errorText = `Error: ${String(error)}`;
 
-      await this.chatManager.addMessage('assistant', errorText);
+      await this.remember('assistant', errorText);
       sendChatStore(webviewView, this.chatManager);
 
       webviewView.webview.postMessage({
@@ -139,4 +183,71 @@ export class GenerationController {
       }
     }
   }
+}
+
+// Results are stored cut down: the model only needs enough of them to remember what it did.
+function compactRound(round: ToolRound): ToolRound {
+  return {
+    content: round.content,
+    calls: round.calls.map((call) => ({
+      ...call,
+      result:
+        call.result.length > MAX_STORED_RESULT_CHARACTERS
+          ? `${call.result.slice(0, MAX_STORED_RESULT_CHARACTERS)}\n/* result cut when stored */`
+          : call.result,
+    })),
+  };
+}
+
+// Keeps the most recent turns that fit the budget, so long conversations do not overflow the model context.
+function selectHistory(messages: ChatMessage[], budget: number): ChatHistoryMessage[] {
+  const selected: ChatHistoryMessage[] = [];
+  let characters = 0;
+
+  for (const message of [...messages].reverse()) {
+    // Errors shown in the chat are display text, not something the model said.
+    if (message.role === 'assistant' && message.content.startsWith('Error: ')) {
+      continue;
+    }
+
+    let entry = toHistoryMessage(message);
+
+    // A turn whose tool results alone exceed the budget is kept as its written text, so recent history is not lost.
+    if (entry.toolRounds && characters + historySize(entry) > budget) {
+      entry = { role: message.role, content: message.content };
+    }
+
+    // The most recent turn is never dropped whole: its end is what the next message most likely refers to.
+    if (selected.length === 0 && historySize(entry) > budget) {
+      entry = { role: message.role, content: entry.content.slice(-budget) };
+    }
+
+    const size = historySize(entry);
+
+    if (selected.length >= MAX_HISTORY_MESSAGES || characters + size > budget) {
+      break;
+    }
+
+    characters += size;
+    selected.unshift(entry);
+  }
+
+  return selected;
+}
+
+function toHistoryMessage(message: ChatMessage): ChatHistoryMessage {
+  if (!message.toolRounds?.length) {
+    return { role: message.role, content: message.content };
+  }
+
+  return { role: message.role, content: closingText(message), toolRounds: message.toolRounds };
+}
+
+function historySize(message: ChatHistoryMessage): number {
+  const rounds = (message.toolRounds ?? []).reduce(
+    (total, round) => total + round.content.length + round.calls.reduce((sum, call) => sum + call.result.length, 0),
+    0,
+  );
+
+  return message.content.length + rounds;
 }

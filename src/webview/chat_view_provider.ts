@@ -11,6 +11,7 @@ import { WebviewMessage } from '.';
 import { sendChatStore } from './chat_store_presenter';
 import { sendModelState, testConnection } from './model_state_presenter';
 import { sendContextPreview } from './context_preview_presenter';
+import { FileToolServices } from '../tools';
 import { GenerationController } from './generation_controller';
 import { WebviewMessageRouter } from './webview_message_router';
 
@@ -26,9 +27,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     storageUri: vscode.Uri,
     permissionStore: PermissionStore,
     mcpManager: McpManager,
+    files: FileToolServices,
   ) {
     this.chatManager = new ChatManager(new ChatStorage(storageUri));
-    this.generationController = new GenerationController(this.chatManager, this.patchPreviews, permissionStore, mcpManager);
+    this.generationController = new GenerationController(this.chatManager, this.patchPreviews, permissionStore, mcpManager, files);
     this.messageRouter = new WebviewMessageRouter(
       this.chatManager,
       this.modelManager,
@@ -55,6 +57,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this.chatManager.load();
 
     sendChatStore(webviewView, this.chatManager);
+    this.messageRouter.showPatchPreviews(webviewView);
 
     await testConnection(webviewView);
     await sendModelState(webviewView, this.modelManager);

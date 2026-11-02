@@ -8,3 +8,4 @@ export { detectPatchPreviews } from './patch_detector';
 export { PatchPreview } from './patch_preview';
 export { parsePatchCandidates } from './patch_parser';
 export { PatchStatus } from './patch_status';
+export { findUniqueMatch, UniqueMatch } from './unique_match';

@@ -1,11 +1,8 @@
+import { ToolAccessProfile } from '../permissions';
 import { ToolExecutionContext, ToolExecutionResult, ToolParametersSchema } from '.';
 
-export interface Tool {
-  id: string;
-  name: string;
+export interface Tool extends ToolAccessProfile {
   description: string;
   parameters: ToolParametersSchema;
-  // True only when the tool can never change anything: it stays available in read-only mode.
-  readOnlyCompatible: boolean;
   execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult>;
 }

@@ -6,6 +6,7 @@ export class SelectedTextTool implements Tool {
   readonly id = 'selectedText';
   readonly name = 'Selected Text';
   readonly readOnlyCompatible = true;
+  readonly permissionDefault = 'allow' as const;
   readonly description = 'Provides the current VS Code selected text context.';
   readonly parameters = { type: 'object' as const, properties: {} };
 

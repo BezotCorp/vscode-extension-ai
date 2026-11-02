@@ -1,3 +1,3 @@
 export * from './filesystem';
-export * from './process';
+export * from './git';
 export * from './selection';

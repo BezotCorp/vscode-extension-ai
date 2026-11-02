@@ -1,23 +1,33 @@
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import {
   AutonomyMode,
-  describeScope,
+  isProtectedResource,
   PermissionCapability,
   PermissionError,
   PermissionRequest,
   PermissionScope,
   PermissionStore,
-  READ_ONLY_CAPABILITIES,
   sanitizeForPrompt,
+  ToolAccessProfile,
 } from '../permissions';
 import { ResolvedPath } from '../workspace';
+import { GuardOptions } from './guard_options';
 
-const ALLOW_ONCE = 'Allow once';
-const ALLOW_SESSION = 'Allow for this session';
-const ALLOW_ALWAYS = 'Always allow';
-const DENY = 'Deny';
+const MAX_DETAIL_LINES = 24;
+const MAX_DETAIL_LINE_CHARS = 200;
+
+const ALLOW_ONCE = 'Yes';
+const ALLOW_SESSION = 'Yes, for this session';
+const ALLOW_WORKSPACE = 'Yes, in this workspace';
+const ALLOW_ALWAYS = 'Yes, always';
+const DENY = 'No';
+
+const REMEMBER_SCOPES: Record<string, PermissionScope> = {
+  [ALLOW_SESSION]: 'session',
+  [ALLOW_WORKSPACE]: 'workspace',
+  [ALLOW_ALWAYS]: 'global',
+};
 
 const ACTION_LABELS: Record<PermissionCapability, string> = {
   read: 'read',
@@ -26,21 +36,15 @@ const ACTION_LABELS: Record<PermissionCapability, string> = {
   write: 'modify',
   delete: 'delete',
   move: 'move',
-  execute: 'run',
-  network: 'access the network for',
-  mcp: 'call the MCP tool',
 };
 
-export type GuardOptions = {
-  operation?: string;
-  detail?: string;
-  effects?: string[];
-  signal?: AbortSignal;
-};
-
-// Single gate for every tool operation. Grants only come from the dialogs below, never from tool input or output.
+// Single gate for every tool operation. Decisions only come from the dialog below and the permission manager,
+// never from tool input or output. A tool is controlled by its identity: the decision kept for it (deny at any
+// scope, otherwise the most specific scope) or, failing that, its default. Two things are never covered by an
+// allow decision: a path outside the workspace, and a protected resource (credentials, keys, .git).
 export class ToolAccessGuard {
-  // Effects the user explicitly refused during the current turn, with a description of the refusal.
+  // Effects the user explicitly refused during this generation, with a description of the refusal.
+  // A guard lives for one generation (see GenerationController), so a new user message starts with a clean slate.
   private readonly refusedEffects = new Map<string, string>();
 
   constructor(
@@ -52,39 +56,30 @@ export class ToolAccessGuard {
     return this.getMode();
   }
 
-  // A new user message starts with a clean slate: earlier refusals no longer apply.
-  beginTurn(): void {
-    this.refusedEffects.clear();
-  }
-
-  async assertReadable(resolved: ResolvedPath, isDirectory: boolean, options: GuardOptions = {}): Promise<void> {
-    await this.assertPath('read', resolved, isDirectory, options);
+  async assertReadable(
+    tool: ToolAccessProfile,
+    resolved: ResolvedPath,
+    isDirectory: boolean,
+    options: GuardOptions = {},
+  ): Promise<void> {
+    await this.assertPath(tool, 'read', resolved, isDirectory, options);
   }
 
   async assertPath(
+    tool: ToolAccessProfile,
     capability: PermissionCapability,
     resolved: ResolvedPath,
     isDirectory = false,
     options: GuardOptions = {},
   ): Promise<void> {
     const fsPath = resolved.uri.fsPath;
-    const grantScopes: PermissionScope[] = [{ kind: isDirectory ? 'folder' : 'file', value: fsPath }];
-
-    if (!isDirectory) {
-      grantScopes.push({ kind: 'folder', value: path.dirname(fsPath) });
-    }
-
-    if (resolved.insideWorkspace && resolved.workspaceRoot) {
-      grantScopes.push({ kind: 'workspace', value: resolved.workspaceRoot });
-    }
 
     await this.authorize(
       {
-        capability,
-        scope: grantScopes[0],
-        grantScopes,
-        implicit: resolved.insideWorkspace && READ_ONLY_CAPABILITIES.includes(capability),
-        operation: options.operation,
+        tool,
+        action: `${ACTION_LABELS[capability]} ${isDirectory ? 'folder' : 'file'} ${sanitizeForPrompt(fsPath)}`,
+        resources: [fsPath],
+        inPerimeter: resolved.insideWorkspace,
         detail: options.detail,
         effects: options.effects,
       },
@@ -92,105 +87,199 @@ export class ToolAccessGuard {
     );
   }
 
-  async authorize(request: PermissionRequest, signal?: AbortSignal): Promise<void> {
-    if (request.implicit) {
-      return;
+  // One question for a move, not one per end: both paths are part of the same operation.
+  async assertMove(
+    tool: ToolAccessProfile,
+    source: ResolvedPath,
+    destination: ResolvedPath,
+    isDirectory: boolean,
+    options: GuardOptions = {},
+  ): Promise<void> {
+    await this.authorize(
+      {
+        tool,
+        action: `move ${isDirectory ? 'folder' : 'file'} ${sanitizeForPrompt(source.uri.fsPath)}`,
+        resources: [source.uri.fsPath, destination.uri.fsPath],
+        inPerimeter: source.insideWorkspace && destination.insideWorkspace,
+        detail: [`Destination: ${sanitizeForPrompt(destination.uri.fsPath)}`, options.detail]
+          .filter(Boolean)
+          .join('\n'),
+        effects: options.effects,
+      },
+      options.signal,
+    );
+  }
+
+  // Why a tool is not offered to the model right now, if it is not.
+  unavailableReason(tool: ToolAccessProfile): string | undefined {
+    if (tool.requiresTrust && !vscode.workspace.isTrusted) {
+      return 'the workspace is not trusted';
     }
 
-    const mode = this.getMode();
-    const subject = `${ACTION_LABELS[request.capability]} ${describeScope(request.scope)}`;
+    if (this.getMode() === 'readOnly' && !tool.readOnlyCompatible) {
+      return 'the autonomy mode is read-only';
+    }
 
-    if (mode === 'readOnly' && !READ_ONLY_CAPABILITIES.includes(request.capability)) {
+    return this.store.resolve(tool.permissionKey ?? tool.id)?.policy === 'deny'
+      ? 'denied by the user in the permission settings'
+      : undefined;
+  }
+
+  // Paths that stay out of listings, searches, the context and git output unless the user is asked.
+  isProtected(fsPath: string): boolean {
+    return isProtectedResource(fsPath) !== undefined;
+  }
+
+  async authorize(request: PermissionRequest, signal?: AbortSignal): Promise<void> {
+    const { tool } = request;
+    const key = tool.permissionKey ?? tool.id;
+    const mode = this.getMode();
+
+    if (tool.requiresTrust && !vscode.workspace.isTrusted) {
       throw new PermissionError(
         'policy',
-        'read_only_mode',
-        `Autonomy mode is read-only: the AI may not ${subject}. Nothing was executed.`,
-        request.scope,
+        'workspace_untrusted',
+        `The workspace is not trusted, so ${tool.name} cannot be used. Nothing was executed.`,
+        request.resources[0],
       );
     }
 
-    const effects = request.effects ?? [`${request.capability}:${request.scope.kind}:${request.scope.value}`];
-    const earlier = effects.find((effect) => this.refusedEffects.has(effect));
+    const decision = this.store.resolve(key);
+
+    if (decision?.policy === 'deny') {
+      throw new PermissionError(
+        'policy',
+        'denied_by_policy',
+        `${tool.name} is denied in the permission settings (${decision.scope}). Nothing was executed. Do not try to reach the same effect another way; tell the user it is not allowed.`,
+        request.resources[0],
+        { scope: decision.scope },
+      );
+    }
+
+    if (mode === 'readOnly' && !tool.readOnlyCompatible) {
+      throw new PermissionError(
+        'policy',
+        'read_only_mode',
+        `Autonomy mode is read-only: ${tool.name} cannot ${request.action}. Nothing was executed.`,
+        request.resources[0],
+      );
+    }
+
+    this.assertNotRefusedEarlier(request);
+
+    const protection = request.resources.map(isProtectedResource).find((pattern) => pattern !== undefined);
+    const policy = decision?.policy ?? tool.permissionDefault;
+    const explicitAsk = decision?.policy === 'ask';
+
+    if (protection === undefined) {
+      if (request.inPerimeter && policy === 'allow') {
+        return;
+      }
+
+      if (mode === 'auto' && !explicitAsk) {
+        return;
+      }
+
+      if (mode === 'acceptEdits' && tool.editsFiles && request.inPerimeter && !explicitAsk) {
+        return;
+      }
+    }
+
+    const reason = protection
+      ? `This touches a protected resource (${protection}), which always needs your answer.`
+      : !request.inPerimeter
+        ? 'This is outside the workspace, so a standing permission does not cover it.'
+        : explicitAsk
+          ? `${tool.name} is set to ask every time.`
+          : undefined;
+    const answer = await this.ask(request, reason, signal);
+
+    if (answer === undefined) {
+      throw new PermissionError(
+        'no_decision',
+        'permission_not_decided',
+        `The permission dialog was closed without a decision to ${request.action}. This is not a refusal. Nothing was executed.`,
+        request.resources[0],
+      );
+    }
+
+    if (answer.choice === DENY) {
+      for (const effect of this.effectsOf(request)) {
+        this.refusedEffects.set(effect, request.action);
+      }
+
+      const feedback = answer.feedback ? ` The user added: "${sanitizeForPrompt(answer.feedback, 500)}".` : '';
+
+      throw new PermissionError(
+        'user_refused',
+        'user_refused',
+        `The user explicitly refused permission to ${request.action}. Nothing was executed.${feedback} Do not retry it or reach the same effect another way; ask the user instead.`,
+        request.resources[0],
+      );
+    }
+
+    const remember = REMEMBER_SCOPES[answer.choice];
+
+    if (remember) {
+      await this.store.set(key, 'allow', remember);
+    }
+  }
+
+  private effectsOf(request: PermissionRequest): string[] {
+    return request.effects ?? [`tool:${request.tool.id}:${request.resources.join('|')}`];
+  }
+
+  // A refusal covers every route to the same effect: other tools acting on the same resource or host.
+  private assertNotRefusedEarlier(request: PermissionRequest): void {
+    const earlier = this.effectsOf(request).find((effect) => this.refusedEffects.has(effect));
 
     if (earlier !== undefined) {
       throw new PermissionError(
         'user_refused',
         'user_refused',
         `The user already explicitly refused this effect earlier in this turn (${this.refusedEffects.get(earlier)}). Nothing was executed. Do not retry it or reach the same effect another way; ask the user instead.`,
-        request.scope,
+        request.resources[0],
         { enforcedFromEarlierRefusal: true },
       );
     }
-
-    if (this.store.isGranted(request.capability, request.scope)) {
-      return;
-    }
-
-    if (mode === 'auto') {
-      return;
-    }
-
-    const answer = await this.ask(request, subject, signal);
-
-    if (answer === undefined) {
-      throw new PermissionError(
-        'no_decision',
-        'permission_not_decided',
-        `The permission dialog was closed without a decision to ${subject}. This is not a refusal. Nothing was executed.`,
-        request.scope,
-      );
-    }
-
-    if (answer === DENY) {
-      for (const effect of effects) {
-        this.refusedEffects.set(effect, subject);
-      }
-
-      throw new PermissionError(
-        'user_refused',
-        'user_refused',
-        `The user explicitly refused permission to ${subject}. Nothing was executed. Do not retry it or reach the same effect another way; ask the user instead.`,
-        request.scope,
-      );
-    }
-
-    if (answer === ALLOW_ONCE) {
-      return;
-    }
-
-    const grantScope = await this.pickGrantScope(request);
-
-    if (grantScope) {
-      await this.store.grant(request.capability, grantScope, answer === ALLOW_ALWAYS ? 'always' : 'session');
-    }
   }
 
-  // Resolves to the clicked button, or undefined when the dialog was closed. Rejects if the request is cancelled first.
-  private async ask(request: PermissionRequest, subject: string, signal?: AbortSignal): Promise<string | undefined> {
+  // Resolves to the answer, or undefined when the dialog was closed. Rejects if the request is cancelled first.
+  private async ask(
+    request: PermissionRequest,
+    reason: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<{ choice: string; feedback?: string } | undefined> {
     if (signal?.aborted) {
-      throw cancelledWhileWaiting(subject, request.scope);
+      throw cancelledWhileWaiting(request);
     }
 
     const detail = [
-      request.operation ? `Tool: ${request.operation}` : undefined,
-      `Permission: ${request.capability}`,
-      `Scope: ${describeScope(request.scope)}`,
-      request.detail ? sanitizeForPrompt(request.detail, 600) : undefined,
+      `Tool: ${request.tool.name} (${request.tool.permissionKey ?? request.tool.id})`,
+      request.detail ? formatDetail(request.detail) : undefined,
+      reason,
+      request.warning,
       'Closing this dialog is not a refusal: nothing runs and the AI is told no decision was made.',
     ]
       .filter(Boolean)
       .join('\n');
-
+    // A standing decision would not cover this call, or would contradict a rule to ask: only this once.
+    const buttons = reason ? [ALLOW_ONCE, DENY] : [ALLOW_ONCE, ALLOW_SESSION, ALLOW_WORKSPACE, ALLOW_ALWAYS, DENY];
     const dialog = Promise.resolve(
-      vscode.window.showWarningMessage(
-        `BezotCorp AI wants to ${subject}`,
-        { modal: true, detail },
-        ALLOW_ONCE,
-        ALLOW_SESSION,
-        ALLOW_ALWAYS,
-        DENY,
-      ),
-    );
+      vscode.window.showWarningMessage(`BezotCorp AI wants to ${request.action}`, { modal: true, detail }, ...buttons),
+    ).then(async (choice) => {
+      if (choice === DENY) {
+        // As in Claude Code, a refusal can say what to do instead.
+        const feedback = await vscode.window.showInputBox({
+          title: 'Refused',
+          prompt: 'Tell the AI what to do instead (optional, Escape to skip).',
+        });
+
+        return { choice, feedback: feedback?.trim() || undefined };
+      }
+
+      return choice === undefined ? undefined : { choice };
+    });
 
     if (!signal) {
       return dialog;
@@ -198,7 +287,7 @@ export class ToolAccessGuard {
 
     let onAbort: (() => void) | undefined;
     const cancelled = new Promise<never>((_, reject) => {
-      onAbort = () => reject(cancelledWhileWaiting(subject, request.scope));
+      onAbort = () => reject(cancelledWhileWaiting(request));
       signal.addEventListener('abort', onAbort, { once: true });
     });
 
@@ -210,27 +299,24 @@ export class ToolAccessGuard {
       }
     }
   }
-
-  private async pickGrantScope(request: PermissionRequest): Promise<PermissionScope | undefined> {
-    if (request.grantScopes.length <= 1) {
-      return request.grantScopes[0];
-    }
-
-    const items = request.grantScopes.map((scope) => ({ label: describeScope(scope), scope }));
-    const picked = await vscode.window.showQuickPick(items, {
-      title: `Which ${request.capability} access should this cover?`,
-      placeHolder: 'Pick the scope to remember (Escape: allow this time only)',
-    });
-
-    return picked?.scope;
-  }
 }
 
-function cancelledWhileWaiting(subject: string, scope: PermissionScope): PermissionError {
+// Tool-provided detail keeps its line structure (a diff is read line by line), but every line is sanitized and
+// the whole is bounded, so it can neither fake extra dialog lines nor flood the dialog.
+function formatDetail(detail: string): string {
+  const lines = detail.split('\n');
+  const shown = lines.slice(0, MAX_DETAIL_LINES).map((line) => sanitizeForPrompt(line, MAX_DETAIL_LINE_CHARS));
+
+  return [...shown, ...(lines.length > MAX_DETAIL_LINES ? [`… ${lines.length - MAX_DETAIL_LINES} more lines`] : [])].join(
+    '\n',
+  );
+}
+
+function cancelledWhileWaiting(request: PermissionRequest): PermissionError {
   return new PermissionError(
     'no_decision',
     'cancelled_while_waiting',
-    `The request was cancelled before the user decided whether to ${subject}. This is not a refusal. Nothing was executed.`,
-    scope,
+    `The request was cancelled before the user decided whether to ${request.action}. This is not a refusal. Nothing was executed.`,
+    request.resources[0],
   );
 }

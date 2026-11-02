@@ -1,6 +1,2 @@
-export type PermissionScopeKind = 'file' | 'folder' | 'workspace' | 'command' | 'domain' | 'mcpServer' | 'mcpTool';
-
-export type PermissionScope = {
-  kind: PermissionScopeKind;
-  value: string;
-};
+// Where a decision about a tool is kept: until the window closes, for this workspace, or for every workspace.
+export type PermissionScope = 'session' | 'workspace' | 'global';

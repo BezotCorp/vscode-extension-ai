@@ -1,12 +1,2 @@
-export type PermissionCapability =
-  | 'read'
-  | 'search'
-  | 'create'
-  | 'write'
-  | 'delete'
-  | 'move'
-  | 'execute'
-  | 'network'
-  | 'mcp';
-
-export const READ_ONLY_CAPABILITIES: readonly PermissionCapability[] = ['read', 'search'];
+// What a file tool does to a path, used to word the questions put to the user.
+export type PermissionCapability = 'read' | 'search' | 'create' | 'write' | 'delete' | 'move';

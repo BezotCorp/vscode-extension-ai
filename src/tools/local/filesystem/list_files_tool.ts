@@ -12,6 +12,7 @@ export class ListFilesTool implements Tool {
   readonly id = 'list_files';
   readonly name = 'List Files';
   readonly readOnlyCompatible = true;
+  readonly permissionDefault = 'allow' as const;
   readonly description =
     'Lists files and folders in a directory (folders end with "/"). Absolute paths outside the workspace need user approval.';
   readonly parameters = {
@@ -29,9 +30,11 @@ export class ListFilesTool implements Tool {
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
     const resolved = resolvePath(readStringArg(input, 'path') ?? '.');
 
-    await this.accessGuard.assertReadable(resolved, true, { operation: this.id, signal: context?.signal });
+    await this.accessGuard.assertReadable(this, resolved, true, { signal: context?.signal });
 
-    const entries = (await vscode.workspace.fs.readDirectory(resolved.uri)).filter(([name]) => !IGNORED.has(name));
+    const entries = (await vscode.workspace.fs.readDirectory(resolved.uri)).filter(
+      ([name]) => !IGNORED.has(name),
+    );
     const lines = entries
       .map(([name, type]) => (type & vscode.FileType.Directory ? `${name}/` : name))
       .sort()

@@ -2,40 +2,80 @@ import { getSelectedText, getWorkspaceFiles } from '../context';
 import {
   CreateFileTool,
   DeleteFileTool,
+  EditFileTool,
+  FileToolServices,
+  GitAddTool,
+  GitBranchCreateTool,
+  GitBranchListTool,
+  GitCommitTool,
+  GitDiffTool,
+  GitFetchTool,
+  GitLogTool,
+  GitPullTool,
+  GitPushTool,
+  GitShowTool,
+  GitStatusTool,
+  GitSwitchTool,
+  GitUnstageTool,
   ListFilesTool,
   MoveFileTool,
   ReadFileTool,
   SearchTextTool,
   WorkspaceTreeTool,
   WriteFileTool,
-} from './local/filesystem';
-import { RunCommandTool } from './local/process';
+} from './local';
 import { SelectedTextTool } from './local/selection';
 import { WebFetchTool } from './remote';
+import { Tool } from './tool';
 import { ToolAccessGuard } from './tool_access_guard';
 import { ToolRegistry } from './tool_registry';
 
-// Every built-in tool is offered to the model. Availability only depends on the autonomy mode:
-// read-only mode keeps the tools that can never change anything. Whether an operation may run, and whether
-// the user is asked first, is decided later by the access guard.
-export function createDefaultToolRegistry(accessGuard: ToolAccessGuard): ToolRegistry {
-  const registry = new ToolRegistry();
-  const tools = [
-    new ReadFileTool(accessGuard),
+// Every tool the extension itself provides. There is no tool that runs an arbitrary program or shell command:
+// what the AI can do is exactly this list plus the MCP tools the user configured.
+export function createBuiltInTools(accessGuard: ToolAccessGuard, files: FileToolServices): Tool[] {
+  // write_file is composed: it reads through read_file, the low-level tool.
+  const readFile = new ReadFileTool(accessGuard, files.versions);
+
+  return [
+    readFile,
     new ListFilesTool(accessGuard),
     new SearchTextTool(accessGuard),
     new SelectedTextTool(getSelectedText),
     new WorkspaceTreeTool(getWorkspaceFiles),
     new CreateFileTool(accessGuard),
-    new WriteFileTool(accessGuard),
+    new EditFileTool(accessGuard),
+    new WriteFileTool(accessGuard, readFile, files.versions, files.writes),
     new DeleteFileTool(accessGuard),
     new MoveFileTool(accessGuard),
-    new RunCommandTool(accessGuard),
     new WebFetchTool(accessGuard),
+    new GitStatusTool(accessGuard),
+    new GitDiffTool(accessGuard),
+    new GitLogTool(accessGuard),
+    new GitShowTool(accessGuard),
+    new GitBranchListTool(accessGuard),
+    new GitAddTool(accessGuard),
+    new GitUnstageTool(accessGuard),
+    new GitCommitTool(accessGuard),
+    new GitBranchCreateTool(accessGuard),
+    new GitSwitchTool(accessGuard),
+    new GitFetchTool(accessGuard),
+    new GitPullTool(accessGuard),
+    new GitPushTool(accessGuard),
   ];
+}
 
-  for (const tool of tools) {
-    if (accessGuard.mode !== 'readOnly' || tool.readOnlyCompatible) {
+// The tools offered to the model. A tool that cannot be used now (read-only mode, denied, untrusted workspace) is
+// left out and recorded with its reason, so the model knows it cannot do that and can say so. Whether an operation
+// may run, and whether the user is asked first, is decided later by the access guard.
+export function createDefaultToolRegistry(accessGuard: ToolAccessGuard, files: FileToolServices): ToolRegistry {
+  const registry = new ToolRegistry();
+
+  for (const tool of createBuiltInTools(accessGuard, files)) {
+    const reason = accessGuard.unavailableReason(tool);
+
+    if (reason) {
+      registry.markUnavailable(tool, reason);
+    } else {
       registry.register(tool);
     }
   }

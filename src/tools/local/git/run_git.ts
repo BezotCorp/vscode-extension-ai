@@ -1,69 +1,31 @@
 import { spawn } from 'node:child_process';
 
-const HEAD_CHARS = 4_000;
-const TAIL_CHARS = 8_000;
+import { baseEnvironment } from '../../base_environment';
+import { BoundedText } from './bounded_text';
+import { GitRunOptions } from './git_run_options';
+import { GitRunResult } from './git_run_result';
+
 const KILL_GRACE_MS = 2_000;
 
-export type ProcessRunOptions = {
-  program: string;
-  args: string[];
-  cwd?: string;
-  timeoutMs: number;
-  signal?: AbortSignal;
-};
+// Options placed before every command: nothing a repository's own configuration says can start a program through
+// them (file system monitor, pager, external protocol helpers, credential prompts), and output is plain text.
+const SAFETY_OPTIONS = [
+  '--no-pager',
+  '-c', 'core.fsmonitor=false',
+  '-c', 'core.pager=cat',
+  '-c', 'core.quotepath=false',
+  '-c', 'color.ui=false',
+  '-c', 'protocol.ext.allow=never',
+];
 
-export type ProcessRunResult = {
-  // False when the program could not be launched at all (for example it was not found).
-  started: boolean;
-  spawnError?: { code?: string; message: string };
-  exitCode: number | null;
-  terminatedBySignal: string | null;
-  timedOut: boolean;
-  aborted: boolean;
-  stdout: string;
-  stderr: string;
-  stdoutTruncated: boolean;
-  stderrTruncated: boolean;
-  durationMs: number;
-};
-
-// Keeps the beginning and the end of a stream, which is where commands print what matters.
-class BoundedText {
-  private head = '';
-  private tail = '';
-  private omitted = 0;
-
-  append(chunk: string): void {
-    if (this.head.length < HEAD_CHARS) {
-      const room = HEAD_CHARS - this.head.length;
-
-      this.head += chunk.slice(0, room);
-      chunk = chunk.slice(room);
-    }
-
-    this.tail += chunk;
-
-    if (this.tail.length > TAIL_CHARS) {
-      this.omitted += this.tail.length - TAIL_CHARS;
-      this.tail = this.tail.slice(-TAIL_CHARS);
-    }
-  }
-
-  get truncated(): boolean {
-    return this.omitted > 0;
-  }
-
-  toString(): string {
-    return this.omitted > 0 ? `${this.head}\n/* ${this.omitted} characters omitted */\n${this.tail}` : this.head + this.tail;
-  }
-}
-
-export function runProcess(options: ProcessRunOptions): Promise<ProcessRunResult> {
+// The only program the extension starts for git tools is git itself, without a shell, with arguments the tools
+// built from validated parameters. There is no way to pass a program name or a raw command line.
+export function runGit(options: GitRunOptions): Promise<GitRunResult> {
   return new Promise((resolve) => {
     const startedAt = Date.now();
     const stdout = new BoundedText();
     const stderr = new BoundedText();
-    const finish = (partial: Partial<ProcessRunResult>) =>
+    const finish = (partial: Partial<GitRunResult>) =>
       resolve({
         started: true,
         exitCode: null,
@@ -72,8 +34,7 @@ export function runProcess(options: ProcessRunOptions): Promise<ProcessRunResult
         aborted: false,
         stdout: stdout.toString(),
         stderr: stderr.toString(),
-        stdoutTruncated: stdout.truncated,
-        stderrTruncated: stderr.truncated,
+        truncated: stdout.truncated || stderr.truncated,
         durationMs: Date.now() - startedAt,
         ...partial,
       });
@@ -83,10 +44,19 @@ export function runProcess(options: ProcessRunOptions): Promise<ProcessRunResult
       return;
     }
 
-    const child = spawn(options.program, options.args, {
+    const child = spawn('git', [...SAFETY_OPTIONS, ...options.args], {
       cwd: options.cwd,
       shell: false,
-      // Own process group on POSIX so a timeout or cancellation also stops the program's children.
+      env: {
+        ...baseEnvironment(['SSH_AUTH_SOCK', 'XDG_CONFIG_HOME', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL']),
+        // No prompt can be answered: a missing credential or an editor request must fail, not hang.
+        GIT_TERMINAL_PROMPT: '0',
+        GIT_EDITOR: 'true',
+        GIT_PAGER: 'cat',
+        LC_MESSAGES: 'C',
+        GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes',
+      },
+      // Own process group on POSIX so a timeout or cancellation also stops git's children (ssh, hooks).
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });

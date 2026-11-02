@@ -12,6 +12,13 @@ import { truncateText } from '../workspace';
 import { McpClient, McpToolInfo } from '.';
 import { McpRequestError } from './mcp_request_error';
 
+const MAX_DESCRIPTION_CHARS = 1_000;
+const MAX_STRUCTURED_CHARS = 8_000;
+
+export function mcpToolId(serverName: string, toolName: string): string {
+  return `mcp__${serverName}__${toolName}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+}
+
 export class McpTool implements Tool {
   readonly id: string;
   readonly name: string;
@@ -19,16 +26,23 @@ export class McpTool implements Tool {
   readonly parameters: ToolParametersSchema;
   // A server cannot be assumed read-only: MCP tools are never offered in read-only mode.
   readonly readOnlyCompatible = false;
+  // A server cannot be assumed harmless: each of its tools is asked about, and controlled on its own.
+  readonly permissionDefault = 'ask' as const;
+  readonly requiresTrust = true;
+  readonly permissionKey: string;
 
   constructor(
     private readonly serverName: string,
     private readonly info: McpToolInfo,
     private readonly client: McpClient,
     private readonly accessGuard: ToolAccessGuard,
+    id = mcpToolId(serverName, info.name),
   ) {
-    this.id = `mcp__${serverName}__${info.name}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    this.id = id;
+    this.permissionKey = `mcp__${serverName}__${info.name}`;
     this.name = `${serverName}: ${info.name}`;
-    this.description = `[MCP ${serverName}] ${info.description ?? info.name}`;
+    // The description comes from the server: bounded, since it is shown to the model on every request.
+    this.description = `[MCP ${serverName}] ${(info.description ?? info.name).slice(0, MAX_DESCRIPTION_CHARS)}`;
     this.parameters = {
       type: 'object',
       properties: (info.inputSchema?.properties ?? {}) as ToolParametersSchema['properties'],
@@ -37,16 +51,15 @@ export class McpTool implements Tool {
   }
 
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
-    const toolScope = { kind: 'mcpTool' as const, value: `${this.serverName}/${this.info.name}` };
-    const resource = toolScope.value;
+    const resource = `${this.serverName}/${this.info.name}`;
     const base = { server: this.serverName, tool: this.info.name };
 
     await this.accessGuard.authorize(
       {
-        capability: 'mcp',
-        scope: toolScope,
-        grantScopes: [toolScope, { kind: 'mcpServer', value: this.serverName }],
-        operation: this.id,
+        tool: this,
+        action: `call the MCP tool ${sanitizeForPrompt(resource)}`,
+        resources: [],
+        inPerimeter: true,
         detail: `Arguments: ${sanitizeForPrompt(JSON.stringify(input ?? {}), 500)}`,
       },
       context?.signal,
@@ -59,7 +72,7 @@ export class McpTool implements Tool {
         ...base,
         contentParts: result.partTypes,
         truncated: text.truncated,
-        ...(result.structuredContent !== undefined && { structuredContent: result.structuredContent }),
+        ...structuredDetails(result.structuredContent),
       };
 
       return result.isError
@@ -126,4 +139,17 @@ export class McpTool implements Tool {
         });
     }
   }
+}
+
+// The text part is already cut to fit the model context; structured data would bypass that cut, so it is bounded too.
+function structuredDetails(structured: unknown): Record<string, unknown> {
+  if (structured === undefined) {
+    return {};
+  }
+
+  const serialized = JSON.stringify(structured) ?? '';
+
+  return serialized.length <= MAX_STRUCTURED_CHARS
+    ? { structuredContent: structured }
+    : { structuredContentOmitted: `${serialized.length} characters, over the ${MAX_STRUCTURED_CHARS} limit` };
 }

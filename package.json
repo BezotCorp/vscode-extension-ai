@@ -77,14 +77,36 @@
           "enum": [
             "readOnly",
             "confirm",
+            "acceptEdits",
             "auto"
           ],
           "enumDescriptions": [
             "Only read and search tools are available.",
             "Everything except reading inside the workspace asks for permission unless already granted.",
-            "Every tool runs without a prompt. Choose this explicitly."
+            "File changes inside the workspace go ahead without asking; commands, network and MCP still ask.",
+            "Nothing asks, except operations matched by an ask rule. Deny rules always apply. Choose this explicitly."
           ],
           "description": "How much the AI may do on its own. Only read from user settings."
+        },
+        "bezotcorpAi.permissions": {
+          "type": "object",
+          "scope": "application",
+          "default": {},
+          "markdownDescription": "What the AI may do with each tool, by tool identity, kept for every workspace: `{ \"edit_file\": \"allow\", \"git_push\": \"deny\" }`. Values: `allow` (no question), `ask` (confirm at each call), `deny` (the tool is not offered and cannot run). A tool without an entry uses its default: reading and consulting tools allow, the others ask. MCP tools are named `mcp__server__tool`. Use the command *BezotCorp AI: Manage Permissions* to edit this per session, workspace or globally. Only read from user settings.",
+          "additionalProperties": { "type": "string", "enum": ["allow", "ask", "deny"] }
+        },
+        "bezotcorpAi.protectedPaths": {
+          "type": "array",
+          "scope": "application",
+          "default": [],
+          "items": { "type": "string" },
+          "markdownDescription": "Extra protected resources, added to the built-in ones (`.env`, `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `.npmrc`, `.git`, `.ssh`, `.aws`...). A protected resource is never read, changed, moved or deleted without asking, whatever a tool is allowed to do, and stays out of the context, searches and git output. A bare name or glob matches at any depth; `//abs/path`, `~/path` and `path` (from the workspace root) are also accepted."
+        },
+        "bezotcorpAi.contextTokens": {
+          "type": "number",
+          "default": 16384,
+          "minimum": 2048,
+          "description": "Context window requested from the model, in tokens (num_ctx for Ollama). It bounds how much conversation history is sent. The model's own maximum applies when lower."
         },
         "bezotcorpAi.mcpServers": {
           "type": "object",
@@ -139,6 +161,10 @@
       {
         "command": "bezotcorp-ai.revokeAllPermissions",
         "title": "BezotCorp AI: Revoke All Permissions"
+      },
+      {
+        "command": "bezotcorp-ai.openPermissionRules",
+        "title": "BezotCorp AI: Open Permission Settings"
       }
     ]
   },

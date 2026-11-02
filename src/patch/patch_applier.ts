@@ -1,51 +1,57 @@
-import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { PatchApplyResult, PatchCandidate } from '.';
+import { findUniqueMatch, PatchApplyResult, PatchCandidate } from '.';
+import { resolvePath } from '../workspace';
 
 export async function applyPatchCandidate(candidate: PatchCandidate): Promise<PatchApplyResult> {
-  const uri = resolvePatchUri(candidate.path);
-  const document = await vscode.workspace.openTextDocument(uri);
-  const content = document.getText();
+  try {
+    const uri = resolvePath(candidate.path).uri;
 
-  if (!content.includes(candidate.oldText)) {
+    const document = await vscode.workspace.openTextDocument(uri);
+    const match = findUniqueMatch(document.getText(), candidate.oldText, candidate.newText);
+
+    if (match.kind === 'missing') {
+      return {
+        success: false,
+        error: `Old text not found in ${candidate.path}`,
+      };
+    }
+
+    if (match.kind === 'ambiguous') {
+      return {
+        success: false,
+        error: `Old text appears ${match.count} times in ${candidate.path}; the patch needs more surrounding lines.`,
+      };
+    }
+
+    const edit = new vscode.WorkspaceEdit();
+
+    edit.replace(
+      uri,
+      new vscode.Range(document.positionAt(match.offset), document.positionAt(match.offset + match.oldText.length)),
+      match.newText,
+    );
+
+    if (!(await vscode.workspace.applyEdit(edit))) {
+      return {
+        success: false,
+        error: `VS Code refused to apply patch for ${candidate.path}`,
+      };
+    }
+
+    if (!(await document.save())) {
+      return {
+        success: false,
+        error: `Patch applied in the editor, but ${candidate.path} could not be saved.`,
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
     return {
       success: false,
-      error: `Old text not found in ${candidate.path}`,
+      error: `Could not apply the patch to ${candidate.path}: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
-
-  const newContent = content.replace(candidate.oldText, candidate.newText);
-  const edit = new vscode.WorkspaceEdit();
-  const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(content.length));
-
-  edit.replace(uri, fullRange, newContent);
-
-  const applied = await vscode.workspace.applyEdit(edit);
-
-  if (!applied) {
-    return {
-      success: false,
-      error: `VS Code refused to apply patch for ${candidate.path}`,
-    };
-  }
-
-  await document.save();
-
-  return {
-    success: true,
-  };
-}
-
-function resolvePatchUri(candidatePath: string): vscode.Uri {
-  if (path.isAbsolute(candidatePath)) {
-    return vscode.Uri.file(candidatePath);
-  }
-
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-
-  if (!workspaceFolder) {
-    return vscode.Uri.file(candidatePath);
-  }
-
-  return vscode.Uri.joinPath(workspaceFolder.uri, candidatePath);
 }

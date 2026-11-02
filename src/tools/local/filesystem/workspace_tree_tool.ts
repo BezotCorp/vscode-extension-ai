@@ -5,6 +5,7 @@ export class WorkspaceTreeTool implements Tool {
   readonly id = 'workspaceTree';
   readonly name = 'Workspace Tree';
   readonly readOnlyCompatible = true;
+  readonly permissionDefault = 'allow' as const;
   readonly description = 'Provides a bounded list of workspace files.';
   readonly parameters = { type: 'object' as const, properties: {} };
 

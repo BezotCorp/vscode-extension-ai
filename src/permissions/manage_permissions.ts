@@ -1,37 +1,125 @@
 import * as vscode from 'vscode';
 
-import { PermissionGrant, PermissionStore } from '.';
-import { describeScope } from './describe_scope';
+import { PermissionPolicy, PermissionScope, PermissionStore, ToolPermissionInfo } from '.';
 
-type GrantItem = vscode.QuickPickItem & { grant: PermissionGrant };
+const SCOPE_LABELS: Record<PermissionScope, string> = {
+  session: 'This session',
+  workspace: 'This workspace',
+  global: 'Everywhere (user settings)',
+};
+const POLICY_LABELS: Record<PermissionPolicy, string> = {
+  allow: 'Allow: runs without asking',
+  ask: 'Ask: confirm at each call',
+  deny: 'Deny: the AI cannot use it',
+};
+const RESET_ITEMS: { label: string; scope: PermissionScope }[] = [
+  { label: 'Reset session decisions', scope: 'session' },
+  { label: 'Reset workspace decisions', scope: 'workspace' },
+  { label: 'Reset global decisions', scope: 'global' },
+];
+const EDIT_PROTECTED = 'Edit protected paths…';
 
-export async function managePermissions(store: PermissionStore): Promise<void> {
-  const grants = store.list();
+// The central place to see and change what the AI may do, tool by tool.
+export async function managePermissions(store: PermissionStore, listTools: () => Promise<ToolPermissionInfo[]>) {
+  for (;;) {
+    const tools = await listTools();
+    const picked = await vscode.window.showQuickPick(buildItems(store, tools), {
+      title: 'BezotCorp AI permissions',
+      placeHolder: 'Pick a tool to change what the AI may do with it',
+      matchOnDescription: true,
+      matchOnDetail: true,
+    });
 
-  if (grants.length === 0) {
-    await vscode.window.showInformationMessage('BezotCorp AI: no saved permissions.');
+    if (!picked) {
+      return;
+    }
+
+    if (picked.label === EDIT_PROTECTED) {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'bezotcorpAi.protectedPaths');
+      return;
+    }
+
+    const reset = RESET_ITEMS.find((item) => item.label === picked.label);
+
+    if (reset) {
+      await store.clearScope(reset.scope);
+      void vscode.window.showInformationMessage(`BezotCorp AI: ${reset.label.toLowerCase()} done.`);
+      continue;
+    }
+
+    const tool = tools.find((candidate) => candidate.id === picked.toolId);
+
+    if (tool) {
+      await changeTool(store, tool);
+    }
+  }
+}
+
+function buildItems(
+  store: PermissionStore,
+  tools: ToolPermissionInfo[],
+): (vscode.QuickPickItem & { toolId?: string })[] {
+  const items: (vscode.QuickPickItem & { toolId?: string })[] = [];
+  let group: string | undefined;
+
+  for (const tool of tools) {
+    if (tool.group !== group) {
+      group = tool.group;
+      items.push({ label: group, kind: vscode.QuickPickItemKind.Separator });
+    }
+
+    const resolution = store.resolve(tool.id);
+
+    items.push({
+      label: tool.name,
+      description: resolution
+        ? `${resolution.policy} · ${SCOPE_LABELS[resolution.scope].toLowerCase()}`
+        : `${tool.defaultPolicy} · default`,
+      detail: tool.description,
+      toolId: tool.id,
+    });
+  }
+
+  items.push({ label: 'Maintenance', kind: vscode.QuickPickItemKind.Separator });
+  items.push(...RESET_ITEMS.map((item) => ({ label: item.label })), { label: EDIT_PROTECTED });
+
+  return items;
+}
+
+async function changeTool(store: PermissionStore, tool: ToolPermissionInfo): Promise<void> {
+  const choice = await vscode.window.showQuickPick(
+    [
+      ...(['allow', 'ask', 'deny'] as const).map((policy) => ({ label: POLICY_LABELS[policy], policy })),
+      { label: `Use the default (${tool.defaultPolicy})`, policy: undefined },
+    ],
+    { title: tool.name, placeHolder: 'What may the AI do with this tool?' },
+  );
+
+  if (!choice) {
     return;
   }
 
-  const items: GrantItem[] = grants.map((grant) => ({
-    label: `${grant.capability}: ${describeScope(grant.scope)}`,
-    description: grant.persistence === 'always' ? 'always' : 'this session',
-    grant,
-  }));
+  const scopes = (Object.keys(SCOPE_LABELS) as PermissionScope[]).filter(
+    (scope) => choice.policy !== undefined || store.get(tool.id, scope) !== undefined,
+  );
 
-  const selected = await vscode.window.showQuickPick(items, {
-    canPickMany: true,
-    title: 'BezotCorp AI permissions',
-    placeHolder: 'Select permissions to revoke',
-  });
-
-  if (!selected || selected.length === 0) {
+  if (scopes.length === 0) {
+    void vscode.window.showInformationMessage(`BezotCorp AI: ${tool.name} already uses its default.`);
     return;
   }
 
-  for (const item of selected) {
-    await store.revoke(item.grant);
+  const scope = await vscode.window.showQuickPick(
+    scopes.map((candidate) => ({ label: SCOPE_LABELS[candidate], scope: candidate })),
+    { title: choice.policy ? `Keep this decision for…` : 'Remove the decision kept for…' },
+  );
+
+  if (!scope) {
+    return;
   }
 
-  await vscode.window.showInformationMessage(`BezotCorp AI: revoked ${selected.length} permission(s).`);
+  if (choice.policy) {
+    await store.set(tool.id, choice.policy, scope.scope);
+  } else {
+    await store.clear(tool.id, scope.scope);
+  }
 }

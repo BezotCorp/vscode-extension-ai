@@ -1,0 +1,30 @@
+import { ToolExecutionResult } from '../..';
+import { readRemote } from './git_arguments';
+import { GitPlan } from './git_plan';
+import { FOLDER_PARAMETER, GitTool } from './git_tool';
+
+const NETWORK_TIMEOUT_MS = 120_000;
+
+export class GitFetchTool extends GitTool {
+  readonly id = 'git_fetch';
+  readonly name = 'Git Fetch';
+  readonly readOnlyCompatible = false;
+  readonly permissionDefault = 'ask' as const;
+  readonly description =
+    'Downloads new commits and branches from a configured remote without changing the working tree (git fetch --prune).';
+  readonly parameters = {
+    type: 'object' as const,
+    properties: {
+      remote: { type: 'string', description: 'Name of a configured remote (default origin).' },
+      folder: FOLDER_PARAMETER,
+    },
+  };
+
+  protected async plan(input: unknown): Promise<GitPlan | ToolExecutionResult> {
+    const remote = readRemote(input, 'remote');
+
+    return remote instanceof Error
+      ? this.reject(remote.message)
+      : { args: ['fetch', '--prune', remote], action: `fetch from the git remote ${remote}`, timeoutMs: NETWORK_TIMEOUT_MS };
+  }
+}

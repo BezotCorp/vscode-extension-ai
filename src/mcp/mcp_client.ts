@@ -1,5 +1,6 @@
 import { ChildProcess, spawn } from 'node:child_process';
 
+import { baseEnvironment } from '../tools/base_environment';
 import { getWorkspaceRoot } from '../workspace';
 import { McpServerConfig, McpToolInfo } from '.';
 import { McpRequestError } from './mcp_request_error';
@@ -57,10 +58,12 @@ export class McpClient {
     child.on('close', (code) => this.close(`MCP server exited (code ${code}).`));
   }
 
-  static async start(config: McpServerConfig): Promise<McpClient> {
+  static async start(config: McpServerConfig, signal?: AbortSignal): Promise<McpClient> {
     const child = spawn(config.command, config.args ?? [], {
       cwd: config.cwd ?? getWorkspaceRoot(),
-      env: { ...process.env, ...config.env },
+      // The server is third-party code: it receives a basic environment plus what its configuration lists, not
+      // every variable of the editor (tokens, credentials) it has no reason to see.
+      env: { ...baseEnvironment(), ...config.env },
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -75,6 +78,7 @@ export class McpClient {
           clientInfo: { name: 'bezotcorp-ai', version: '1.0.0' },
         },
         STARTUP_TIMEOUT_MS,
+        signal,
       );
       client.notify('notifications/initialized');
     } catch (error) {
@@ -162,7 +166,8 @@ export class McpClient {
         finish(() => reject(new McpRequestError('cancelled', 'MCP request cancelled.')));
       };
       const timer = setTimeout(
-        () => finish(() =>
+        () =>
+          finish(() =>
             reject(new McpRequestError('timeout', `MCP request "${method}" timed out after ${timeoutMs} ms.`)),
           ),
         timeoutMs,

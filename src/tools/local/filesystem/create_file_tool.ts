@@ -1,6 +1,5 @@
 import * as path from 'node:path';
-import * as vscode from 'vscode';
-
+import * as fs from 'node:fs/promises';
 import { contentEffect } from '../../../permissions';
 import { resolvePath } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
@@ -11,6 +10,8 @@ export class CreateFileTool implements Tool {
   readonly id = 'create_file';
   readonly name = 'Create File';
   readonly readOnlyCompatible = false;
+  readonly permissionDefault = 'ask' as const;
+  readonly editsFiles = true;
   readonly description =
     'Creates a new file (and missing parent folders) with the given content. Fails if the file already exists.';
   readonly parameters = {
@@ -39,40 +40,26 @@ export class CreateFileTool implements Tool {
     const resolved = resolvePath(readStringArg(input, 'path') ?? '');
     const fsPath = resolved.uri.fsPath;
 
-    await this.accessGuard.assertPath('create', resolved, false, {
-      operation: this.id,
+    await this.accessGuard.assertPath(this, 'create', resolved, false, {
       detail: describeContent(content),
       effects: [contentEffect(fsPath)],
       signal: context?.signal,
     });
 
-    if (await exists(resolved.uri)) {
-      return toolFailure('error', this.id, fsPath, {
-        reason: 'already_exists',
-        message: 'The file already exists and was not changed. Use write_file to replace it.',
-        executed: false,
-        retryable: false,
-      });
-    }
-
-    await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(fsPath)));
+    await fs.mkdir(path.dirname(fsPath), { recursive: true });
 
     const bytes = new TextEncoder().encode(content);
+    const handle = await fs.open(fsPath, 'wx');
 
-    await vscode.workspace.fs.writeFile(resolved.uri, bytes);
+    try {
+      await handle.writeFile(bytes);
+    } finally {
+      await handle.close();
+    }
 
     return toolSuccess(this.id, fsPath, {
       message: 'File created.',
       details: { bytesWritten: bytes.length },
     });
-  }
-}
-
-async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
   }
 }

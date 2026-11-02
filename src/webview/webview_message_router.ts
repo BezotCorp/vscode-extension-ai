@@ -9,7 +9,7 @@ import { sendChatStore } from './chat_store_presenter';
 import { sendContextPreview } from './context_preview_presenter';
 import { getContextOptions } from './context_options_mapper';
 import { sendModelState, testConnection } from './model_state_presenter';
-import { acceptPatch, rejectPatch } from './patch_preview_controller';
+import { acceptPatch, rejectPatch, restorePatchPreviews } from './patch_preview_controller';
 
 export class WebviewMessageRouter {
   constructor(
@@ -20,6 +20,18 @@ export class WebviewMessageRouter {
   ) {}
 
   async handle(webviewView: vscode.WebviewView, message: WebviewMessage): Promise<void> {
+    try {
+      await this.dispatch(webviewView, message);
+    } catch (error) {
+      // Nothing awaits this call, so a failure (for example conversations that cannot be saved) must be shown here.
+      void vscode.window.showErrorMessage(
+        `BezotCorp AI: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      sendChatStore(webviewView, this.chatManager);
+    }
+  }
+
+  private async dispatch(webviewView: vscode.WebviewView, message: WebviewMessage): Promise<void> {
     if (message.type === 'copyMessage') {
       if (typeof message.text === 'string') {
         await vscode.env.clipboard.writeText(message.text);
@@ -69,7 +81,7 @@ export class WebviewMessageRouter {
 
     if (message.type === 'newChat') {
       await this.chatManager.createSession();
-      this.clearPatchPreviews(webviewView);
+      this.showPatchPreviews(webviewView);
       sendChatStore(webviewView, this.chatManager);
       return;
     }
@@ -77,7 +89,7 @@ export class WebviewMessageRouter {
     if (message.type === 'switchChatSession') {
       if (message.sessionId) {
         await this.chatManager.setActiveSession(message.sessionId);
-        this.clearPatchPreviews(webviewView);
+        this.showPatchPreviews(webviewView);
         sendChatStore(webviewView, this.chatManager);
       }
 
@@ -96,7 +108,7 @@ export class WebviewMessageRouter {
     if (message.type === 'deleteChatSession') {
       if (message.sessionId) {
         await this.chatManager.deleteSession(message.sessionId);
-        this.clearPatchPreviews(webviewView);
+        this.showPatchPreviews(webviewView);
         sendChatStore(webviewView, this.chatManager);
       }
 
@@ -105,7 +117,7 @@ export class WebviewMessageRouter {
 
     if (message.type === 'clearHistory') {
       await this.chatManager.clearActiveSession();
-      this.clearPatchPreviews(webviewView);
+      this.showPatchPreviews(webviewView);
       sendChatStore(webviewView, this.chatManager);
       return;
     }
@@ -116,12 +128,12 @@ export class WebviewMessageRouter {
     }
 
     if (message.type === 'acceptPatch') {
-      await acceptPatch(webviewView, this.patchPreviews, message.patchId);
+      await acceptPatch(webviewView, this.patchPreviews, this.chatManager, message.patchId);
       return;
     }
 
     if (message.type === 'rejectPatch') {
-      rejectPatch(webviewView, this.patchPreviews, message.patchId);
+      await rejectPatch(webviewView, this.patchPreviews, this.chatManager, message.patchId);
       return;
     }
 
@@ -133,8 +145,8 @@ export class WebviewMessageRouter {
     }
   }
 
-  private clearPatchPreviews(webviewView: vscode.WebviewView): void {
-    this.patchPreviews.clear();
-    webviewView.webview.postMessage({ type: 'patchPreviews', previews: [] });
+  // Patches belong to the conversation shown: switching, deleting or clearing it shows the right ones.
+  showPatchPreviews(webviewView: vscode.WebviewView): void {
+    restorePatchPreviews(webviewView, this.patchPreviews, this.chatManager);
   }
 }

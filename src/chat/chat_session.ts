@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { ChatMessage, ChatRole, cloneChatMessage, createChatMessage } from './chat_message';
+import { ToolRound } from '../tools/tool_round';
+import { ChatMessage, cloneChatMessage, createChatMessage } from './chat_message';
+import type { ChatRole } from './chat_role';
 
 export const DEFAULT_CHAT_TITLE = 'New chat';
 
@@ -75,9 +77,15 @@ export function cloneChatSession(session: ChatSession): ChatSession {
  * @param session - The chat session.
  * @param role - The role of the message (e.g., 'user', 'assistant').
  * @param content - The content of the message.
+ * @param toolRounds - Tool calls made while producing the message, if any.
  */
-export function addMessageToChatSession(session: ChatSession, role: ChatRole, content: string): void {
-  const message = createChatMessage(role, content);
+export function addMessageToChatSession(
+  session: ChatSession,
+  role: ChatRole,
+  content: string,
+  toolRounds?: ToolRound[],
+): void {
+  const message = createChatMessage(role, content, toolRounds);
 
   session.messages.push(message);
   session.updatedAt = message.createdAt;

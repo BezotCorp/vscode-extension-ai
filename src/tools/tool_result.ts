@@ -75,14 +75,14 @@ export function toolErrorFromException(
 }
 
 // What the model receives: one compact JSON object, only the fields that carry information.
-export function serializeToolResult(result: ToolExecutionResult): string {
+export function serializeToolResult(result: ToolExecutionResult, maxChars = MAX_SERIALIZED_CHARS): string {
   const serialized = JSON.stringify(result);
 
-  if (serialized.length <= MAX_SERIALIZED_CHARS || !result.content) {
+  if (serialized.length <= maxChars || !result.content) {
     return serialized;
   }
 
-  const overflow = serialized.length - MAX_SERIALIZED_CHARS;
+  const overflow = serialized.length - maxChars;
   const content = `${result.content.slice(0, Math.max(result.content.length - overflow, 0))}\n/* content cut to fit the model context */`;
 
   return JSON.stringify({ ...result, content, details: { ...result.details, contentCutForContext: true } });

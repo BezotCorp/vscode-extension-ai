@@ -1,13 +1,24 @@
-import { PermissionError } from '../permissions';
-import { Tool, ToolDefinition, ToolExecutionContext, ToolExecutionResult } from '.';
+import { PermissionError, ToolAccessProfile } from '../permissions';
+import { Tool, ToolDefinition, UnavailableTool, ToolExecutionContext, ToolExecutionResult } from '.';
 import { toolErrorFromException, toolFailure } from './tool_result';
 import { validateToolInput } from './tool_validation';
 
 export class ToolRegistry {
   private readonly tools = new Map<string, Tool>();
 
+  private readonly unavailable: UnavailableTool[] = [];
+
   register(tool: Tool): void {
     this.tools.set(tool.id, tool);
+  }
+
+  // Remembers a tool that is not offered, so the model can be told what it cannot do and why.
+  markUnavailable(tool: ToolAccessProfile, reason: string): void {
+    this.unavailable.push({ id: tool.permissionKey ?? tool.id, name: tool.name, reason });
+  }
+
+  unavailableTools(): UnavailableTool[] {
+    return [...this.unavailable];
   }
 
   get(toolId: string): Tool | undefined {
@@ -81,7 +92,7 @@ export class ToolRegistry {
 
 function failureFromException(tool: Tool, error: unknown, context?: ToolExecutionContext): ToolExecutionResult {
   if (error instanceof PermissionError) {
-    const resource = error.scope ? `${error.scope.kind} ${error.scope.value}` : undefined;
+    const resource = error.resource;
 
     if (error.kind === 'no_decision') {
       return toolFailure('cancelled', tool.id, resource, {
