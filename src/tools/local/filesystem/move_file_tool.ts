@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 
 import { contentEffect, removalEffect } from '../../../permissions';
-import { describeProtectedPath, findDirtyDocuments, resolvePath } from '../../../workspace';
+import { findDirtyDocuments, resolvePath } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
-import { readStringArg } from '../../tool_input';
+import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
-import { protectedPathFailure } from './protected_path_failure';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
 
 export class MoveFileTool implements Tool {
@@ -15,12 +14,13 @@ export class MoveFileTool implements Tool {
   readonly permissionDefault = 'ask' as const;
   readonly editsFiles = true;
   readonly description =
-    'Moves or renames a file or folder. Fails if the destination already exists or the source has unsaved changes in the editor.';
+    'Moves or renames a file or folder. Fails if the destination already exists or the source has unsaved changes in the editor. Outside the current window the user is always asked (access elevated); for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
   readonly parameters = {
     type: 'object' as const,
     properties: {
       from: { type: 'string', description: 'Source path, relative to the workspace root or absolute.' },
       to: { type: 'string', description: 'Destination path, relative to the workspace root or absolute.' },
+      access: ACCESS_PARAMETER,
     },
     required: ['from', 'to'],
   };
@@ -31,12 +31,6 @@ export class MoveFileTool implements Tool {
     const source = resolvePath(readStringArg(input, 'from') ?? '');
     const destination = resolvePath(readStringArg(input, 'to') ?? '');
     const resource = `${source.uri.fsPath} -> ${destination.uri.fsPath}`;
-    const protectedPath = describeProtectedPath(source) ?? describeProtectedPath(destination);
-
-    if (protectedPath) {
-      return protectedPathFailure(this.id, resource, protectedPath);
-    }
-
     const stat = await vscode.workspace.fs.stat(source.uri);
     const isDirectory = Boolean(stat.type & vscode.FileType.Directory);
 
@@ -46,6 +40,7 @@ export class MoveFileTool implements Tool {
 
     await this.accessGuard.assertMove(this, source, destination, isDirectory, {
       effects: [removalEffect(source.uri.fsPath), contentEffect(destination.uri.fsPath)],
+      access: readAccessArg(input),
       signal: context?.signal,
     });
     await vscode.workspace.fs.rename(source.uri, destination.uri, { overwrite: false });

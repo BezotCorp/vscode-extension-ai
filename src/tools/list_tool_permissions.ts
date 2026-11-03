@@ -10,7 +10,10 @@ export async function listToolPermissions(
   mcpManager: McpManager,
   files: FileToolServices,
 ): Promise<ToolPermissionInfo[]> {
-  const builtIn = createBuiltInTools(accessGuard, files).map((tool) => ({
+  // A plural file tool shares the permission of its singular tool: it is listed once, under the singular.
+  const builtIn = createBuiltInTools(accessGuard, files)
+    .filter((tool) => tool.permissionKey === undefined || tool.permissionKey === tool.id)
+    .map((tool) => ({
     id: tool.permissionKey ?? tool.id,
     name: tool.id,
     description: tool.description,

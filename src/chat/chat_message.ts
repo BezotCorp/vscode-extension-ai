@@ -7,7 +7,6 @@ export type ChatMessage = {
   content: string; // The content of the message
   createdAt: string; // The timestamp when the message was created, formatted as ISO string
   toolRounds?: ToolRound[]; // Tool calls the assistant made before this answer, kept for later turns
-  patchStatuses?: Record<string, 'accepted' | 'rejected'>; // Decisions on the patches proposed in this message
 };
 
 // Function to create a new chat message with the current timestamp

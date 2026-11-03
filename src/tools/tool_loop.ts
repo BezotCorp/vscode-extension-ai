@@ -76,7 +76,10 @@ export async function runToolLoop<TMessage>(options: ToolLoopOptions<TMessage>):
                   executed: false,
                   retryable: false,
                 })
-              : await tools.execute(call.name, call.arguments, { signal: options.signal });
+              : await tools.execute(call.name, call.arguments, {
+                  signal: options.signal,
+                  maxResultChars: options.maxResultChars,
+                });
 
         if (!tools.get(call.name)?.readOnlyCompatible) {
           if (result.status === 'unknown' || result.status === 'interrupted' || result.executed === 'unknown') {

@@ -74,17 +74,6 @@ export class ChatManager {
     }
   }
 
-  // Remembers the decision on a patch of the latest assistant message, so it survives a reload.
-  async setPatchStatus(patchId: string, status: 'accepted' | 'rejected'): Promise<void> {
-    const messages = getActiveChatSession(this.store)?.messages ?? [];
-    const message = [...messages].reverse().find((candidate) => candidate.role === 'assistant');
-
-    if (message) {
-      message.patchStatuses = { ...message.patchStatuses, [patchId]: status };
-      await this.persist();
-    }
-  }
-
   async clearActiveSession(): Promise<void> {
     clearActiveChatSession(this.store);
     await this.persist();

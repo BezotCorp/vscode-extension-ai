@@ -1,3 +1,5 @@
+export { AccessLevel } from './access_level';
+export { AccessRequest } from './access_request';
 export { AutonomyMode, DEFAULT_AUTONOMY_MODE } from './autonomy_mode';
 export { globMatches } from './glob_matches';
 export { managePermissions } from './manage_permissions';

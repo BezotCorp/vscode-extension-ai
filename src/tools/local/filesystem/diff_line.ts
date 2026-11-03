@@ -1,4 +1,4 @@
-import { DiffLineKind } from '.';
+import { DiffLineKind } from './diff_line_kind';
 
 export type DiffLine = {
   kind: DiffLineKind;

@@ -76,7 +76,6 @@ ${getModelManagementHtml()}
 </div>
 
 <div id="messages"></div>
-<div id="patch-preview-container"></div>
 <div id="input-area">
   <textarea id="input" placeholder="Ask anything..." rows="1"></textarea>
   <button id="send">Send</button>

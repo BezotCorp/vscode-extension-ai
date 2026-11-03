@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import {
+  AccessRequest,
   AutonomyMode,
   isProtectedResource,
   PermissionCapability,
@@ -11,7 +12,7 @@ import {
   sanitizeForPrompt,
   ToolAccessProfile,
 } from '../permissions';
-import { ResolvedPath } from '../workspace';
+import { describeCriticalPath, ResolvedPath } from '../workspace';
 import { GuardOptions } from './guard_options';
 
 const MAX_DETAIL_LINES = 24;
@@ -40,8 +41,15 @@ const ACTION_LABELS: Record<PermissionCapability, string> = {
 
 // Single gate for every tool operation. Decisions only come from the dialog below and the permission manager,
 // never from tool input or output. A tool is controlled by its identity: the decision kept for it (deny at any
-// scope, otherwise the most specific scope) or, failing that, its default. Two things are never covered by an
-// allow decision: a path outside the workspace, and a protected resource (credentials, keys, .git).
+// scope, otherwise the most specific scope) or, failing that, its default. Three things are never covered by an
+// allow decision: a path outside the current window (elevated access), a protected resource (credentials, keys, .git),
+// and a critical location (strong confirmation each time). None of them is let through by any autonomy mode,
+// `auto` included.
+//
+// The level of access an operation needs is worked out here from its paths, never taken from the model: the model
+// announces one in its call, but the announcement only matters for a critical operation, where it must carry a
+// reason. An announcement that is too low is not an error: the real level is applied and, if it needs an answer from
+// the user, the user is asked, without going back to the model.
 export class ToolAccessGuard {
   // Effects the user explicitly refused during this generation, with a description of the refusal.
   // A guard lives for one generation (see GenerationController), so a new user message starts with a clean slate.
@@ -79,9 +87,10 @@ export class ToolAccessGuard {
         tool,
         action: `${ACTION_LABELS[capability]} ${isDirectory ? 'folder' : 'file'} ${sanitizeForPrompt(fsPath)}`,
         resources: [fsPath],
-        inPerimeter: resolved.insideWorkspace,
+        inPerimeter: resolved.insideCurrentWindow,
         detail: options.detail,
         effects: options.effects,
+        access: this.accessFor(capability, [resolved], options.access),
       },
       options.signal,
     );
@@ -100,14 +109,35 @@ export class ToolAccessGuard {
         tool,
         action: `move ${isDirectory ? 'folder' : 'file'} ${sanitizeForPrompt(source.uri.fsPath)}`,
         resources: [source.uri.fsPath, destination.uri.fsPath],
-        inPerimeter: source.insideWorkspace && destination.insideWorkspace,
+        inPerimeter: source.insideCurrentWindow && destination.insideCurrentWindow,
         detail: [`Destination: ${sanitizeForPrompt(destination.uri.fsPath)}`, options.detail]
           .filter(Boolean)
           .join('\n'),
         effects: options.effects,
+        access: this.accessFor('move', [source, destination], options.access),
       },
       options.signal,
     );
+  }
+
+  // The level the operation really needs. Reading never is critical; changing, creating, deleting or moving can be.
+  // The current window is only the perimeter the user opened: a structural workspace (Cargo, monorepo...) around it
+  // grants nothing, so going outside the window is elevated whatever the project structure says.
+  private accessFor(
+    capability: PermissionCapability,
+    paths: ResolvedPath[],
+    announced?: AccessRequest,
+  ): NonNullable<PermissionRequest['access']> {
+    const whyCritical =
+      capability === 'read' || capability === 'search'
+        ? undefined
+        : paths.map(describeCriticalPath).find((why) => why !== undefined);
+
+    if (whyCritical !== undefined) {
+      return { required: 'critical', announced, whyCritical };
+    }
+
+    return { required: paths.every((path) => path.insideCurrentWindow) ? 'normal' : 'elevated', announced };
   }
 
   // Why a tool is not offered to the model right now, if it is not.
@@ -167,12 +197,20 @@ export class ToolAccessGuard {
 
     this.assertNotRefusedEarlier(request);
 
+    const critical = request.access?.required === 'critical';
+
+    if (critical) {
+      this.assertCriticalJustified(request);
+    }
+
     const protection = request.resources.map(isProtectedResource).find((pattern) => pattern !== undefined);
     const policy = decision?.policy ?? tool.permissionDefault;
     const explicitAsk = decision?.policy === 'ask';
 
-    if (protection === undefined) {
-      if (request.inPerimeter && policy === 'allow') {
+    // Outside the current window (elevated) nothing is granted in advance: neither an allow decision nor the
+    // acceptEdits or auto modes. Only normal operations follow the ordinary permission and autonomy rules.
+    if (!critical && protection === undefined && request.inPerimeter) {
+      if (policy === 'allow') {
         return;
       }
 
@@ -180,15 +218,17 @@ export class ToolAccessGuard {
         return;
       }
 
-      if (mode === 'acceptEdits' && tool.editsFiles && request.inPerimeter && !explicitAsk) {
+      if (mode === 'acceptEdits' && tool.editsFiles && !explicitAsk) {
         return;
       }
     }
 
-    const reason = protection
+    const reason = critical
+      ? 'This is a critical operation: it always needs your answer, once, in every autonomy mode.'
+      : protection
       ? `This touches a protected resource (${protection}), which always needs your answer.`
       : !request.inPerimeter
-        ? 'This is outside the workspace, so a standing permission does not cover it.'
+        ? 'This is outside the current window (elevated access), so a standing permission does not cover it.'
         : explicitAsk
           ? `${tool.name} is set to ask every time.`
           : undefined;
@@ -225,6 +265,25 @@ export class ToolAccessGuard {
     }
   }
 
+  // A critical operation needs the AI to say why it must touch that location. Without it nothing happens and the AI
+  // is told exactly what to add: this is the one case where going back to the model is necessary.
+  private assertCriticalJustified(request: PermissionRequest): void {
+    const announced = request.access?.announced;
+    const reason = announced?.kind === 'critical' ? announced.reason.trim() : '';
+
+    if (reason) {
+      return;
+    }
+
+    throw new PermissionError(
+      'policy',
+      'critical_justification_required',
+      `This operation touches a critical location (${request.access?.whyCritical ?? 'critical'}): ${request.action}. Nothing was executed. If you really need it, call the tool again with access {"kind":"critical","reason":"<why you must touch this location>"}; the user will then be asked to confirm.`,
+      request.resources[0],
+      { requiredAccess: 'critical', whyCritical: request.access?.whyCritical, correctableByTheModel: true },
+    );
+  }
+
   private effectsOf(request: PermissionRequest): string[] {
     return request.effects ?? [`tool:${request.tool.id}:${request.resources.join('|')}`];
   }
@@ -254,10 +313,20 @@ export class ToolAccessGuard {
       throw cancelledWhileWaiting(request);
     }
 
+    const critical = request.access?.required === 'critical';
+    const announced = request.access?.announced;
     const detail = [
+      critical ? 'CRITICAL OPERATION' : undefined,
       `Tool: ${request.tool.name} (${request.tool.permissionKey ?? request.tool.id})`,
+      critical ? `Action: ${request.action}` : undefined,
+      critical ? `Target: ${request.resources.map((resource) => sanitizeForPrompt(resource)).join(' -> ')}` : undefined,
+      critical ? `Why it is critical: ${request.access?.whyCritical}` : undefined,
+      critical && announced?.kind === 'critical' ? `Reason given by the AI: ${sanitizeForPrompt(announced.reason, 500)}` : undefined,
       request.detail ? formatDetail(request.detail) : undefined,
       reason,
+      critical
+        ? 'Warning: a wrong operation here can damage the system, make a service unusable or cause data loss, and the AI only gave its own reason for it.'
+        : undefined,
       request.warning,
       'Closing this dialog is not a refusal: nothing runs and the AI is told no decision was made.',
     ]

@@ -51,17 +51,14 @@ Provide useful context to the AI.
 - Rich workspace context mode
 - Context preview before requests
 
-### Patch Workflow
+### File Changes
 
-Review and apply AI-generated code changes.
+A single tool, `update_file`, changes an existing file.
 
-- Patch detection from AI responses
-- Patch preview cards
-- Diff rendering
-- Accept patch
-- Reject patch
-- Workspace edit application
-- Exact, single-match replacement (a text that appears several times is refused instead of guessed)
+- Either an exact piece of text to replace (a text that appears several times is refused instead of guessed) or the whole content
+- The diff is shown in the permission dialog
+- The change only goes ahead if what the AI read is still true; otherwise it receives the current content
+- Safety copy, write, integrity check and restoration
 
 ### AI Providers
 
@@ -87,12 +84,12 @@ The AI can use tools when the provider supports tool calling (Ollama). It only d
 - Web: fetch a page
 - Git, as specialised tools with bounded parameters: `git_status`, `git_diff`, `git_log`, `git_show`, `git_branch_list`, `git_add`, `git_unstage`, `git_commit`, `git_branch_create`, `git_switch`, `git_fetch`, `git_pull` (fast-forward only), `git_push` (no force). There is no reset, rebase, merge, stash, checkout of files or amend
 - MCP servers over stdio, configured in user settings (`bezotcorpAi.mcpServers`); each MCP tool is controlled on its own
-- Permissions are decided per tool: `allow`, `ask` or `deny`, kept for the session, the workspace or everywhere. Reading and consulting tools allow by default inside the workspace; the others ask. *BezotCorp AI: Manage Permissions* lists every tool and changes these decisions; the dialog shown at a call offers Yes, this session, this workspace, always, or No with a message for the AI
+- Permissions are decided per tool: `allow`, `ask` or `deny`, kept for the session, the workspace or everywhere. Reading and consulting tools allow by default inside the current window; the others ask. *BezotCorp AI: Manage Permissions* lists every tool and changes these decisions; the dialog shown at a call offers Yes, this session, this workspace, always, or No with a message for the AI
 - Autonomy modes: read-only, confirmation, accept edits, automatic
-- Protected resources (`.env`, keys, `.npmrc`, `.git`, `.ssh`…, extendable with `bezotcorpAi.protectedPaths`) always ask, whatever a tool is allowed to do, and stay out of the context, searches, git output and the local bridge. Paths outside the workspace ask too, whatever a tool is allowed to do, except in automatic mode. The workspace folders, their parents, the home folder and `.git` are never deleted or moved
+- Protected resources (`.env`, keys, `.npmrc`, `.git`, `.ssh`…, extendable with `bezotcorpAi.protectedPaths`) always ask, whatever a tool is allowed to do, and stay out of the context, searches, git output and the local bridge. Paths outside the current window ask too, whatever a tool is allowed to do and in every autonomy mode, automatic included. Creating, writing, deleting or moving the folders of the current window or their parents, the home folder or its parents, `.git` or a system location is a critical operation: the AI must give a reason and you confirm each time
 - A refusal covers every route to the same effect during the answer
 - Earlier turns, including tool calls and results, are sent back to the model
-- Without tool calling, the AI proposes changes as patches that you preview and apply
+- Without tool calling, the AI cannot change files
 - Model management foundation
 
 ### Local First
@@ -177,7 +174,6 @@ VS Code Extension
         ├── Chat Sessions
         ├── Context Builder
         ├── Model Management
-        ├── Patch Engine
         ├── Tools, MCP and Permissions
         └── AI Provider
                 │
@@ -186,7 +182,7 @@ VS Code Extension
                 └── Future BezotCorp Backend
 ```
 
-The extension manages context collection, model selection, provider integration, chat sessions, patch workflows and streaming responses directly inside VS Code.
+The extension manages context collection, model selection, provider integration, chat sessions, file changes and streaming responses directly inside VS Code.
 
 ---
 
@@ -235,11 +231,6 @@ Privacy depends on the provider you choose.
 - Open files context
 - Workspace tree context
 - Context preview
-- Patch detection
-- Patch diff rendering
-- Patch preview UI
-- Patch accept/reject workflow
-- Workspace edit application
 - Backend status monitoring
 - Connection testing
 - Ollama integration

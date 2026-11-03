@@ -20,7 +20,7 @@ export function resolvePath(inputPath: string): ResolvedPath {
 
   return {
     uri: vscode.Uri.file(target),
-    insideWorkspace: container !== undefined,
+    insideCurrentWindow: container !== undefined,
     workspaceRoot: container ?? realRoots[0],
   };
 }

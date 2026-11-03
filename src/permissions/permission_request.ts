@@ -1,4 +1,4 @@
-import { ToolAccessProfile } from '.';
+import { AccessLevel, AccessRequest, ToolAccessProfile } from '.';
 
 export type PermissionRequest = {
   tool: ToolAccessProfile;
@@ -14,4 +14,12 @@ export type PermissionRequest = {
   effects?: string[];
   // Shown after the detail, in the dialog's own words.
   warning?: string;
+  // Present for the operations that have levels of access. `required` is what the runtime worked out from the paths
+  // and the operation; `announced` is what the model said it needed, which never lowers `required`.
+  access?: {
+    required: AccessLevel;
+    announced?: AccessRequest;
+    // For a critical operation, what makes the location critical.
+    whyCritical?: string;
+  };
 };

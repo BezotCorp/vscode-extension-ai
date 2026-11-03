@@ -19,11 +19,11 @@ export function activate(context: vscode.ExtensionContext) {
   const permissionStore = new PermissionStore(context.workspaceState);
   // Decisions of the previous permission model (per path and command) no longer mean anything.
   void context.globalState.update('bezotcorpAi.permissionGrants', undefined);
-  const bridgeServer = createBridgeServer(permissionStore);
+  const bridgeServer = createBridgeServer();
   const mcpManager = new McpManager(() => getExtensionConfig().mcpServers);
   const fileServices = new FileToolServices(context.globalStorageUri.fsPath);
 
-  // A write_file that was interrupted (crash, window closed) is resumed from its last persisted state.
+  // A file update that was interrupted (crash, window closed) is resumed from its last persisted state.
   fileServices.writes
     .recover()
     .then((records) => {

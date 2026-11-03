@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 
 import { removalEffect } from '../../../permissions';
-import { describeProtectedPath, findDirtyDocuments, resolvePath } from '../../../workspace';
+import { findDirtyDocuments, resolvePath } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
-import { readStringArg } from '../../tool_input';
+import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
-import { protectedPathFailure } from './protected_path_failure';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
 
 export class DeleteFileTool implements Tool {
@@ -15,11 +14,12 @@ export class DeleteFileTool implements Tool {
   readonly permissionDefault = 'ask' as const;
   readonly editsFiles = true;
   readonly description =
-    'Moves a file or folder to the trash. Refused when it contains files with unsaved changes in the editor.';
+    'Moves a file or folder to the trash. Refused when it contains files with unsaved changes in the editor. Outside the current window the user is always asked (access elevated); for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
   readonly parameters = {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path, relative to the workspace root or absolute.' },
+      access: ACCESS_PARAMETER,
     },
     required: ['path'],
   };
@@ -29,12 +29,6 @@ export class DeleteFileTool implements Tool {
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
     const resolved = resolvePath(readStringArg(input, 'path') ?? '');
     const fsPath = resolved.uri.fsPath;
-    const protectedPath = describeProtectedPath(resolved);
-
-    if (protectedPath) {
-      return protectedPathFailure(this.id, fsPath, protectedPath);
-    }
-
     const stat = await vscode.workspace.fs.stat(resolved.uri);
     const isDirectory = Boolean(stat.type & vscode.FileType.Directory);
 
@@ -45,6 +39,7 @@ export class DeleteFileTool implements Tool {
     await this.accessGuard.assertPath(this, 'delete', resolved, isDirectory, {
       detail: isDirectory ? 'Folder: everything inside it is moved to the trash.' : undefined,
       effects: [removalEffect(fsPath)],
+      access: readAccessArg(input),
       signal: context?.signal,
     });
     await vscode.workspace.fs.delete(resolved.uri, { recursive: isDirectory, useTrash: true });

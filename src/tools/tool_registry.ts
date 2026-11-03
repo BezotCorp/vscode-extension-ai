@@ -1,6 +1,7 @@
-import { PermissionError, ToolAccessProfile } from '../permissions';
+import { ToolAccessProfile } from '../permissions';
 import { Tool, ToolDefinition, UnavailableTool, ToolExecutionContext, ToolExecutionResult } from '.';
-import { toolErrorFromException, toolFailure } from './tool_result';
+import { toolFailure } from './tool_result';
+import { toolFailureFromException } from './tool_failure_from_exception';
 import { validateToolInput } from './tool_validation';
 
 export class ToolRegistry {
@@ -14,7 +15,12 @@ export class ToolRegistry {
 
   // Remembers a tool that is not offered, so the model can be told what it cannot do and why.
   markUnavailable(tool: ToolAccessProfile, reason: string): void {
-    this.unavailable.push({ id: tool.permissionKey ?? tool.id, name: tool.name, reason });
+    const id = tool.permissionKey ?? tool.id;
+
+    // A tool that several entries share (a file tool and its plural form) is reported once.
+    if (!this.unavailable.some((entry) => entry.id === id)) {
+      this.unavailable.push({ id, name: tool.name, reason });
+    }
   }
 
   unavailableTools(): UnavailableTool[] {
@@ -85,43 +91,9 @@ export class ToolRegistry {
     try {
       return await tool.execute(parsed.value, context);
     } catch (error) {
-      return failureFromException(tool, error, context);
+      return toolFailureFromException(tool, error, context);
     }
   }
-}
-
-function failureFromException(tool: Tool, error: unknown, context?: ToolExecutionContext): ToolExecutionResult {
-  if (error instanceof PermissionError) {
-    const resource = error.resource;
-
-    if (error.kind === 'no_decision') {
-      return toolFailure('cancelled', tool.id, resource, {
-        reason: error.reason,
-        message: error.message,
-        executed: false,
-        retryable: true,
-      });
-    }
-
-    return toolFailure('denied', tool.id, resource, {
-      reason: error.reason,
-      message: error.message,
-      executed: false,
-      retryable: false,
-      details: { decidedBy: error.kind === 'user_refused' ? 'user' : 'policy', ...error.details },
-    });
-  }
-
-  if (context?.signal?.aborted || (error as { name?: string } | null)?.name === 'AbortError') {
-    return toolFailure('cancelled', tool.id, undefined, {
-      reason: 'cancelled_by_user',
-      message: 'The operation was cancelled. If it had already started, it may have partially run.',
-      executed: tool.readOnlyCompatible ? false : 'unknown',
-      retryable: false,
-    });
-  }
-
-  return toolErrorFromException(tool.id, undefined, error, !tool.readOnlyCompatible);
 }
 
 function parseToolInput(input: unknown): { value?: unknown; error?: string } {

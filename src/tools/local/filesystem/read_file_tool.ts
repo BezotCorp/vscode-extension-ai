@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 
-import { findOpenDocument, ResolvedPath, resolvePath, sha256Hex, truncateText } from '../../../workspace';
+import { findOpenDocument, ResolvedPath, resolvePath, sha256Hex } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readNumberArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import { FileRead } from './file_read';
+import { deliverFileContent } from './deliver_file_content';
 import { FileVersionTracker } from './file_version_tracker';
 import { READ_MODE_DIRECT, ReadMode } from './read_mode';
 
@@ -69,23 +70,34 @@ export class ReadFileTool implements Tool {
       text = lines.slice(from, to).join('\n');
     }
 
-    const truncated = truncateText(text);
+    // The content goes through every limit before anything is remembered: what the tracker keeps is what the model gets.
+    const delivered = deliverFileContent(
+      text,
+      (truncated) =>
+        toolSuccess(this.id, fsPath, {
+          content: truncated.text,
+          details: {
+            source: read.source,
+            unsavedChanges: read.unsavedChanges,
+            totalLines: lines.length,
+            truncated: truncated.truncated,
+            ...(truncated.truncated && { originalLength: truncated.originalLength }),
+          },
+        }),
+      context?.maxResultChars,
+    );
 
-    return toolSuccess(this.id, fsPath, {
-      content: truncated.text,
-      details: {
-        source: read.source,
-        unsavedChanges: read.unsavedChanges,
-        totalLines: lines.length,
-        truncated: truncated.truncated,
-        ...(truncated.truncated && { originalLength: truncated.originalLength }),
-      },
-    });
+    // A file with unsaved changes is not on the filesystem: nothing is remembered for it.
+    if (!read.unsavedChanges) {
+      this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text);
+    }
+
+    return delivered.result;
   }
 
   // Reads the file and computes the SHA of the bytes read (see ReadMode). Permissions are the caller's business.
   // A file open with unsaved changes is read from the editor, as the AI must see what the user sees; that
-  // version is not on the filesystem, so no SHA is remembered for it.
+  // version is not on the filesystem, so nothing is remembered for it. What the AI receives is remembered by execute.
   async read(resolved: ResolvedPath, mode: ReadMode): Promise<FileRead> {
     const document = mode === READ_MODE_DIRECT ? findOpenDocument(resolved.uri) : undefined;
     const dirtyDocument = document?.isDirty ? document : undefined;
@@ -96,12 +108,9 @@ export class ReadFileTool implements Tool {
     const binary = bytes.subarray(0, 8000).includes(0);
     const sha = sha256Hex(bytes);
 
-    if (mode === READ_MODE_DIRECT && !buffered && !binary) {
-      this.versions.remember(resolved.uri.fsPath, sha);
-    }
-
     return {
       text: binary ? '' : new TextDecoder().decode(bytes),
+      bytes,
       sha,
       binary,
       source: buffered ? 'editor_buffer' : 'disk',

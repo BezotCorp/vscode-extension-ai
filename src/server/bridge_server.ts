@@ -1,10 +1,8 @@
 import * as http from 'node:http';
 
-import { PermissionStore } from '../permissions';
 import { MAX_BRIDGE_PORT_ATTEMPTS, VSCODE_PORT } from '../constants';
 import { handleActiveFile } from './active_file_handler';
 import { handleOpenFiles } from './open_files_handler';
-import { handlePatch } from './patch_handler';
 import { isLocalProgramRequest } from './request_guard';
 
 export type BridgeServerRuntime = {
@@ -13,7 +11,7 @@ export type BridgeServerRuntime = {
   dispose(): void;
 };
 
-export function createBridgeServer(store: PermissionStore): BridgeServerRuntime {
+export function createBridgeServer(): BridgeServerRuntime {
   const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
@@ -30,11 +28,6 @@ export function createBridgeServer(store: PermissionStore): BridgeServerRuntime 
 
     if (req.method === 'GET' && req.url === '/open-files') {
       handleOpenFiles(res);
-      return;
-    }
-
-    if (req.method === 'POST' && req.url === '/patch') {
-      handlePatch(req, res, store);
       return;
     }
 

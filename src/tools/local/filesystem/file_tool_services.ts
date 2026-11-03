@@ -1,9 +1,8 @@
-import { FileVersionTracker } from './file_version_tracker';
 import { WriteFilePipeline } from './write_file_pipeline';
 
-// What the file tools share for the whole life of the extension, beyond a single generation.
+// What the file tools share for the whole life of the extension, beyond a single generation: the persistent write
+// pipeline. What the model received of each file is not here: it is only true for one generation (see FileVersionTracker).
 export class FileToolServices {
-  readonly versions = new FileVersionTracker();
   readonly writes: WriteFilePipeline;
 
   constructor(storagePath: string) {

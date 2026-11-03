@@ -1,8 +1,9 @@
 import { getSelectedText, getWorkspaceFiles } from '../context';
 import {
+  CreateFilesTool,
   CreateFileTool,
+  DeleteFilesTool,
   DeleteFileTool,
-  EditFileTool,
   FileToolServices,
   GitAddTool,
   GitBranchCreateTool,
@@ -18,35 +19,53 @@ import {
   GitSwitchTool,
   GitUnstageTool,
   ListFilesTool,
+  MoveFilesTool,
   MoveFileTool,
+  ReadFilesTool,
   ReadFileTool,
   SearchTextTool,
+  UpdateFilesTool,
+  UpdateFileTool,
   WorkspaceTreeTool,
-  WriteFileTool,
 } from './local';
 import { SelectedTextTool } from './local/selection';
 import { WebFetchTool } from './remote';
+import { FileVersionTracker } from './local/filesystem/file_version_tracker';
 import { Tool } from './tool';
 import { ToolAccessGuard } from './tool_access_guard';
 import { ToolRegistry } from './tool_registry';
 
 // Every tool the extension itself provides. There is no tool that runs an arbitrary program or shell command:
 // what the AI can do is exactly this list plus the MCP tools the user configured.
-export function createBuiltInTools(accessGuard: ToolAccessGuard, files: FileToolServices): Tool[] {
-  // write_file is composed: it reads through read_file, the low-level tool.
-  const readFile = new ReadFileTool(accessGuard, files.versions);
+// `versions` is what the model received of the files during one generation; a new one is made for each.
+export function createBuiltInTools(
+  accessGuard: ToolAccessGuard,
+  files: FileToolServices,
+  versions = new FileVersionTracker(),
+): Tool[] {
+  // update_file is composed: it reads through read_file, the low-level tool. Each plural tool hands its files one by
+  // one to its singular tool and shares its permission.
+  const readFile = new ReadFileTool(accessGuard, versions);
+  const createFile = new CreateFileTool(accessGuard, versions);
+  const updateFile = new UpdateFileTool(accessGuard, readFile, versions, files.writes);
+  const deleteFile = new DeleteFileTool(accessGuard);
+  const moveFile = new MoveFileTool(accessGuard);
 
   return [
     readFile,
+    new ReadFilesTool(readFile),
     new ListFilesTool(accessGuard),
     new SearchTextTool(accessGuard),
     new SelectedTextTool(getSelectedText),
     new WorkspaceTreeTool(getWorkspaceFiles),
-    new CreateFileTool(accessGuard),
-    new EditFileTool(accessGuard),
-    new WriteFileTool(accessGuard, readFile, files.versions, files.writes),
-    new DeleteFileTool(accessGuard),
-    new MoveFileTool(accessGuard),
+    createFile,
+    new CreateFilesTool(createFile),
+    updateFile,
+    new UpdateFilesTool(updateFile),
+    deleteFile,
+    new DeleteFilesTool(deleteFile),
+    moveFile,
+    new MoveFilesTool(moveFile),
     new WebFetchTool(accessGuard),
     new GitStatusTool(accessGuard),
     new GitDiffTool(accessGuard),

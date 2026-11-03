@@ -3,7 +3,7 @@ export type UniqueMatch =
   | { kind: 'ambiguous'; count: number }
   | { kind: 'unique'; offset: number; oldText: string; newText: string };
 
-// Shared by edit_file and the patch workflow: the text must be found exactly once, never at a guessed position.
+// The text to change in update_file: must be found exactly once, never at a guessed position.
 // Models write line breaks as \n; a file saved with \r\n would never match, so retry once with the file's own breaks.
 export function findUniqueMatch(content: string, oldText: string, newText: string): UniqueMatch {
   const exact = locate(content, oldText, newText);

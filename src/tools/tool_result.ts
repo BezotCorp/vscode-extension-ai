@@ -1,6 +1,6 @@
 import { ToolExecutionResult, ToolStatus } from '.';
 
-const MAX_SERIALIZED_CHARS = 48_000;
+export const MAX_SERIALIZED_CHARS = 48_000;
 
 type SuccessFields = {
   content?: string;
@@ -74,16 +74,36 @@ export function toolErrorFromException(
   });
 }
 
-// What the model receives: one compact JSON object, only the fields that carry information.
-export function serializeToolResult(result: ToolExecutionResult, maxChars = MAX_SERIALIZED_CHARS): string {
-  const serialized = JSON.stringify(result);
+const CUT_MARKER = '\n/* content cut to fit the model context */';
 
-  if (serialized.length <= maxChars || !result.content) {
-    return serialized;
+// The result as the model will receive it. When the serialized result is too long, only its content is cut, and cut so
+// that the serialization fits `maxChars` exactly (the marker and the flag that tell about the cut are counted).
+// `kept` is how many characters of the original content remain in the result. A tool that remembers what the model
+// received calls this itself, before remembering, so that what it keeps is what the model gets; serializing the
+// result later cuts nothing more.
+export function fitToolResult(
+  result: ToolExecutionResult,
+  maxChars = MAX_SERIALIZED_CHARS,
+): { result: ToolExecutionResult; kept: number } {
+  const whole = result.content?.length ?? 0;
+
+  if (JSON.stringify(result).length <= maxChars || !result.content) {
+    return { result, kept: whole };
   }
 
-  const overflow = serialized.length - maxChars;
-  const content = `${result.content.slice(0, Math.max(result.content.length - overflow, 0))}\n/* content cut to fit the model context */`;
+  const cutWith = (kept: number): ToolExecutionResult => ({
+    ...result,
+    content: `${result.content?.slice(0, kept)}${CUT_MARKER}`,
+    details: { ...result.details, contentCutForContext: true },
+  });
+  // Each character removed from the content removes at least one character from the serialization.
+  const overflow = JSON.stringify(cutWith(whole)).length - maxChars;
+  const kept = Math.max(whole - overflow, 0);
 
-  return JSON.stringify({ ...result, content, details: { ...result.details, contentCutForContext: true } });
+  return { result: cutWith(kept), kept };
+}
+
+// What the model receives: one compact JSON object, only the fields that carry information.
+export function serializeToolResult(result: ToolExecutionResult, maxChars = MAX_SERIALIZED_CHARS): string {
+  return JSON.stringify(fitToolResult(result, maxChars).result);
 }

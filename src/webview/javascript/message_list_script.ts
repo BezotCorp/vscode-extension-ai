@@ -33,7 +33,6 @@ function addMessage(text, role) {
 function clearMessages() {
   messages.textContent = '';
   currentAssistantMessage = null;
-  patchPreviewContainer.textContent = '';
 }
 
 function restoreHistory(restoredMessages) {

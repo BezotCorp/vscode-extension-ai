@@ -1,10 +1,11 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { contentEffect } from '../../../permissions';
-import { resolvePath } from '../../../workspace';
+import { resolvePath, sha256Hex } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
-import { describeContent, readStringArg } from '../../tool_input';
+import { ACCESS_PARAMETER, describeContent, readAccessArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
+import { FileVersionTracker } from './file_version_tracker';
 
 export class CreateFileTool implements Tool {
   readonly id = 'create_file';
@@ -19,11 +20,15 @@ export class CreateFileTool implements Tool {
     properties: {
       path: { type: 'string', description: 'File path, relative to the workspace root or absolute.' },
       content: { type: 'string', description: 'Content of the new file.' },
+      access: ACCESS_PARAMETER,
     },
     required: ['path', 'content'],
   };
 
-  constructor(private readonly accessGuard: ToolAccessGuard) {}
+  constructor(
+    private readonly accessGuard: ToolAccessGuard,
+    private readonly versions: FileVersionTracker,
+  ) {}
 
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
     const content = (input as { content?: unknown } | null)?.content;
@@ -43,6 +48,7 @@ export class CreateFileTool implements Tool {
     await this.accessGuard.assertPath(this, 'create', resolved, false, {
       detail: describeContent(content),
       effects: [contentEffect(fsPath)],
+      access: readAccessArg(input),
       signal: context?.signal,
     });
 
@@ -56,6 +62,10 @@ export class CreateFileTool implements Tool {
     } finally {
       await handle.close();
     }
+
+    // There is no original to protect, so no safety copy: the usual write protections apply (permission, exclusive
+    // creation). The AI knows exactly what it wrote, so that is its context for a later update_file.
+    this.versions.remember(fsPath, sha256Hex(bytes), content, true);
 
     return toolSuccess(this.id, fsPath, {
       message: 'File created.',

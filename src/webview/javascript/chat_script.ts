@@ -1,6 +1,5 @@
 import { getContextPreviewScript } from './context_preview_script';
 import { getMessageListScript } from './message_list_script';
-import { getPatchPreviewScript } from '../patch_preview_script';
 import { getModelManagementScript } from './model_management_script';
 
 export function getChatScript(): string {
@@ -33,7 +32,6 @@ const contextPreviewSelectedText = document.getElementById('context-preview-sele
 const contextPreviewActiveFile = document.getElementById('context-preview-active-file');
 const contextPreviewOpenFiles = document.getElementById('context-preview-open-files');
 const contextPreviewWorkspaceFiles = document.getElementById('context-preview-workspace-files');
-const patchPreviewContainer = document.getElementById('patch-preview-container');
 
 let activeSessionId = undefined;
 let chatSessions = [];
@@ -41,8 +39,6 @@ let chatSessions = [];
 ${getMessageListScript()}
 
 ${getContextPreviewScript()}
-
-${getPatchPreviewScript()}
 
 ${getModelManagementScript()}
 
@@ -215,14 +211,6 @@ window.addEventListener('message', (event) => {
 
   if (msg.type === 'backendStatus') {
     updateBackendStatus(msg.status, msg.text, msg.backendUrl);
-  }
-
-  if (msg.type === 'patchPreviews') {
-    renderPatchPreviews(msg.previews);
-  }
-
-  if (msg.type === 'patchStatus') {
-    updatePatchStatus(msg.patchId, msg.status, msg.error);
   }
 
   if (msg.type === 'contextPreview') {

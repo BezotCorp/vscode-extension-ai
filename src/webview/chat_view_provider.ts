@@ -4,7 +4,6 @@ import { ChatManager } from '../chat/chat_manager';
 import { ChatStorage } from '../chat/chat_storage';
 import { McpManager } from '../mcp';
 import { ModelManager } from '../models/model_manager';
-import { PatchPreview } from '../patch/patch_preview';
 import { PermissionStore } from '../permissions';
 import { getChatHtml } from './html/chat_html';
 import { WebviewMessage } from '.';
@@ -18,7 +17,6 @@ import { WebviewMessageRouter } from './webview_message_router';
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private readonly chatManager: ChatManager;
   private readonly modelManager = new ModelManager();
-  private readonly patchPreviews = new Map<string, PatchPreview>();
   private readonly generationController: GenerationController;
   private readonly messageRouter: WebviewMessageRouter;
 
@@ -30,11 +28,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     files: FileToolServices,
   ) {
     this.chatManager = new ChatManager(new ChatStorage(storageUri));
-    this.generationController = new GenerationController(this.chatManager, this.patchPreviews, permissionStore, mcpManager, files);
+    this.generationController = new GenerationController(this.chatManager, permissionStore, mcpManager, files);
     this.messageRouter = new WebviewMessageRouter(
       this.chatManager,
       this.modelManager,
-      this.patchPreviews,
       this.generationController,
     );
   }
@@ -57,7 +54,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this.chatManager.load();
 
     sendChatStore(webviewView, this.chatManager);
-    this.messageRouter.showPatchPreviews(webviewView);
 
     await testConnection(webviewView);
     await sendModelState(webviewView, this.modelManager);

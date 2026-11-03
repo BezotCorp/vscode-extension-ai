@@ -1,5 +1,7 @@
 import { MAX_FILE_CHARS } from './workspace_limits';
 
+export const TRUNCATION_MARKER = '\n\n/* Content truncated by BezotCorp AI */';
+
 export type TruncatedText = {
   text: string;
   truncated: boolean;
@@ -12,7 +14,7 @@ export function truncateText(content: string, maxChars = MAX_FILE_CHARS): Trunca
   }
 
   return {
-    text: `${content.slice(0, maxChars)}\n\n/* Content truncated by BezotCorp AI */`,
+    text: `${content.slice(0, maxChars)}${TRUNCATION_MARKER}`,
     truncated: true,
     originalLength: content.length,
   };

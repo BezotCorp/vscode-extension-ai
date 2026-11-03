@@ -19,7 +19,7 @@ Security-sensitive settings (`autonomyMode`, `permissions`, `protectedPaths`, `m
 
 ### Local bridge
 
-The bridge listens on `127.0.0.1`. Requests carrying an `Origin` header, or a `Host` that is not a loopback name, are refused with 403 (browser pages and DNS rebinding). `/active-file` and `/open-files` leave out protected resources. `/patch` runs the `edit_file` tool, so the tool's permission, the autonomy mode, the confirmation dialog and the exact single-match rule apply; the request body is limited to 1 MB.
+The bridge listens on `127.0.0.1`. Requests carrying an `Origin` header, or a `Host` that is not a loopback name, are refused with 403 (browser pages and DNS rebinding). `/active-file` and `/open-files` leave out protected resources. There is no write endpoint: the former `/patch` was removed because a program outside the conversation has no read context, which `update_file` requires.
 
 ## Conversations
 
@@ -27,7 +27,7 @@ The bridge listens on `127.0.0.1`. Requests carrying an `Origin` header, or a `H
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | Session storage    | JSON persistence in `chat.json`                                                                     |
 | Session management | Multiple conversations and session switching                                                        |
-| Messages           | User and assistant messages; assistant messages keep their tool rounds and patch decisions          |
+| Messages           | User and assistant messages; assistant messages keep their tool rounds          |
 | Generation         | Progressive display and cancellation                                                                |
 | Persistence        | Write to `chat.json.tmp` then rename; errors are raised to the caller and shown to the user         |
 | Unreadable file    | A `chat.json` that cannot be read or has an unknown format is copied to `chat.unreadable-*.json`    |
@@ -48,7 +48,7 @@ The repository contains a provider abstraction, provider factory and model-manag
 - The context window is `bezotcorpAi.contextTokens` (default 16384), lowered to the model's own `context_length` read from Ollama `/api/show`, and sent as `num_ctx`.
 - Assuming 3 characters per token: earlier turns may take 40% of the window, the system prompt (selection and files) 40%, one tool result 25%, and tool traffic stops at 90% (the model is then made to answer).
 - When over budget the system prompt drops other open files first, then cuts the active file, then the selection. A turn whose tool results exceed the budget is kept as text only; the latest turn is cut rather than dropped.
-- Without tools, tool messages are not sent; the system prompt then states that the model has no tools and describes the `patch` block format.
+- Without tools, tool messages are not sent; the system prompt then states that the model has no tools and cannot change files.
 - With tools, the system prompt states that the model can only act through the listed tools, cannot run commands, scripts or tests, must say plainly what it cannot do and give the command for the user to run, and lists the tools that are not offered with the reason (read-only mode, denied, untrusted workspace).
 
 ## Workspace Context
@@ -67,20 +67,24 @@ The code also implements content limits and workspace path resolution. Path reso
 
 ## Built-in Tools
 
-Twenty-four built-in tools are created by `src/tools/default_tools.ts`. No tool runs a shell command, a script or an arbitrary program: the AI can do exactly what these tools and the configured MCP tools allow.
+Twenty-eight built-in tools are created by `src/tools/default_tools.ts`. No tool runs a shell command, a script or an arbitrary program: the AI can do exactly what these tools and the configured MCP tools allow.
 
 | Tool                  | Operation                                                       | Default |
 | --------------------- | --------------------------------------------------------------- | ------- |
 | `read_file`           | Read file content                                               | allow   |
+| `read_files`          | `read_file` for several files (plural form, see below)          | allow   |
 | `list_files`          | List filesystem entries                                         | allow   |
 | `search_text`         | Search file content (skips protected and unreadable files)      | allow   |
 | `selectedText`        | Read selected editor text                                       | allow   |
 | `workspaceTree`       | Retrieve workspace structure                                    | allow   |
 | `create_file`         | Create a file                                                   | ask     |
-| `edit_file`           | Replace one exact piece of text that appears once               | ask     |
-| `write_file`          | Replace the whole content of a file                             | ask     |
+| `create_files`        | `create_file` for several files                                 | ask     |
+| `update_files`        | `update_file` for several files                                 | ask     |
+| `update_file`         | Change an existing file: one exact piece of text, or the whole content | ask |
 | `delete_file`         | Move a file or folder to the trash                              | ask     |
+| `delete_files`        | `delete_file` for several files                                 | ask     |
 | `move_file`           | Move a file or folder, with a single confirmation               | ask     |
+| `move_files`          | `move_file` for several files                                   | ask     |
 | `web_fetch`           | Fetch remote content                                            | ask     |
 | `git_status`          | Branch and changed, staged and untracked files                  | allow   |
 | `git_diff`            | Unstaged, staged or revision diff, optionally per path          | allow   |
@@ -102,13 +106,17 @@ The tool infrastructure includes registration (with the tools left out and why),
 
 `src/tools/local/git/` holds one class per tool on a common base. The only program started is `git`, without a shell, with arguments built by the tool from validated parameters: revisions and branch names cannot start with `-` and revisions cannot contain `:`; remotes are configured remote names (no URL); paths must lie inside the repository and are passed as literal pathspecs after `--`; counts and message sizes are bounded; there is no raw argument, no force, no amend, no `-a`, no reset, rebase, merge or stash. Every command is preceded by options that disable the file system monitor, the pager and external protocol helpers, and runs without any prompt (`GIT_TERMINAL_PROMPT=0`, no editor, SSH in batch mode) with a reduced environment. `git_diff` and `git_show` leave protected files out through exclude pathspecs, and disable external diff drivers and textconv. `git_commit` refuses an empty index and shows the staged files in its dialog. Output is bounded; timeouts, cancellation and non-zero exits are reported with whether the command may have partly run. Repository hooks run on commit. Git tools need a trusted workspace. In a multi-root workspace the `folder` parameter names the repository.
 
-### `edit_file`
+### Levels of access
 
-Reads the file through the guard first (a match reveals content), requires `old_text` to match exactly once (CRLF tolerated, BOM kept), shows the change as a diff in the permission dialog, checks that the file is unchanged after the dialog, then edits through `WorkspaceEdit` for open files or on disk otherwise. Files with unsaved changes are refused.
+The runtime works out the level an operation needs from its paths (`ToolAccessGuard.accessFor`); the model only announces one in the optional `access` argument of `create_file`, `update_file`, `delete_file` and `move_file`, and so of their plural tools, which add no rule of their own (`AccessRequest`: `normal`, `elevated`, or `critical` with a `reason`).
 
-### Hard protections
+| Level      | When                                                                                                                                                                                                  | Behavior                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `normal`   | A path inside the current window (the folders the interface has open) | The ordinary permission and autonomy rules |
+| `elevated` | A path outside the current window that is not critical | Always an explicit confirmation; never covered by `allow`, `acceptEdits` or `auto` |
+| `critical` | Creating, writing, moving or deleting a critical target: a folder of the current window or one of its parents, the home folder or one of its parents (including the root), `.git` of such a folder and everything below it, or a system location (`src/workspace/critical_path.ts`), even inside the current window or the home folder. Reading and searching are never critical | A non-empty reason from the AI, then a strong confirmation each time (Yes or No only), in every autonomy mode; no permanent permission suffices |
 
-`delete_file` and `move_file` refuse the workspace folders and their parents, the home folder and its parents, and `.git` of a workspace folder, in every autonomy mode.
+The current window is the perimeter the user has open; a structural workspace (Cargo, monorepo) is only information and grants nothing. An announcement lower than the real level is not an error: the real level applies and the user is asked if needed, without going back to the model (so `normal` announced for an `elevated` operation costs no extra model round). A `critical` operation without a non-empty reason is refused before any effect with reason `critical_justification_required`, a result the model can correct by calling again with `access: {"kind":"critical","reason":"..."}`; it is the one case that needs another model round. The dialog shows the exact action, the targets, why the location is critical, the AI's reason and a warning written by the extension. Deny decisions, read-only mode, trust and refusals earlier in the answer still apply first. A refused action returns `user_refused` for that action only; the rest of the answer goes on.
 
 ### Model and Tool Interaction
 
@@ -122,20 +130,22 @@ Reads the file through the guard first (a match reveals content), requires `old_
 
 The loop limits rounds (8) and calls per response (8), stops on cancellation between rounds and between calls, blocks repetition of calls with an uncertain outcome, caps the size of each result, and reports every round (also an interrupted one) so it can be stored.
 
-### Patch workflow and `edit_file`
+### `update_file`, `create_file` and the plural tools
 
-Both use the same exact single-match search (`src/patch/unique_match.ts`). Patch blocks are parsed without trimming, applied to the matched range only through `WorkspaceEdit`, and resolved with `resolvePath`. Patch ids derive from the content, accepted and rejected decisions are stored in the assistant message, and the previews of the last response are restored when a conversation is shown again. A patch being applied cannot be applied twice. Accepting a patch is the user's own decision and does not go through tool permissions.
+`update_file` is the only operation that changes an existing file. The AI gives `path` with either `old_text` and `new_text` (one exact piece of text that appears once, CRLF tolerated, BOM kept) or `content` (the whole file). The former patch workflow (fenced `patch` blocks, preview, accept/reject, separate application) no longer exists: what produced the change lives here, the exact single-match search (`unique_match.ts`) and the diff (`diff_builder.ts`). Both forms become the same thing, the projection: the exact bytes the file must contain afterwards. Then one chain applies: read through `read_file` in composed mode, check the context the AI worked from, permission with the diff of the projection, revalidation after the dialog (same file, same projection, no unsaved changes), then the persistent pipeline.
 
-### `read_file` and `write_file`
+`read_file` is the low-level tool. It computes the SHA-256 of the bytes it read; the SHAs stay internal (`FileVersionTracker`) and are never sent to the model. It has an internal binary mode (`src/tools/local/filesystem/read_mode.ts`): `0` for a direct call by the AI, `1` for a call from a composed tool, which reads the filesystem and remembers nothing. A file open with unsaved changes is read from the editor and nothing is remembered for it.
 
-`read_file` is the low-level tool and `write_file` a composed tool built on it. `read_file` computes the SHA-256 of the bytes it read; the SHA stays internal (`FileVersionTracker`) and is never sent to the model. It has an internal binary mode (`src/tools/local/filesystem/read_mode.ts`): `0` for a direct call by the AI, which remembers the version the AI received, `1` for a call from a composed tool, which reads the filesystem and remembers nothing. A file open with unsaved changes is read from the editor and no SHA is remembered for it.
+Two roles for SHAs:
 
-`write_file` starts by reading the file in mode `1` and compares its SHA with the version the AI received.
+1. Is the context injected into the AI still true? A direct `read_file` remembers the SHA of the whole file and the part the AI really received. The tool applies every limit (the size of a file, then the size of the whole result, known from `ToolExecutionContext.maxResultChars`) before remembering anything, so what is kept is what is in the result (`deliverFileContent`, `fitToolResult`); a part is cut on whole lines. The tracker lives for one generation: earlier turns reach the model cut down or not at all, so a file read in an earlier turn must be read again. The whole-file SHA is a fast path, valid only when the AI received the entire file. Otherwise a local change goes on only if a part the AI received (not the whole file) is still, as received, in the current file and holds the place of the change; `old_text` only says where the change goes. A whole replacement needs the entire file, current. If the context is no longer valid, nothing is written, no safety copy is made, no persistent operation starts, and the current content is returned to the model, which then holds that version. `max_retry = 2`: the initial attempt and two retries; a conflict after the second retry stops the operation for good, the user is told by a VS Code warning and the result carries a structured `update_file_stopped` event, stored with the conversation turn. After a successful update the AI knows the whole new file if its whole context was valid, otherwise the part it worked from, with its own change in it. After `create_file` it knows the content it wrote.
+2. Is the written file what was intended? The SHA of the projected bytes is the expected SHA of the pipeline: projection, expected SHA, write, read back, real SHA. It is never exposed to the AI.
 
-- Different, or never read: nothing is written, no safety copy is made, no persistent operation starts, and the current content is returned to the model, which then holds that version. `max_retry = 2`: the initial attempt and two retries; a conflict after the second retry stops the operation for good. The user is then told by a VS Code warning produced by the extension, and the result carries a structured `write_file_stopped` event (cause, final state `no_change_applied`, user informed, current content, do not repeat the previous attempt blindly, decide from the current state), stored with the conversation turn.
-- Identical: the new content is projected in memory as exact bytes and its SHA becomes the reference for the result. The check is repeated after the permission dialog.
+`create_file` has no original to protect, so no safety copy and no pipeline: the permission, protected paths and exclusive creation (`wx`) are its protections.
 
-The persistent part is a state machine stored in SQLite (`src/state_machine/`, `StateMachine`, `StateMachineDatabase`), not tied to `write_file`: a definition (initial state and allowed transitions), a record per operation with its identity, resume data, payload, owning process and one `state`, transitions checked against the definition and applied only from the state that was read. The database is `file-operations.sqlite` in the extension's global storage and uses `node:sqlite`. `write_file` is its first use, with the 13 states `ready_to_copy` to `restore_failed` and the transitions of its specification, plus `update_failed -> restore_file` when the write may have started (`src/tools/local/filesystem/write_file_machine.ts`). `WriteFilePipeline` runs one step per state: safety copy (checked against the SHA of the original), write (refused if the file is neither the original nor already the projected content), integrity check (SHA of the file read back against the projected SHA), restoration from the copy checked against the original SHA. The copy is deleted at the end except after `restore_failed`, where the user is told where it is. At activation, operations left unfinished by a process that is gone are resumed from their last state and the user is told.
+The persistent part is a state machine stored in SQLite (`src/state_machine/`, `StateMachine`, `StateMachineDatabase`), not tied to one tool: a definition (initial state and allowed transitions), a record per operation with its identity, resume data, payload, owning process and one `state`, transitions checked against the definition and applied only from the state that was read. The database is `file-operations.sqlite` in the extension's global storage and uses `node:sqlite`. `update_file` is its first use, with the 13 states `ready_to_copy` to `restore_failed` and the transitions of its specification, plus `update_failed -> restore_file` when the write may have started (`src/tools/local/filesystem/write_file_machine.ts`; the pipeline and its kind keep their `write_file` name: they are the physical write). `WriteFilePipeline` runs one step per state: safety copy (checked against the SHA of the original), write (refused if the file is neither the original nor already the projected content), integrity check (SHA of the file read back against the projected SHA), restoration from the copy checked against the original SHA. The copy is deleted at the end except after `restore_failed`, where the user is told where it is. At activation, operations left unfinished by a process that is gone are resumed from their last state and the user is told.
+
+Plural tools (`read_files`, `create_files`, `update_files`, `move_files`, `delete_files`, `BatchFileTool`) take `files`, a list of up to 20 objects with the arguments of the singular tool, and call it for each item in order. They share the singular tool's permission identity (listed once in the manager) and add nothing to what happens to a file. There is no global transaction: an item that fails does not stop the others, and the result lists every outcome in `details.results` (`partial_failure` or `all_failed` when not all succeeded). The whole result must fit one limit, so each item gets an equal share of what is left once the wrapper is counted; all the items are handled in one tool call, in one model round, with no model call between them.
 
 ## MCP Integration
 
@@ -167,14 +177,14 @@ A `deny` at any scope wins; otherwise the most specific scope decides (session, 
 | ------------ | ------------- | -------------------------------------------------------------------------------------------- |
 | Read-only    | `readOnly`    | Only tools that cannot change anything are offered                                           |
 | Confirmation | `confirm`     | A tool asks unless it is allowed                                                             |
-| Accept edits | `acceptEdits` | File-changing tools go ahead inside the workspace; everything else follows its decision      |
-| Automatic    | `auto`        | Nothing asks, except tools explicitly set to `ask`                                           |
+| Accept edits | `acceptEdits` | File-changing tools go ahead inside the current window; everything else follows its decision |
+| Automatic    | `auto`        | Ordinary operations do not ask inside the current window; explicit `ask`, protected resources, elevated and critical operations still ask |
 
 `deny` applies in every mode.
 
 ### Order of evaluation
 
-Workspace trust (git and MCP tools), `deny`, read-only mode, refusals earlier in the same answer, protected resources (always asked, in every mode, never covered by `allow`) and paths outside the workspace (asked, never covered by `allow`; the automatic mode lets them through), explicit `ask`, `allow`, the autonomy mode, then the dialog.
+Workspace trust (git and MCP tools), `deny`, read-only mode, refusals earlier in the same answer, critical operations (reason required, then a confirmation each time), protected resources (always asked, in every mode, never covered by `allow`) and paths outside the current window (always asked, covered by neither `allow`, `acceptEdits` nor `auto`), explicit `ask`, `allow`, the autonomy mode, then the dialog.
 
 ### Protected resources
 
@@ -182,16 +192,12 @@ Built-in patterns (`.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `id_rsa
 
 ### Dialog and manager
 
-- At a call, the dialog states what the tool wants to do, shows the detail (diff for `edit_file`, staged files for `git_commit`, destination for a move, body description for a request), and offers Yes, "Yes, for this session", "Yes, in this workspace", "Yes, always" and No. When a standing decision would not apply (protected resource, outside the workspace, tool set to ask), only Yes and No are offered. After No, an input box lets the user tell the AI what to do instead. Tool-provided detail is sanitized line by line and bounded. A closed dialog is reported to the model as "no decision", not as a refusal.
+- At a call, the dialog states what the tool wants to do, shows the detail (diff for `update_file`, staged files for `git_commit`, destination for a move, body description for a request), and offers Yes, "Yes, for this session", "Yes, in this workspace", "Yes, always" and No. When a standing decision would not apply (protected resource, outside the current window, tool set to ask), only Yes and No are offered. After No, an input box lets the user tell the AI what to do instead. Tool-provided detail is sanitized line by line and bounded. A closed dialog is reported to the model as "no decision", not as a refusal.
 - `BezotCorp AI: Manage Permissions` lists every tool (built-in by group, MCP by server) with its effective decision and where it comes from; a tool can be set to allow, ask, deny or back to its default at session, workspace or global scope, and decisions can be reset per scope. The same dialog opens the protected paths setting. `BezotCorp AI: Revoke All Permissions` clears the three scopes; `BezotCorp AI: Open Permission Settings` opens the setting.
 
 ### Refusals
 
 A refusal is kept for the answer, keyed by effect: file tools share `content:` and `removal:` keys per path, `web_fetch` a `net:` key per host, other tools their own identity and resources. The model is told not to retry or reach the same effect another way.
-
-## Patch Workflow
-
-The repository implements patch detection, preview, diff rendering, acceptance, rejection and application through VS Code workspace edits; see the section above for matching, persistence and deny rules.
 
 ## Documentation and Delivery
 

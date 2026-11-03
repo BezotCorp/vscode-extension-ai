@@ -1,7 +1,6 @@
 export type WebviewMessage = {
   type: string;
   text?: string;
-  patchId?: string;
   sessionId?: string;
   title?: string;
   model?: string;

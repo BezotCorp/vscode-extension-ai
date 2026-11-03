@@ -6,7 +6,6 @@ import type { ChatRole } from '../chat/chat_role';
 import { closingText } from '../chat/message_text';
 import { getExtensionConfig } from '../config/extension_config';
 import { buildChatContext } from '../context/context_builder';
-import { PatchPreview } from '../patch/patch_preview';
 import { ChatHistoryMessage } from '../providers/ai_provider';
 import { createProvider } from '../providers/provider_factory';
 import { McpManager } from '../mcp';
@@ -14,7 +13,6 @@ import { PermissionStore } from '../permissions';
 import { createDefaultToolRegistry, FileToolServices, ToolAccessGuard, ToolRegistry, ToolRound } from '../tools';
 import { ContextOptions } from './context_options';
 import { sendChatStore } from './chat_store_presenter';
-import { detectAndSendPatchPreviews } from './patch_preview_controller';
 import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
 
 const MAX_HISTORY_MESSAGES = 40;
@@ -31,7 +29,6 @@ export class GenerationController {
 
   constructor(
     private readonly chatManager: ChatManager,
-    private readonly patchPreviews: Map<string, PatchPreview>,
     permissionStore: PermissionStore,
     private readonly mcpManager: McpManager,
     private readonly files: FileToolServices,
@@ -145,14 +142,12 @@ export class GenerationController {
       if (assistantText.trim() || toolRounds.length > 0) {
         await this.remember('assistant', assistantText, toolRounds);
         sendChatStore(webviewView, this.chatManager);
-        detectAndSendPatchPreviews(webviewView, this.patchPreviews, assistantText);
       }
     } catch (error) {
       if (abortController.signal.aborted) {
         if (assistantText.trim() || toolRounds.length > 0) {
           await this.remember('assistant', assistantText, toolRounds);
           sendChatStore(webviewView, this.chatManager);
-          detectAndSendPatchPreviews(webviewView, this.patchPreviews, assistantText);
         }
 
         webviewView.webview.postMessage({
