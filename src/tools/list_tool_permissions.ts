@@ -1,3 +1,4 @@
+import { isMessageKey, t } from '../i18n';
 import { McpManager } from '../mcp';
 import { ToolPermissionInfo } from '../permissions';
 import { createBuiltInTools } from './default_tools';
@@ -14,20 +15,31 @@ export async function listToolPermissions(
   const builtIn = createBuiltInTools(accessGuard, files)
     .filter((tool) => tool.permissionKey === undefined || tool.permissionKey === tool.id)
     .map((tool) => ({
-    id: tool.permissionKey ?? tool.id,
-    name: tool.id,
-    description: tool.description,
-    group: tool.id.startsWith('git_') ? 'Git' : tool.id === 'web_fetch' ? 'Network' : 'Files and workspace',
-    defaultPolicy: tool.permissionDefault,
-  }));
-  const order = ['Files and workspace', 'Git', 'Network'];
+      id: tool.permissionKey ?? tool.id,
+      name: tool.id,
+      // The summary is shown to the user in their language; the tool's own description is written for the model.
+      description: summarize(tool.id, tool.description),
+      group: tool.id.startsWith('git_')
+        ? t('group.git')
+        : tool.id === 'web_fetch'
+          ? t('group.network')
+          : t('group.files'),
+      defaultPolicy: tool.permissionDefault,
+    }));
+  const order = [t('group.files'), t('group.git'), t('group.network')];
   const mcp = (await mcpManager.describeTools()).map((tool) => ({
     id: tool.permissionKey,
     name: tool.name,
     description: tool.description,
-    group: `MCP: ${tool.server}`,
+    group: t('group.mcp', { server: tool.server }),
     defaultPolicy: 'ask' as const,
   }));
 
   return [...builtIn.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group)), ...mcp];
+}
+
+function summarize(toolId: string, fallback: string): string {
+  const key = `toolSummary.${toolId}`;
+
+  return isMessageKey(key) ? t(key) : fallback;
 }

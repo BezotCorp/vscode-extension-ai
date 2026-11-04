@@ -33,7 +33,11 @@ export function readBranchName(input: unknown, key: string): string | undefined 
   }
 
   const valid =
-    value.length <= 100 && NAME.test(value) && !value.includes('..') && !value.endsWith('/') && !value.endsWith('.lock');
+    value.length <= 100 &&
+    NAME.test(value) &&
+    !value.includes('..') &&
+    !value.endsWith('/') &&
+    !value.endsWith('.lock');
 
   return valid ? value : new Error(`"${key}" is not a valid branch name.`);
 }
@@ -42,7 +46,9 @@ export function readBranchName(input: unknown, key: string): string | undefined 
 export function readRemote(input: unknown, key: string): string | Error {
   const value = readStringArg(input, key) ?? 'origin';
 
-  return value.length <= 100 && REMOTE.test(value) ? value : new Error(`"${key}" must be the name of a configured remote.`);
+  return value.length <= 100 && REMOTE.test(value)
+    ? value
+    : new Error(`"${key}" must be the name of a configured remote.`);
 }
 
 export function readCount(input: unknown, key: string, fallback: number, max: number): number | Error {

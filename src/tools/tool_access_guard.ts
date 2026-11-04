@@ -7,57 +7,84 @@ import {
   PermissionCapability,
   PermissionError,
   PermissionRequest,
-  PermissionScope,
   PermissionStore,
   sanitizeForPrompt,
   ToolAccessProfile,
 } from '../permissions';
-import { describeCriticalPath, ResolvedPath } from '../workspace';
+import {
+  describeCriticalPath,
+  ResolvedPath,
+  StructuralWorkspace,
+} from '../workspace';
+import { MessageKey, t } from '../i18n';
 import { GuardOptions } from './guard_options';
 
 const MAX_DETAIL_LINES = 24;
 const MAX_DETAIL_LINE_CHARS = 200;
 
-const ALLOW_ONCE = 'Yes';
-const ALLOW_SESSION = 'Yes, for this session';
-const ALLOW_WORKSPACE = 'Yes, in this workspace';
-const ALLOW_ALWAYS = 'Yes, always';
-const DENY = 'No';
-
-const REMEMBER_SCOPES: Record<string, PermissionScope> = {
-  [ALLOW_SESSION]: 'session',
-  [ALLOW_WORKSPACE]: 'workspace',
-  [ALLOW_ALWAYS]: 'global',
+// The dialog buttons are read when a dialog opens, in the language VS Code is displayed in. The answer is compared
+// with the same labels, so a button is always recognised.
+const buttons = {
+  get allowOnce() { return t('dialog.button.yes'); },
+  get allowToolCurrentSession() { return t('dialog.button.toolCurrent'); },
+  get allowToolAllSessions() { return t('dialog.button.toolAll'); },
+  get allowResourcesCurrentSession() { return t('dialog.button.resourcesCurrent'); },
+  get allowResourcesAllSessions() { return t('dialog.button.resourcesAll'); },
+  get allowWorkspaceCurrentSession() { return t('dialog.button.workspaceCurrent'); },
+  get allowWorkspaceAllSessions() { return t('dialog.button.workspaceAll'); },
+  get deny() { return t('dialog.button.no'); },
 };
 
-const ACTION_LABELS: Record<PermissionCapability, string> = {
-  read: 'read',
-  search: 'search',
-  create: 'create',
-  write: 'modify',
-  delete: 'delete',
-  move: 'move',
+// English verbs of the action the model reads (the dialog has its own, translated).
+const ACTION_LABELS:
+  Record<PermissionCapability, string> = {
+    read: 'read',
+    search: 'search',
+    create: 'create',
+    write: 'modify',
+    delete: 'delete',
+    move: 'move',
+  };
+
+// What the model reads about a refusal that comes from a stored decision: stable English, not a UI label.
+const LIFETIME_FOR_MODEL = {
+  currentSession: 'current session',
+  allSessions: 'all sessions',
+} as const;
+
+// `describeCriticalPath` answers in English because the model reads it too; the dialog shows it translated.
+const CRITICAL_REASON_KEYS: Record<string, MessageKey> = {
+  'the home folder or one of its parents': 'critical.home',
+  'a folder of the current window or one of its parents': 'critical.window',
+  'the repository metadata (.git)': 'critical.git',
+  'a system location': 'critical.system',
 };
 
-// Single gate for every tool operation. Decisions only come from the dialog below and the permission manager,
-// never from tool input or output. A tool is controlled by its identity: the decision kept for it (deny at any
-// scope, otherwise the most specific scope) or, failing that, its default. Three things are never covered by an
-// allow decision: a path outside the current window (elevated access), a protected resource (credentials, keys, .git),
-// and a critical location (strong confirmation each time). None of them is let through by any autonomy mode,
-// `auto` included.
+function criticalReasonForUser(why: string | undefined): string {
+  const key = why === undefined ? undefined : CRITICAL_REASON_KEYS[why];
+
+  return key ? t(key) : (why ?? '');
+}
+
+// Tool permission and filesystem-resource permission are separate.
 //
-// The level of access an operation needs is worked out here from its paths, never taken from the model: the model
-// announces one in its call, but the announcement only matters for a critical operation, where it must carry a
-// reason. An announcement that is too low is not an error: the real level is applied and, if it needs an answer from
-// the user, the user is asked, without going back to the model.
+// The folders explicitly opened in the current VS Code window are the implicit
+// filesystem perimeter. A Cargo/pnpm/Node workspace detected around them is only
+// structural information: it never grants access by itself.
+//
+// A user may explicitly grant one tool access to an exact resource, a directory
+// or a detected structural workspace for the current session or all sessions.
+//
+// Protected and critical resources never inherit remembered resource grants.
 export class ToolAccessGuard {
-  // Effects the user explicitly refused during this generation, with a description of the refusal.
-  // A guard lives for one generation (see GenerationController), so a new user message starts with a clean slate.
-  private readonly refusedEffects = new Map<string, string>();
+  private readonly refusedEffects =
+    new Map<string, string>();
 
   constructor(
-    private readonly store: PermissionStore,
-    private readonly getMode: () => AutonomyMode,
+    private readonly store:
+      PermissionStore,
+    private readonly getMode:
+      () => AutonomyMode,
   ) {}
 
   get mode(): AutonomyMode {
@@ -70,33 +97,60 @@ export class ToolAccessGuard {
     isDirectory: boolean,
     options: GuardOptions = {},
   ): Promise<void> {
-    await this.assertPath(tool, 'read', resolved, isDirectory, options);
+    await this.assertPath(
+      tool,
+      'read',
+      resolved,
+      isDirectory,
+      options,
+    );
   }
 
   async assertPath(
     tool: ToolAccessProfile,
-    capability: PermissionCapability,
+    capability:
+      PermissionCapability,
     resolved: ResolvedPath,
     isDirectory = false,
     options: GuardOptions = {},
   ): Promise<void> {
-    const fsPath = resolved.uri.fsPath;
+    const fsPath =
+      resolved.uri.fsPath;
 
     await this.authorize(
       {
         tool,
-        action: `${ACTION_LABELS[capability]} ${isDirectory ? 'folder' : 'file'} ${sanitizeForPrompt(fsPath)}`,
-        resources: [fsPath],
-        inPerimeter: resolved.insideCurrentWindow,
+        action:
+          `${ACTION_LABELS[capability]} ` +
+          `${isDirectory ? 'folder' : 'file'} ` +
+          sanitizeForPrompt(fsPath),
+
+        actionLabel:
+          t(
+            `action.${capability}.${isDirectory ? 'folder' : 'file'}`,
+            { path: sanitizeForPrompt(fsPath) },
+          ),
+
+        resources: [
+          this.permissionResource(
+            resolved,
+            isDirectory,
+          ),
+        ],
+
         detail: options.detail,
         effects: options.effects,
-        access: this.accessFor(capability, [resolved], options.access),
+
+        access: this.accessFor(
+          capability,
+          [resolved],
+          options.access,
+        ),
       },
       options.signal,
     );
   }
 
-  // One question for a move, not one per end: both paths are part of the same operation.
   async assertMove(
     tool: ToolAccessProfile,
     source: ResolvedPath,
@@ -107,169 +161,512 @@ export class ToolAccessGuard {
     await this.authorize(
       {
         tool,
-        action: `move ${isDirectory ? 'folder' : 'file'} ${sanitizeForPrompt(source.uri.fsPath)}`,
-        resources: [source.uri.fsPath, destination.uri.fsPath],
-        inPerimeter: source.insideCurrentWindow && destination.insideCurrentWindow,
-        detail: [`Destination: ${sanitizeForPrompt(destination.uri.fsPath)}`, options.detail]
+
+        action:
+          `move ${isDirectory ? 'folder' : 'file'} ` +
+          sanitizeForPrompt(
+            source.uri.fsPath,
+          ),
+
+        actionLabel:
+          t(
+            `action.move.${isDirectory ? 'folder' : 'file'}`,
+            { path: sanitizeForPrompt(source.uri.fsPath) },
+          ),
+
+        resources: [
+          this.permissionResource(
+            source,
+            isDirectory,
+          ),
+          this.permissionResource(
+            destination,
+            isDirectory,
+          ),
+        ],
+
+        detail: [
+          t('detail.destination', {
+            path:
+              sanitizeForPrompt(
+                destination.uri.fsPath,
+              ),
+          }),
+          options.detail,
+        ]
           .filter(Boolean)
           .join('\n'),
+
         effects: options.effects,
-        access: this.accessFor('move', [source, destination], options.access),
+
+        access: this.accessFor(
+          'move',
+          [source, destination],
+          options.access,
+        ),
       },
       options.signal,
     );
   }
 
-  // The level the operation really needs. Reading never is critical; changing, creating, deleting or moving can be.
-  // The current window is only the perimeter the user opened: a structural workspace (Cargo, monorepo...) around it
-  // grants nothing, so going outside the window is elevated whatever the project structure says.
+  private permissionResource(
+    resolved: ResolvedPath,
+    isDirectory: boolean,
+  ): PermissionRequest['resources'][number] {
+    const fsPath =
+      resolved.uri.fsPath;
+
+    if (
+      resolved.insideCurrentWindow
+    ) {
+      return {
+        path: fsPath,
+        isDirectory,
+
+        boundary: {
+          kind: 'currentWindow',
+
+          root:
+            resolved.currentWindowRoot ??
+            fsPath,
+        },
+      };
+    }
+
+    if (
+      resolved.structuralWorkspace
+    ) {
+      return {
+        path: fsPath,
+        isDirectory,
+
+        boundary: {
+          kind:
+            'structuralWorkspace',
+
+          workspace:
+            resolved.structuralWorkspace,
+        },
+      };
+    }
+
+    return {
+      path: fsPath,
+      isDirectory,
+      boundary: {
+        kind: 'external',
+      },
+    };
+  }
+
   private accessFor(
-    capability: PermissionCapability,
+    capability:
+      PermissionCapability,
     paths: ResolvedPath[],
     announced?: AccessRequest,
-  ): NonNullable<PermissionRequest['access']> {
+  ): NonNullable<
+    PermissionRequest['access']
+  > {
     const whyCritical =
-      capability === 'read' || capability === 'search'
+      capability === 'read' ||
+      capability === 'search'
         ? undefined
-        : paths.map(describeCriticalPath).find((why) => why !== undefined);
+        : paths
+            .map(
+              describeCriticalPath,
+            )
+            .find(
+              (why) =>
+                why !== undefined,
+            );
 
-    if (whyCritical !== undefined) {
-      return { required: 'critical', announced, whyCritical };
+    if (
+      whyCritical !== undefined
+    ) {
+      return {
+        required: 'critical',
+        announced,
+        whyCritical,
+      };
     }
 
-    return { required: paths.every((path) => path.insideCurrentWindow) ? 'normal' : 'elevated', announced };
+    return {
+      required:
+        paths.every(
+          (candidate) =>
+            candidate
+              .insideCurrentWindow,
+        )
+          ? 'normal'
+          : 'elevated',
+
+      announced,
+    };
   }
 
-  // Why a tool is not offered to the model right now, if it is not.
-  unavailableReason(tool: ToolAccessProfile): string | undefined {
-    if (tool.requiresTrust && !vscode.workspace.isTrusted) {
-      return 'the workspace is not trusted';
+  unavailableReason(
+    tool: ToolAccessProfile,
+  ): string | undefined {
+    if (
+      tool.requiresTrust &&
+      !vscode.workspace.isTrusted
+    ) {
+      return (
+        'the workspace is not trusted'
+      );
     }
 
-    if (this.getMode() === 'readOnly' && !tool.readOnlyCompatible) {
-      return 'the autonomy mode is read-only';
+    if (
+      this.getMode() ===
+        'readOnly' &&
+      !tool.readOnlyCompatible
+    ) {
+      return (
+        'the autonomy mode is read-only'
+      );
     }
 
-    return this.store.resolve(tool.permissionKey ?? tool.id)?.policy === 'deny'
-      ? 'denied by the user in the permission settings'
-      : undefined;
+    return (
+      this.store.resolve(
+        tool.permissionKey ??
+          tool.id,
+      )?.policy === 'deny'
+        ? 'denied by the user in the permission settings'
+        : undefined
+    );
   }
 
-  // Paths that stay out of listings, searches, the context and git output unless the user is asked.
-  isProtected(fsPath: string): boolean {
-    return isProtectedResource(fsPath) !== undefined;
+  isProtected(
+    fsPath: string,
+  ): boolean {
+    return (
+      isProtectedResource(
+        fsPath,
+      ) !== undefined
+    );
   }
 
-  async authorize(request: PermissionRequest, signal?: AbortSignal): Promise<void> {
-    const { tool } = request;
-    const key = tool.permissionKey ?? tool.id;
-    const mode = this.getMode();
+  async authorize(
+    request: PermissionRequest,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const tool =
+      request.tool;
 
-    if (tool.requiresTrust && !vscode.workspace.isTrusted) {
+    const key =
+      tool.permissionKey ??
+      tool.id;
+
+    const mode =
+      this.getMode();
+
+    const firstResource =
+      request.resources[0]?.path;
+
+    if (
+      tool.requiresTrust &&
+      !vscode.workspace.isTrusted
+    ) {
       throw new PermissionError(
         'policy',
         'workspace_untrusted',
         `The workspace is not trusted, so ${tool.name} cannot be used. Nothing was executed.`,
-        request.resources[0],
+        firstResource,
       );
     }
 
-    const decision = this.store.resolve(key);
+    const decision =
+      this.store.resolve(key);
 
-    if (decision?.policy === 'deny') {
+    if (
+      decision?.policy === 'deny'
+    ) {
       throw new PermissionError(
         'policy',
         'denied_by_policy',
-        `${tool.name} is denied in the permission settings (${decision.scope}). Nothing was executed. Do not try to reach the same effect another way; tell the user it is not allowed.`,
-        request.resources[0],
-        { scope: decision.scope },
+        `${tool.name} is denied in the permission settings (${LIFETIME_FOR_MODEL[decision.lifetime]}). Nothing was executed. Do not try to reach the same effect another way; tell the user it is not allowed.`,
+        firstResource,
+        {
+          lifetime:
+            decision.lifetime,
+        },
       );
     }
 
-    if (mode === 'readOnly' && !tool.readOnlyCompatible) {
+    if (
+      mode === 'readOnly' &&
+      !tool.readOnlyCompatible
+    ) {
       throw new PermissionError(
         'policy',
         'read_only_mode',
         `Autonomy mode is read-only: ${tool.name} cannot ${request.action}. Nothing was executed.`,
-        request.resources[0],
+        firstResource,
       );
     }
 
-    this.assertNotRefusedEarlier(request);
+    this.assertNotRefusedEarlier(
+      request,
+    );
 
-    const critical = request.access?.required === 'critical';
+    const critical =
+      request.access?.required ===
+      'critical';
 
     if (critical) {
-      this.assertCriticalJustified(request);
+      this.assertCriticalJustified(
+        request,
+      );
+
+      await this.ask(
+        request,
+        t('dialog.reason.critical'),
+        [
+          buttons.allowOnce,
+          buttons.deny,
+        ],
+        signal,
+      );
+
+      return;
     }
 
-    const protection = request.resources.map(isProtectedResource).find((pattern) => pattern !== undefined);
-    const policy = decision?.policy ?? tool.permissionDefault;
-    const explicitAsk = decision?.policy === 'ask';
+    const protection =
+      request.resources
+        .map(
+          (resource) =>
+            isProtectedResource(
+              resource.path,
+            ),
+        )
+        .find(
+          (pattern) =>
+            pattern !== undefined,
+        );
 
-    // Outside the current window (elevated) nothing is granted in advance: neither an allow decision nor the
-    // acceptEdits or auto modes. Only normal operations follow the ordinary permission and autonomy rules.
-    if (!critical && protection === undefined && request.inPerimeter) {
-      if (policy === 'allow') {
+    if (
+      protection !== undefined
+    ) {
+      await this.ask(
+        request,
+        t('dialog.reason.protected', { pattern: protection }),
+        [
+          buttons.allowOnce,
+          buttons.deny,
+        ],
+        signal,
+      );
+
+      return;
+    }
+
+    const outside =
+      request.resources.filter(
+        (resource) =>
+          resource.boundary.kind !==
+          'currentWindow',
+      );
+
+    const explicitAsk =
+      decision?.policy === 'ask';
+
+    if (
+      outside.length > 0
+    ) {
+      const ungranted =
+        outside.filter(
+          (resource) =>
+            this.store
+              .isResourceAllowed(
+                key,
+                resource.path,
+              ) === undefined,
+        );
+
+      if (
+        ungranted.length > 0
+      ) {
+        await this.askResourceAccess(
+          request,
+          key,
+          ungranted,
+          signal,
+        );
+
         return;
       }
 
-      if (mode === 'auto' && !explicitAsk) {
-        return;
-      }
-
-      if (mode === 'acceptEdits' && tool.editsFiles && !explicitAsk) {
+      // A remembered resource grant is already a specific authorization for
+      // this tool + resource. Only an explicit "ask every time" overrides it.
+      if (!explicitAsk) {
         return;
       }
     }
 
-    const reason = critical
-      ? 'This is a critical operation: it always needs your answer, once, in every autonomy mode.'
-      : protection
-      ? `This touches a protected resource (${protection}), which always needs your answer.`
-      : !request.inPerimeter
-        ? 'This is outside the current window (elevated access), so a standing permission does not cover it.'
-        : explicitAsk
-          ? `${tool.name} is set to ask every time.`
-          : undefined;
-    const answer = await this.ask(request, reason, signal);
+    const policy =
+      decision?.policy ??
+      tool.permissionDefault;
 
-    if (answer === undefined) {
-      throw new PermissionError(
-        'no_decision',
-        'permission_not_decided',
-        `The permission dialog was closed without a decision to ${request.action}. This is not a refusal. Nothing was executed.`,
-        request.resources[0],
+    if (policy === 'allow') {
+      return;
+    }
+
+    if (
+      mode === 'auto' &&
+      !explicitAsk
+    ) {
+      return;
+    }
+
+    if (
+      mode === 'acceptEdits' &&
+      tool.editsFiles &&
+      !explicitAsk
+    ) {
+      return;
+    }
+
+    const answer =
+      await this.ask(
+        request,
+        explicitAsk
+          ? t('dialog.reason.askEvery', { tool: tool.name })
+          : undefined,
+        [
+          buttons.allowOnce,
+          buttons.allowToolCurrentSession,
+          buttons.allowToolAllSessions,
+          buttons.deny,
+        ],
+        signal,
+      );
+
+    if (
+      answer.choice ===
+      buttons.allowToolCurrentSession
+    ) {
+      await this.store.set(
+        key,
+        'allow',
+        'currentSession',
       );
     }
 
-    if (answer.choice === DENY) {
-      for (const effect of this.effectsOf(request)) {
-        this.refusedEffects.set(effect, request.action);
-      }
-
-      const feedback = answer.feedback ? ` The user added: "${sanitizeForPrompt(answer.feedback, 500)}".` : '';
-
-      throw new PermissionError(
-        'user_refused',
-        'user_refused',
-        `The user explicitly refused permission to ${request.action}. Nothing was executed.${feedback} Do not retry it or reach the same effect another way; ask the user instead.`,
-        request.resources[0],
+    if (
+      answer.choice ===
+      buttons.allowToolAllSessions
+    ) {
+      await this.store.set(
+        key,
+        'allow',
+        'allSessions',
       );
-    }
-
-    const remember = REMEMBER_SCOPES[answer.choice];
-
-    if (remember) {
-      await this.store.set(key, 'allow', remember);
     }
   }
 
-  // A critical operation needs the AI to say why it must touch that location. Without it nothing happens and the AI
-  // is told exactly what to add: this is the one case where going back to the model is necessary.
-  private assertCriticalJustified(request: PermissionRequest): void {
-    const announced = request.access?.announced;
-    const reason = announced?.kind === 'critical' ? announced.reason.trim() : '';
+  private async askResourceAccess(
+    request: PermissionRequest,
+    toolId: string,
+    resources:
+      PermissionRequest['resources'],
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const structural =
+      commonStructuralWorkspace(
+        resources,
+      );
+
+    const reason =
+      structural
+        ? t('dialog.reason.structural', { kind: structural.kind, root: structural.root })
+        : t('dialog.reason.outside');
+
+    const choices = [
+      buttons.allowOnce,
+      buttons.allowResourcesCurrentSession,
+      buttons.allowResourcesAllSessions,
+      ...(
+        structural
+          ? [
+              buttons.allowWorkspaceCurrentSession,
+              buttons.allowWorkspaceAllSessions,
+            ]
+          : []
+      ),
+      buttons.deny,
+    ];
+
+    const answer =
+      await this.ask(
+        request,
+        reason,
+        choices,
+        signal,
+      );
+
+    if (
+      answer.choice ===
+        buttons.allowResourcesCurrentSession ||
+      answer.choice ===
+        buttons.allowResourcesAllSessions
+    ) {
+      const lifetime =
+        answer.choice ===
+          buttons.allowResourcesCurrentSession
+          ? 'currentSession'
+          : 'allSessions';
+
+      for (
+        const resource
+        of resources
+      ) {
+        await this.store
+          .allowResource(
+            toolId,
+            resource.path,
+            resource.isDirectory
+              ? 'directory'
+              : 'exact',
+            lifetime,
+          );
+      }
+
+      return;
+    }
+
+    if (
+      structural &&
+      (
+        answer.choice ===
+          buttons.allowWorkspaceCurrentSession ||
+        answer.choice ===
+          buttons.allowWorkspaceAllSessions
+      )
+    ) {
+      await this.store
+        .allowResource(
+          toolId,
+          structural.root,
+          'structuralWorkspace',
+          answer.choice ===
+            buttons.allowWorkspaceCurrentSession
+            ? 'currentSession'
+            : 'allSessions',
+        );
+    }
+  }
+
+  private assertCriticalJustified(
+    request: PermissionRequest,
+  ): void {
+    const announced =
+      request.access?.announced;
+
+    const reason =
+      announced?.kind ===
+        'critical'
+        ? announced.reason.trim()
+        : '';
 
     if (reason) {
       return;
@@ -279,113 +676,386 @@ export class ToolAccessGuard {
       'policy',
       'critical_justification_required',
       `This operation touches a critical location (${request.access?.whyCritical ?? 'critical'}): ${request.action}. Nothing was executed. If you really need it, call the tool again with access {"kind":"critical","reason":"<why you must touch this location>"}; the user will then be asked to confirm.`,
-      request.resources[0],
-      { requiredAccess: 'critical', whyCritical: request.access?.whyCritical, correctableByTheModel: true },
+      request.resources[0]?.path,
+      {
+        requiredAccess:
+          'critical',
+
+        whyCritical:
+          request.access
+            ?.whyCritical,
+
+        correctableByTheModel:
+          true,
+      },
     );
   }
 
-  private effectsOf(request: PermissionRequest): string[] {
-    return request.effects ?? [`tool:${request.tool.id}:${request.resources.join('|')}`];
-  }
-
-  // A refusal covers every route to the same effect: other tools acting on the same resource or host.
-  private assertNotRefusedEarlier(request: PermissionRequest): void {
-    const earlier = this.effectsOf(request).find((effect) => this.refusedEffects.has(effect));
-
-    if (earlier !== undefined) {
-      throw new PermissionError(
-        'user_refused',
-        'user_refused',
-        `The user already explicitly refused this effect earlier in this turn (${this.refusedEffects.get(earlier)}). Nothing was executed. Do not retry it or reach the same effect another way; ask the user instead.`,
-        request.resources[0],
-        { enforcedFromEarlierRefusal: true },
-      );
+  private effectsOf(
+    request: PermissionRequest,
+  ): string[] {
+    if (request.effects) {
+      return request.effects;
     }
+
+    const key =
+      request.tool.permissionKey ??
+      request.tool.id;
+
+    if (
+      request.resources.length === 0
+    ) {
+      return [
+        `tool:${key}`,
+      ];
+    }
+
+    return request.resources.map(
+      (resource) =>
+        `tool:${key}:${resource.path}`,
+    );
   }
 
-  // Resolves to the answer, or undefined when the dialog was closed. Rejects if the request is cancelled first.
+  private assertNotRefusedEarlier(
+    request: PermissionRequest,
+  ): void {
+    const earlier =
+      this.effectsOf(
+        request,
+      ).find(
+        (effect) =>
+          this.refusedEffects.has(
+            effect,
+          ),
+      );
+
+    if (
+      earlier === undefined
+    ) {
+      return;
+    }
+
+    throw new PermissionError(
+      'user_refused',
+      'user_refused',
+      `The user already explicitly refused this effect earlier in this turn (${this.refusedEffects.get(earlier)}). Nothing was executed. Do not retry it or reach the same effect another way; ask the user instead.`,
+      request.resources[0]?.path,
+      {
+        enforcedFromEarlierRefusal:
+          true,
+      },
+    );
+  }
+
   private async ask(
     request: PermissionRequest,
     reason: string | undefined,
+    choices: string[],
     signal?: AbortSignal,
-  ): Promise<{ choice: string; feedback?: string } | undefined> {
+  ): Promise<{
+    choice: string;
+    feedback?: string;
+  }> {
     if (signal?.aborted) {
-      throw cancelledWhileWaiting(request);
+      throw cancelledWhileWaiting(
+        request,
+      );
     }
 
-    const critical = request.access?.required === 'critical';
-    const announced = request.access?.announced;
+    const critical =
+      request.access?.required ===
+      'critical';
+
+    const announced =
+      request.access?.announced;
+
+    const shownAction =
+      request.actionLabel ??
+      request.action;
+
     const detail = [
-      critical ? 'CRITICAL OPERATION' : undefined,
-      `Tool: ${request.tool.name} (${request.tool.permissionKey ?? request.tool.id})`,
-      critical ? `Action: ${request.action}` : undefined,
-      critical ? `Target: ${request.resources.map((resource) => sanitizeForPrompt(resource)).join(' -> ')}` : undefined,
-      critical ? `Why it is critical: ${request.access?.whyCritical}` : undefined,
-      critical && announced?.kind === 'critical' ? `Reason given by the AI: ${sanitizeForPrompt(announced.reason, 500)}` : undefined,
-      request.detail ? formatDetail(request.detail) : undefined,
-      reason,
       critical
-        ? 'Warning: a wrong operation here can damage the system, make a service unusable or cause data loss, and the AI only gave its own reason for it.'
+        ? t('dialog.critical')
         : undefined,
+
+      t('dialog.tool', {
+        tool: `${request.tool.name} (${request.tool.permissionKey ?? request.tool.id})`,
+      }),
+
+      critical
+        ? t('dialog.action', { action: shownAction })
+        : undefined,
+
+      critical &&
+      request.resources.length > 0
+        ? t('dialog.target', {
+            target:
+              request.resources
+                .map(
+                  (resource) =>
+                    sanitizeForPrompt(
+                      resource.path,
+                    ),
+                )
+                .join(' -> '),
+          })
+        : undefined,
+
+      critical
+        ? t('dialog.whyCritical', {
+            reason:
+              criticalReasonForUser(
+                request.access?.whyCritical,
+              ),
+          })
+        : undefined,
+
+      critical &&
+      announced?.kind ===
+        'critical'
+        ? t('dialog.aiReason', {
+            reason: sanitizeForPrompt(announced.reason, 500),
+          })
+        : undefined,
+
+      request.detail
+        ? formatDetail(
+            request.detail,
+          )
+        : undefined,
+
+      reason,
+
+      critical
+        ? t('dialog.criticalWarning')
+        : undefined,
+
       request.warning,
-      'Closing this dialog is not a refusal: nothing runs and the AI is told no decision was made.',
+
+      t('dialog.closeNotRefusal'),
     ]
       .filter(Boolean)
       .join('\n');
-    // A standing decision would not cover this call, or would contradict a rule to ask: only this once.
-    const buttons = reason ? [ALLOW_ONCE, DENY] : [ALLOW_ONCE, ALLOW_SESSION, ALLOW_WORKSPACE, ALLOW_ALWAYS, DENY];
-    const dialog = Promise.resolve(
-      vscode.window.showWarningMessage(`BezotCorp AI wants to ${request.action}`, { modal: true, detail }, ...buttons),
-    ).then(async (choice) => {
-      if (choice === DENY) {
-        // As in Claude Code, a refusal can say what to do instead.
-        const feedback = await vscode.window.showInputBox({
-          title: 'Refused',
-          prompt: 'Tell the AI what to do instead (optional, Escape to skip).',
-        });
 
-        return { choice, feedback: feedback?.trim() || undefined };
-      }
+    const dialog =
+      Promise.resolve(
+        vscode.window
+          .showWarningMessage(
+            t('dialog.title', { action: shownAction }),
+            {
+              modal: true,
+              detail,
+            },
+            ...choices,
+          ),
+      ).then(
+        async (choice) => {
+          if (
+            choice === buttons.deny
+          ) {
+            const feedback =
+              await vscode.window
+                .showInputBox({
+                  title:
+                    t('dialog.refusedTitle'),
 
-      return choice === undefined ? undefined : { choice };
-    });
+                  prompt:
+                    t('dialog.refusedPrompt'),
+                });
+
+            return {
+              choice,
+              feedback:
+                feedback?.trim() ||
+                undefined,
+            };
+          }
+
+          return choice === undefined
+            ? undefined
+            : { choice };
+        },
+      );
+
+    let answer:
+      | {
+          choice: string;
+          feedback?: string;
+        }
+      | undefined;
 
     if (!signal) {
-      return dialog;
-    }
+      answer = await dialog;
+    } else {
+      let onAbort:
+        (() => void) |
+        undefined;
 
-    let onAbort: (() => void) | undefined;
-    const cancelled = new Promise<never>((_, reject) => {
-      onAbort = () => reject(cancelledWhileWaiting(request));
-      signal.addEventListener('abort', onAbort, { once: true });
-    });
+      const cancelled =
+        new Promise<never>(
+          (_, reject) => {
+            onAbort = () =>
+              reject(
+                cancelledWhileWaiting(
+                  request,
+                ),
+              );
 
-    try {
-      return await Promise.race([dialog, cancelled]);
-    } finally {
-      if (onAbort) {
-        signal.removeEventListener('abort', onAbort);
+            signal.addEventListener(
+              'abort',
+              onAbort,
+              { once: true },
+            );
+          },
+        );
+
+      try {
+        answer =
+          await Promise.race([
+            dialog,
+            cancelled,
+          ]);
+      } finally {
+        if (onAbort) {
+          signal.removeEventListener(
+            'abort',
+            onAbort,
+          );
+        }
       }
     }
+
+    if (!answer) {
+      throw new PermissionError(
+        'no_decision',
+        'permission_not_decided',
+        `The permission dialog was closed without a decision to ${request.action}. This is not a refusal. Nothing was executed.`,
+        request.resources[0]?.path,
+      );
+    }
+
+    if (
+      answer.choice === buttons.deny
+    ) {
+      for (
+        const effect
+        of this.effectsOf(request)
+      ) {
+        this.refusedEffects.set(
+          effect,
+          request.action,
+        );
+      }
+
+      const feedback =
+        answer.feedback
+          ? ` The user added: "${sanitizeForPrompt(answer.feedback, 500)}".`
+          : '';
+
+      throw new PermissionError(
+        'user_refused',
+        'user_refused',
+        `The user explicitly refused permission to ${request.action}. Nothing was executed.${feedback} Do not retry it or reach the same effect another way; ask the user instead.`,
+        request.resources[0]?.path,
+      );
+    }
+
+    return answer;
   }
 }
 
-// Tool-provided detail keeps its line structure (a diff is read line by line), but every line is sanitized and
-// the whole is bounded, so it can neither fake extra dialog lines nor flood the dialog.
-function formatDetail(detail: string): string {
-  const lines = detail.split('\n');
-  const shown = lines.slice(0, MAX_DETAIL_LINES).map((line) => sanitizeForPrompt(line, MAX_DETAIL_LINE_CHARS));
+function commonStructuralWorkspace(
+  resources:
+    PermissionRequest['resources'],
+): StructuralWorkspace | undefined {
+  if (
+    resources.length === 0
+  ) {
+    return undefined;
+  }
 
-  return [...shown, ...(lines.length > MAX_DETAIL_LINES ? [`… ${lines.length - MAX_DETAIL_LINES} more lines`] : [])].join(
-    '\n',
-  );
+  const workspaces =
+    resources.map(
+      (resource) =>
+        resource.boundary.kind ===
+          'structuralWorkspace'
+          ? resource.boundary
+              .workspace
+          : undefined,
+    );
+
+  if (
+    workspaces.some(
+      (workspace) =>
+        workspace === undefined,
+    )
+  ) {
+    return undefined;
+  }
+
+  const first =
+    workspaces[0];
+
+  if (!first) {
+    return undefined;
+  }
+
+  return workspaces.every(
+    (workspace) =>
+      workspace?.root ===
+        first.root &&
+      workspace.kind ===
+        first.kind,
+  )
+    ? first
+    : undefined;
 }
 
-function cancelledWhileWaiting(request: PermissionRequest): PermissionError {
+function formatDetail(
+  detail: string,
+): string {
+  const lines =
+    detail.split('\n');
+
+  const shown =
+    lines
+      .slice(
+        0,
+        MAX_DETAIL_LINES,
+      )
+      .map(
+        (line) =>
+          sanitizeForPrompt(
+            line,
+            MAX_DETAIL_LINE_CHARS,
+          ),
+      );
+
+  return [
+    ...shown,
+
+    ...(
+      lines.length >
+      MAX_DETAIL_LINES
+        ? [
+            t('dialog.moreLines', {
+              count:
+                lines.length -
+                MAX_DETAIL_LINES,
+            }),
+          ]
+        : []
+    ),
+  ].join('\n');
+}
+
+function cancelledWhileWaiting(
+  request: PermissionRequest,
+): PermissionError {
   return new PermissionError(
     'no_decision',
     'cancelled_while_waiting',
     `The request was cancelled before the user decided whether to ${request.action}. This is not a refusal. Nothing was executed.`,
-    request.resources[0],
+    request.resources[0]?.path,
   );
 }

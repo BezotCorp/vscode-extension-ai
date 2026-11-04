@@ -15,11 +15,11 @@ export class ReadFileTool implements Tool {
   readonly readOnlyCompatible = true;
   readonly permissionDefault = 'allow' as const;
   readonly description =
-    'Reads a text file. Paths are relative to the workspace root; absolute paths outside it need user approval. If the file is open in the editor, the editor content (including unsaved changes) is returned. Optionally restrict to a 1-based inclusive line range.';
+    'Reads a text file. Paths may be relative to the current window or absolute; paths outside the current window need user approval. If the file is open in the editor, the editor content (including unsaved changes) is returned. Optionally restrict to a 1-based inclusive line range.';
   readonly parameters = {
     type: 'object' as const,
     properties: {
-      path: { type: 'string', description: 'File path, relative to the workspace root or absolute.' },
+      path: { type: 'string', description: 'File path, relative to the current window or absolute.' },
       startLine: { type: 'number', description: 'First line to read (1-based).' },
       endLine: { type: 'number', description: 'Last line to read (inclusive).' },
     },
@@ -38,7 +38,32 @@ export class ReadFileTool implements Tool {
 
     await this.accessGuard.assertReadable(this, resolved, false, { signal: context?.signal });
 
-    const read = await this.read(resolved, READ_MODE_DIRECT);
+    let read: FileRead;
+
+    try {
+      read = await this.read(resolved, READ_MODE_DIRECT);
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return toolFailure('error', this.id, fsPath, {
+          reason: 'not_found',
+          message:
+            'The file was not found. Inspect the parent directory with list_files to verify the exact file name and casing before asking the user.',
+          executed: false,
+          retryable: true,
+        });
+      }
+
+      if (isDirectoryError(error)) {
+        return toolFailure('error', this.id, fsPath, {
+          reason: 'is_a_directory',
+          message: 'The requested path is a directory. Use list_files to inspect its contents.',
+          executed: false,
+          retryable: true,
+        });
+      }
+
+      throw error;
+    }
 
     if (read.binary) {
       return toolFailure('error', this.id, fsPath, {
@@ -117,4 +142,16 @@ export class ReadFileTool implements Tool {
       unsavedChanges: buffered,
     };
   }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+
+  return code === 'ENOENT' || code === 'FileNotFound';
+}
+
+function isDirectoryError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+
+  return code === 'EISDIR' || code === 'FileIsADirectory';
 }

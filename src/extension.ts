@@ -9,6 +9,7 @@ import {
   OPEN_SETTINGS_COMMAND,
   REVOKE_ALL_PERMISSIONS_COMMAND,
 } from './constants';
+import { t } from './i18n';
 import { McpManager } from './mcp';
 import { managePermissions, PermissionStore } from './permissions';
 import { createBridgeServer } from './server/bridge_server';
@@ -16,9 +17,19 @@ import { FileToolServices, listToolPermissions, ToolAccessGuard } from './tools'
 import { ChatViewProvider } from './webview/chat_view_provider';
 
 export function activate(context: vscode.ExtensionContext) {
-  const permissionStore = new PermissionStore(context.workspaceState);
-  // Decisions of the previous permission model (per path and command) no longer mean anything.
-  void context.globalState.update('bezotcorpAi.permissionGrants', undefined);
+  const permissionStore = new PermissionStore(context.globalState);
+
+  // Obsolete permission stores from earlier models no longer represent the
+  // current capability/resource permission architecture.
+  void context.globalState.update(
+    'bezotcorpAi.permissionGrants',
+    undefined,
+  );
+
+  void context.workspaceState.update(
+    'bezotcorpAi.toolPermissions',
+    undefined,
+  );
   const bridgeServer = createBridgeServer();
   const mcpManager = new McpManager(() => getExtensionConfig().mcpServers);
   const fileServices = new FileToolServices(context.globalStorageUri.fsPath);
@@ -29,18 +40,23 @@ export function activate(context: vscode.ExtensionContext) {
     .then((records) => {
       if (records.length > 0) {
         void vscode.window.showWarningMessage(
-          `BezotCorp AI: ${records.length} interrupted file write(s) were resumed. Final state: ${records.map((record) => `${record.subject} (${record.state})`).join(', ')}.`,
+          t('notify.writesResumed', {
+            count: records.length,
+            states: records.map((record) => `${record.subject} (${record.state})`).join(', '),
+          }),
         );
       }
     })
     .catch((error) => {
-      void vscode.window.showErrorMessage(`BezotCorp AI: interrupted file writes could not be resumed: ${String(error)}`);
+      void vscode.window.showErrorMessage(
+        t('notify.writesNotResumed', { error: String(error) }),
+      );
     });
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CHAT_VIEW_ID,
-      new ChatViewProvider(context.extensionUri, context.globalStorageUri, permissionStore, mcpManager, fileServices),
+      new ChatViewProvider(context.globalStorageUri, permissionStore, mcpManager, fileServices),
     ),
   );
 
@@ -59,7 +75,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(MANAGE_PERMISSIONS_COMMAND, () =>
       managePermissions(permissionStore, () =>
-        listToolPermissions(new ToolAccessGuard(permissionStore, () => getExtensionConfig().autonomyMode), mcpManager, fileServices),
+        listToolPermissions(
+          new ToolAccessGuard(permissionStore, () => getExtensionConfig().autonomyMode),
+          mcpManager,
+          fileServices,
+        ),
       ),
     ),
   );
@@ -72,11 +92,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(REVOKE_ALL_PERMISSIONS_COMMAND, async () => {
-      for (const scope of ['session', 'workspace', 'global'] as const) {
-        await permissionStore.clearScope(scope);
+      for (const lifetime of ['currentSession', 'allSessions'] as const) {
+        await permissionStore.clearAll(lifetime);
       }
 
-      await vscode.window.showInformationMessage('BezotCorp AI: all permissions revoked.');
+      await vscode.window.showInformationMessage(t('manage.revokedAll'));
     }),
   );
 

@@ -2,6 +2,7 @@ import { ToolExecutionResult } from '../..';
 import { readBoolean, readBranchName, readRemote } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 const NETWORK_TIMEOUT_MS = 120_000;
 
@@ -37,6 +38,7 @@ export class GitPushTool extends GitTool {
     return {
       args: ['push', ...(readBoolean(input, 'setUpstream') ? ['--set-upstream'] : []), remote, branch ?? 'HEAD'],
       action: `push ${branch ?? 'the current branch'} to the git remote ${remote}`,
+      actionLabel: t('action.git.push', { branch: branch ?? t('action.git.currentBranch'), remote }),
       timeoutMs: NETWORK_TIMEOUT_MS,
     };
   }

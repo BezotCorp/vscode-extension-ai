@@ -15,7 +15,10 @@ export class GitDiffTool extends GitTool {
     type: 'object' as const,
     properties: {
       staged: { type: 'boolean', description: 'Show the staged changes instead of the unstaged ones.' },
-      revision: { type: 'string', description: 'Revision or range to compare with, for example "HEAD~1" or "main..feature".' },
+      revision: {
+        type: 'string',
+        description: 'Revision or range to compare with, for example "HEAD~1" or "main..feature".',
+      },
       paths: { type: 'array', items: { type: 'string' }, description: 'Limit the diff to these files or folders.' },
       stat: { type: 'boolean', description: 'Only summarize the changes per file.' },
       folder: FOLDER_PARAMETER,

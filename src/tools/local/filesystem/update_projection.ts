@@ -2,6 +2,7 @@ import { buildDiffLines } from './diff_builder';
 import { sha256Hex } from '../../../workspace';
 import { UpdateRequest } from './update_request';
 import { findUniqueMatch } from './unique_match';
+import { t } from '../../../i18n';
 
 // The result of applying a request in memory, before anything touches the file: the exact bytes the file has to
 // contain afterwards, the text for the permission dialog and, for a local edit, where the change applies.
@@ -99,7 +100,7 @@ export function projectUpdate(current: Uint8Array, request: UpdateRequest): Upda
     before,
     after,
     anchor: { offset: match.offset, oldText: match.oldText, newText: match.newText },
-    detail: `Line ${line}:\n${diffPreview(match.oldText, match.newText)}`,
+    detail: `${t('detail.line', { line })}\n${diffPreview(match.oldText, match.newText)}`,
   };
 }
 

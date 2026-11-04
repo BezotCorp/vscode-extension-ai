@@ -39,17 +39,14 @@ Choose and manage the model used by the assistant.
 - Persisted model selection
 - Custom backend model support
 
-### Workspace Context
+### Context
 
-Provide useful context to the AI.
+The active editor file is attached automatically when available. Additional project context is discovered through explicit tools.
 
-- Selected text support
-- Active file support
-- Open files support
-- Workspace tree support
-- Basic context mode
-- Rich workspace context mode
-- Context preview before requests
+- Active file context
+- `list_files` for project structure discovery
+- `read_file` / `read_files` for known paths
+- `search_text` for content discovery
 
 ### File Changes
 
@@ -80,17 +77,18 @@ Built-in backend monitoring.
 
 The AI can use tools when the provider supports tool calling (Ollama). It only does what an explicit tool allows: there is no tool that runs a shell command, a script or an arbitrary program, and the model is told what is unavailable so it says so instead of improvising.
 
-- Files: read, list, search, create, edit (exact text replacement), write, move and delete; selected text and workspace tree
+- Files: list, read, search, create, edit (exact text replacement), write, move and delete; project context is discovered explicitly
 - Web: fetch a page
 - Git, as specialised tools with bounded parameters: `git_status`, `git_diff`, `git_log`, `git_show`, `git_branch_list`, `git_add`, `git_unstage`, `git_commit`, `git_branch_create`, `git_switch`, `git_fetch`, `git_pull` (fast-forward only), `git_push` (no force). There is no reset, rebase, merge, stash, checkout of files or amend
 - MCP servers over stdio, configured in user settings (`bezotcorpAi.mcpServers`); each MCP tool is controlled on its own
-- Permissions are decided per tool: `allow`, `ask` or `deny`, kept for the session, the workspace or everywhere. Reading and consulting tools allow by default inside the current window; the others ask. *BezotCorp AI: Manage Permissions* lists every tool and changes these decisions; the dialog shown at a call offers Yes, this session, this workspace, always, or No with a message for the AI
+- Permissions separate tool capability from filesystem resource access. A tool may be `allow`, `ask` or `deny`, for the current session (`currentSession`) or for all sessions (`allSessions`). Files explicitly opened in the current VS Code window form the implicit filesystem perimeter. Outside resources can be authorized once, for the current session or for all sessions. Cargo, pnpm and Node workspaces are detected structurally so the user can authorize the detected workspace when appropriate; detection itself never grants access
 - Autonomy modes: read-only, confirmation, accept edits, automatic
-- Protected resources (`.env`, keys, `.npmrc`, `.git`, `.ssh`…, extendable with `bezotcorpAi.protectedPaths`) always ask, whatever a tool is allowed to do, and stay out of the context, searches, git output and the local bridge. Paths outside the current window ask too, whatever a tool is allowed to do and in every autonomy mode, automatic included. Creating, writing, deleting or moving the folders of the current window or their parents, the home folder or its parents, `.git` or a system location is a critical operation: the AI must give a reason and you confirm each time
+- Protected resources (`.env`, keys, `.npmrc`, `.git`, `.ssh`…, extendable with `bezotcorpAi.protectedPaths`) always ask and never inherit remembered resource permissions. Critical operations also require a reason from the AI and a fresh confirmation every time. A path outside the current window asks unless the same tool already has a matching explicit resource permission; a detected structural workspace may be authorized without silently authorizing unrelated external paths
 - A refusal covers every route to the same effect during the answer
 - Earlier turns, including tool calls and results, are sent back to the model
 - Without tool calling, the AI cannot change files
 - Model management foundation
+- Interface in French and English, following the VS Code display language
 
 ### Local First
 
@@ -133,21 +131,6 @@ Install the extension from:
   "bezotcorpAi.model": "custom-model"
 }
 ```
-
-### Configure Context Mode
-
-```json
-{
-  "bezotcorpAi.contextMode": "basic"
-}
-```
-
-Available modes:
-
-- `basic`
-- `rich`
-
----
 
 ## Commands
 
@@ -226,11 +209,6 @@ Privacy depends on the provider you choose.
 - Ollama model discovery
 - Model refresh
 - Persisted model selection
-- Selected text context
-- Active file context
-- Open files context
-- Workspace tree context
-- Context preview
 - Backend status monitoring
 - Connection testing
 - Ollama integration

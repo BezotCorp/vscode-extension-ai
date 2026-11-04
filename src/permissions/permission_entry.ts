@@ -1,8 +1,10 @@
-import { PermissionPolicy, PermissionScope } from '.';
+import {
+  PermissionLifetime,
+  PermissionPolicy,
+} from '.';
 
 export type PermissionEntry = {
-  // Identity of the tool the decision is about.
   toolId: string;
   policy: PermissionPolicy;
-  scope: PermissionScope;
+  lifetime: PermissionLifetime;
 };

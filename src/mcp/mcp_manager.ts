@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
-
+import { McpStartFailure } from './mcp_start_failure';
 import { Tool, ToolAccessGuard } from '../tools';
-import { McpServerConfig, McpToolDescriptor, McpToolInfo } from '.';
+import { McpServerConfig, McpToolDescriptor, McpToolInfo, McpServerEntry } from '.';
 import { McpClient } from './mcp_client';
 import { McpTool, mcpToolId } from './mcp_tool';
+import { t } from '../i18n';
 
 const RETRY_AFTER_FAILURE_MS = 30_000;
 // A message does not wait longer than this for servers that are still starting; they join at the next message.
@@ -11,18 +12,6 @@ const STARTUP_WAIT_MS = 8_000;
 // A server nobody has called for this long is stopped, and restarted on demand.
 const IDLE_STOP_MS = 10 * 60_000;
 const IDLE_CHECK_MS = 60_000;
-
-type McpServerEntry = {
-  configKey: string;
-  client: McpClient;
-  tools: McpToolInfo[];
-  lastUsed: number;
-};
-
-type McpStartFailure = {
-  configKey: string;
-  at: number;
-};
 
 export class McpManager {
   private readonly servers = new Map<string, McpServerEntry>();
@@ -201,7 +190,7 @@ export class McpManager {
     console.error(`BezotCorp AI: MCP server "${name}" failed to start: ${reason}`);
 
     if (!repeated) {
-      void vscode.window.showWarningMessage(`BezotCorp AI: MCP server "${name}" failed to start: ${reason}`);
+      void vscode.window.showWarningMessage(t('notify.mcpFailed', { name, reason }));
     }
   }
 }

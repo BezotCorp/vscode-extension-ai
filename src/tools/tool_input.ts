@@ -1,4 +1,5 @@
 import { AccessRequest, sanitizeForPrompt } from '../permissions';
+import { t } from '../i18n';
 
 export function readStringArg(input: unknown, key: string): string | undefined {
   const value = (input as Record<string, unknown> | null | undefined)?.[key];
@@ -26,7 +27,7 @@ export function readStringArrayArg(input: unknown, key: string): string[] | unde
 export function describeContent(content: string): string {
   const lines = content.split('\n').length;
 
-  return `${content.length} characters, ${lines} lines. Starts with: ${sanitizeForPrompt(content.slice(0, 160))}`;
+  return t('detail.content', { chars: content.length, lines, start: sanitizeForPrompt(content.slice(0, 160)) });
 }
 
 // The level of access the model announces in a call: an object {kind, reason} or just the kind. Anything that is not

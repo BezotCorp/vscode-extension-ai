@@ -14,7 +14,7 @@ export class MoveFileTool implements Tool {
   readonly permissionDefault = 'ask' as const;
   readonly editsFiles = true;
   readonly description =
-    'Moves or renames a file or folder. Fails if the destination already exists or the source has unsaved changes in the editor. Outside the current window the user is always asked (access elevated); for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
+    'Moves or renames a file or folder. Fails if the destination already exists or the source has unsaved changes in the editor. Outside the current window the user is asked unless that resource has already been explicitly authorized; for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
   readonly parameters = {
     type: 'object' as const,
     properties: {

@@ -2,6 +2,7 @@ import { ToolExecutionResult } from '../..';
 import { readRepositoryPaths } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 export class GitUnstageTool extends GitTool {
   readonly id = 'git_unstage';
@@ -29,6 +30,7 @@ export class GitUnstageTool extends GitTool {
     return {
       args: ['restore', '--staged', '--', ...paths.pathspecs],
       action: `unstage ${paths.absolute.length} path(s) with git`,
+      actionLabel: t('action.git.unstage', { count: paths.absolute.length }),
       detail: paths.absolute.join('\n'),
       paths: paths.absolute,
     };

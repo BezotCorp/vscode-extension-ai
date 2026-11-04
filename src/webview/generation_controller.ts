@@ -5,15 +5,15 @@ import { ChatMessage } from '../chat/chat_message';
 import type { ChatRole } from '../chat/chat_role';
 import { closingText } from '../chat/message_text';
 import { getExtensionConfig } from '../config/extension_config';
-import { buildChatContext } from '../context/context_builder';
+import { buildAiContext } from '../context';
 import { ChatHistoryMessage } from '../providers/ai_provider';
 import { createProvider } from '../providers/provider_factory';
 import { McpManager } from '../mcp';
 import { PermissionStore } from '../permissions';
 import { createDefaultToolRegistry, FileToolServices, ToolAccessGuard, ToolRegistry, ToolRound } from '../tools';
-import { ContextOptions } from './context_options';
 import { sendChatStore } from './chat_store_presenter';
 import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
+import { t } from '../i18n';
 
 const MAX_HISTORY_MESSAGES = 40;
 // Used when the provider cannot say how large its context window is.
@@ -25,6 +25,8 @@ const MAX_STORED_RESULT_CHARACTERS = 4_000;
 
 export class GenerationController {
   private currentAbortController: AbortController | undefined;
+  private currentGeneration: Promise<void> | undefined;
+  private currentGenerationSessionId: string | undefined;
   private readonly permissionStore: PermissionStore;
 
   constructor(
@@ -38,6 +40,20 @@ export class GenerationController {
 
   stopGeneration(): void {
     this.currentAbortController?.abort();
+  }
+
+  async stopGenerationForSessionAndWait(sessionId: string): Promise<void> {
+    if (this.currentGenerationSessionId !== sessionId) {
+      return;
+    }
+
+    const generation = this.currentGeneration;
+
+    this.currentAbortController?.abort();
+
+    if (generation) {
+      await generation;
+    }
   }
 
   private async createTools(accessGuard: ToolAccessGuard, signal: AbortSignal): Promise<ToolRegistry> {
@@ -64,15 +80,50 @@ export class GenerationController {
   }
 
   // The message is kept in memory even when it cannot be written to disk: the answer must not be lost with it.
-  private async remember(role: ChatRole, content: string, toolRounds?: ToolRound[]): Promise<void> {
+  private async remember(
+    sessionId: string,
+    role: ChatRole,
+    content: string,
+    toolRounds?: ToolRound[],
+  ): Promise<boolean> {
     try {
-      await this.chatManager.addMessage(role, content, toolRounds);
+      return await this.chatManager.addMessageToSession(sessionId, role, content, toolRounds);
     } catch (error) {
-      void vscode.window.showWarningMessage(`BezotCorp AI: ${error instanceof Error ? error.message : String(error)}`);
+      // The ChatManager mutates memory before persistence. A storage failure must not
+      // make the generation forget a message that is still present in memory.
+      void vscode.window.showWarningMessage(t('notify.error', { error: error instanceof Error ? error.message : String(error) }));
+      return true;
     }
   }
 
-  async sendChatMessage(webviewView: vscode.WebviewView, text: string, contextOptions: ContextOptions): Promise<void> {
+  async sendChatMessage(webviewView: vscode.WebviewView, text: string): Promise<void> {
+    const session = this.chatManager.getActiveSession();
+
+    if (!session) {
+      return;
+    }
+
+    const generation = this.runChatMessage(webviewView, text, session.id, session.messages);
+
+    this.currentGeneration = generation;
+    this.currentGenerationSessionId = session.id;
+
+    try {
+      await generation;
+    } finally {
+      if (this.currentGeneration === generation) {
+        this.currentGeneration = undefined;
+        this.currentGenerationSessionId = undefined;
+      }
+    }
+  }
+
+  private async runChatMessage(
+    webviewView: vscode.WebviewView,
+    text: string,
+    sessionId: string,
+    sessionMessages: ChatMessage[],
+  ): Promise<void> {
     const config = getExtensionConfig();
     const provider = createProvider(config);
     const abortController = new AbortController();
@@ -85,22 +136,26 @@ export class GenerationController {
     const toolRounds: ToolRound[] = [];
 
     try {
-      const context = await buildChatContext(config.contextMode, contextOptions);
-
-      webviewView.webview.postMessage({
-        type: 'contextStatus',
-        activeFilePath: context.activeFile?.path,
-      });
+      const context = await buildAiContext();
 
       const contextTokens = await provider.resolveContextTokens?.(abortController.signal);
       const history = selectHistory(
-        this.chatManager.getMessages(),
+        sessionMessages,
         contextTokens
           ? Math.floor(contextTokens * CHARS_PER_TOKEN * HISTORY_CONTEXT_SHARE)
           : DEFAULT_HISTORY_CHARACTERS,
       );
 
-      await this.remember('user', text);
+      const userMessageRemembered = await this.remember(sessionId, 'user', text);
+
+      if (!userMessageRemembered) {
+        webviewView.webview.postMessage({
+          type: 'responseStopped',
+          sessionId,
+        });
+        return;
+      }
+
       sendChatStore(webviewView, this.chatManager);
 
       const tools = provider.supportsTools ? await this.createTools(accessGuard, abortController.signal) : undefined;
@@ -116,6 +171,7 @@ export class GenerationController {
           onStart: () => {
             webviewView.webview.postMessage({
               type: 'responseStart',
+              sessionId,
             });
           },
           onChunk: (chunk: string) => {
@@ -123,54 +179,57 @@ export class GenerationController {
 
             webviewView.webview.postMessage({
               type: 'responseChunk',
+              sessionId,
               text: chunk,
             });
           },
-          onToolCall: (call) => sendToolCall(webviewView, call),
-          onToolResult: (_call, result) => sendToolResult(webviewView, result),
+          onToolCall: (call) => sendToolCall(webviewView, sessionId, call),
+          onToolResult: (_call, result) => sendToolResult(webviewView, sessionId, result),
           onToolRound: (round) => toolRounds.push(compactRound(round)),
-          onNotice: (text) => sendToolNotice(webviewView, text),
-          onEnd: () => {
-            webviewView.webview.postMessage({
-              type: 'responseEnd',
-            });
-          },
+          onNotice: (text) => sendToolNotice(webviewView, sessionId, text),
+          onEnd: () => {},
         },
         abortController.signal,
       );
 
       if (assistantText.trim() || toolRounds.length > 0) {
-        await this.remember('assistant', assistantText, toolRounds);
+        await this.remember(sessionId, 'assistant', assistantText, toolRounds);
         sendChatStore(webviewView, this.chatManager);
       }
+
+      webviewView.webview.postMessage({
+        type: 'responseEnd',
+        sessionId,
+      });
     } catch (error) {
       if (abortController.signal.aborted) {
         if (assistantText.trim() || toolRounds.length > 0) {
-          await this.remember('assistant', assistantText, toolRounds);
+          await this.remember(sessionId, 'assistant', assistantText, toolRounds);
           sendChatStore(webviewView, this.chatManager);
         }
 
         webviewView.webview.postMessage({
           type: 'responseStopped',
+          sessionId,
         });
         return;
       }
 
-      const errorText = `Error: ${String(error)}`;
+      const errorText = t('chat.errorPrefix', { error: String(error) });
 
-      await this.remember('assistant', errorText);
+      await this.remember(sessionId, 'assistant', errorText);
       sendChatStore(webviewView, this.chatManager);
 
       webviewView.webview.postMessage({
-        type: 'response',
-        text: errorText,
+        type: 'responseEnd',
+        sessionId,
       });
 
       webviewView.webview.postMessage({
         type: 'backendStatus',
         status: 'disconnected',
         backendUrl: config.providerUrl,
-        text: `Disconnected: ${String(error)}`,
+        text: t('status.disconnected', { error: String(error) }),
       });
     } finally {
       if (this.currentAbortController === abortController) {

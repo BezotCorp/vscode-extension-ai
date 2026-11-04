@@ -14,8 +14,6 @@ export class StaticModelProvider implements ModelProvider {
         id: this.model,
         name: this.model,
         provider: this.provider,
-        supportsStreaming: true,
-        supportsTools: false,
       },
     ];
   }

@@ -17,7 +17,11 @@ type FailureFields = {
   details?: Record<string, unknown>;
 };
 
-export function toolSuccess(operation: string, resource: string | undefined, fields: SuccessFields = {}): ToolExecutionResult {
+export function toolSuccess(
+  operation: string,
+  resource: string | undefined,
+  fields: SuccessFields = {},
+): ToolExecutionResult {
   return { status: 'success', operation, resource, executed: true, retryable: false, ...fields };
 }
 

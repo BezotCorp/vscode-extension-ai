@@ -2,6 +2,7 @@ import { ToolExecutionResult } from '../..';
 import { readBranchName } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 export class GitSwitchTool extends GitTool {
   readonly id = 'git_switch';
@@ -29,6 +30,7 @@ export class GitSwitchTool extends GitTool {
     return {
       args: ['switch', branch],
       action: `switch to the git branch ${branch}`,
+      actionLabel: t('action.git.switch', { branch }),
     };
   }
 }

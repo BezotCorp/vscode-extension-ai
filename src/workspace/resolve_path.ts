@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { ResolvedPath } from '.';
+import { detectStructuralWorkspace, ResolvedPath } from '.';
 
 // Relative paths start at the first workspace folder. In a multi-root workspace a path may also start with the
 // name of a folder ("api/src/index.ts"), and a path that exists in only one folder is found there.
@@ -17,11 +17,15 @@ export function resolvePath(inputPath: string): ResolvedPath {
   const base = path.isAbsolute(inputPath) ? realRoots[0] : chooseRoot(inputPath, roots, realRoots);
   const target = realPath(path.resolve(base ?? '/', stripFolderName(inputPath, roots, base)));
   const container = realRoots.find((root) => isInside(root, target));
+  const structuralWorkspace = container
+    ? undefined
+    : detectStructuralWorkspace(target, realRoots);
 
   return {
     uri: vscode.Uri.file(target),
     insideCurrentWindow: container !== undefined,
-    workspaceRoot: container ?? realRoots[0],
+    currentWindowRoot: container,
+    structuralWorkspace,
   };
 }
 

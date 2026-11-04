@@ -3,10 +3,13 @@ import * as vscode from 'vscode';
 import { ChatMessage } from './chat_message';
 import { ChatSession, createChatSessionFromLegacy } from './chat_session';
 import { CHAT_STORE_VERSION, ChatStore, normalizeChatStore } from './chat_store';
+import { t } from '../i18n';
 
 const CHAT_FILE_NAME = 'chat.json';
 
 export class ChatStorage {
+  private saveQueue: Promise<void> = Promise.resolve();
+
   constructor(private readonly storageUri: vscode.Uri) {}
 
   async load(): Promise<ChatStore | undefined> {
@@ -34,13 +37,22 @@ export class ChatStorage {
     }
   }
 
-  // Throws when the conversations could not be written: the caller decides how to tell the user.
+  // Saves are serialized because every write uses the same temporary file.
   async save(store: ChatStore): Promise<void> {
+    const snapshot = normalizeChatStore(store);
+    const operation = this.saveQueue.then(() => this.write(snapshot));
+
+    this.saveQueue = operation.catch(() => undefined);
+
+    await operation;
+  }
+
+  private async write(store: ChatStore): Promise<void> {
     await vscode.workspace.fs.createDirectory(this.storageUri);
 
     const fileUri = vscode.Uri.joinPath(this.storageUri, CHAT_FILE_NAME);
     const temporaryUri = vscode.Uri.joinPath(this.storageUri, `${CHAT_FILE_NAME}.tmp`);
-    const content = JSON.stringify(normalizeChatStore(store), null, 2);
+    const content = JSON.stringify(store, null, 2);
     const bytes = Buffer.from(content, 'utf8');
 
     try {
@@ -50,7 +62,7 @@ export class ChatStorage {
     } catch (error) {
       console.error(`Failed to save chat storage: ${error}`);
       await Promise.resolve(vscode.workspace.fs.delete(temporaryUri)).catch(() => undefined);
-      throw new Error(`Could not save the conversations: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(t('notify.storageSaveFailed', { error: error instanceof Error ? error.message : String(error) }));
     }
   }
 
@@ -61,7 +73,7 @@ export class ChatStorage {
     try {
       await vscode.workspace.fs.copy(fileUri, backupUri, { overwrite: false });
       void vscode.window.showWarningMessage(
-        `BezotCorp AI: the saved conversations could not be read (${reason}). The file was kept as ${backupUri.fsPath}.`,
+        t('notify.storageUnreadable', { reason, path: backupUri.fsPath }),
       );
     } catch (error) {
       console.error(`Failed to keep a copy of the unreadable chat storage: ${error}`);

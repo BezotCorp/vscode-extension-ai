@@ -15,7 +15,11 @@ export class GitLogTool extends GitTool {
     properties: {
       maxCount: { type: 'number', description: 'Number of commits, 1 to 100 (default 20).' },
       revision: { type: 'string', description: 'Branch, tag or range to start from (default HEAD).' },
-      paths: { type: 'array', items: { type: 'string' }, description: 'Only commits that touch these files or folders.' },
+      paths: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Only commits that touch these files or folders.',
+      },
       folder: FOLDER_PARAMETER,
     },
   };

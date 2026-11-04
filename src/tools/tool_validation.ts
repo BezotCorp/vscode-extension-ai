@@ -29,7 +29,9 @@ function matchesType(type: string | undefined, value: unknown): boolean {
     case 'string':
       return typeof value === 'string';
     case 'number':
-      return typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)));
+      return (
+        typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)))
+      );
     case 'boolean':
       return typeof value === 'boolean';
     case 'array':

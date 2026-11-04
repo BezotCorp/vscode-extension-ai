@@ -1,4 +1,4 @@
-import { ChatContext } from '../context/chat_context';
+import { AiContext, ContextFilter } from '../context';
 import { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from '../tools';
 import { ProviderStatus } from './provider_status';
 
@@ -13,7 +13,8 @@ export type ChatRequest = {
   message: string;
   // Earlier turns of the active conversation, oldest first, without the current message.
   history?: ChatHistoryMessage[];
-  context: ChatContext;
+  context: AiContext;
+  contextFilter?: ContextFilter;
   tools?: ToolRegistry;
 };
 

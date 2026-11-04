@@ -1,65 +1,80 @@
 export function getModelManagementStyles(): string {
   return `
 #model-card {
-  padding: 10px;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  background: var(--vscode-editor-background);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
-#model-card label {
-  opacity: 0.85;
-  font-size: 0.9em;
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
-#active-model,
-#model-error {
-  opacity: 0.85;
-  font-size: 0.9em;
-  word-break: break-all;
+.settings-group label {
+  font-weight: 500;
 }
 
-#model-error {
-  color: var(--vscode-errorForeground);
-}
-
-#provider-select,
-#provider-url-input,
-#model-select,
-#model-input {
+.settings-group input,
+.settings-group select {
   width: 100%;
-  padding: 5px 8px;
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
+  padding: 6px 8px;
   border: 1px solid var(--vscode-input-border);
   border-radius: 4px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
 }
 
 #provider-actions,
-#model-actions {
+#provider-actions-secondary {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
 #apply-provider-settings,
+#test-connection,
 #refresh-models,
-#save-model {
-  padding: 5px 10px;
+#settings {
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 4px;
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 #apply-provider-settings:hover,
+#test-connection:hover,
 #refresh-models:hover,
-#save-model:hover {
+#settings:hover {
   background: var(--vscode-button-secondaryHoverBackground);
+}
+
+#backend-card {
+  padding: 5px 0;
+}
+
+#backend-status {
+  font-weight: 500;
+}
+
+#backend-url,
+#model-error {
+  margin-top: 4px;
+  opacity: 0.75;
+  font-size: 0.9em;
+  word-break: break-all;
+}
+
+#model-error {
+  color: var(--vscode-errorForeground);
+  opacity: 1;
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--vscode-panel-border);
 }
 `;
 }

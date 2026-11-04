@@ -4,6 +4,8 @@ export type GitPlan = {
   args: string[];
   // Wording of the permission question, when "run <tool>" is not enough.
   action?: string;
+  // The same wording in the user's language, for the dialog.
+  actionLabel?: string;
   detail?: string;
   // Absolute paths the command touches; protected ones always need the user's answer.
   paths?: string[];

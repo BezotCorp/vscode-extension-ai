@@ -1,7 +1,7 @@
 {
   "name": "bezotcorp-ai",
-  "displayName": "BezotCorp AI",
-  "description": "Configurable AI coding assistant for VS Code.",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "1.8.0",
   "publisher": "bezotcorp",
   "icon": "assets/icon.png",
@@ -39,7 +39,7 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "BezotCorp AI",
+      "title": "%config.title%",
       "properties": {
         "bezotcorpAi.provider": {
           "type": "string",
@@ -49,26 +49,17 @@
             "customBackend",
             "bezotcorp"
           ],
-          "description": "AI provider used by BezotCorp AI."
+          "description": "%config.provider.description%"
         },
         "bezotcorpAi.providerUrl": {
           "type": "string",
           "default": "http://127.0.0.1:11434",
-          "description": "Provider URL. Ollama default is http://127.0.0.1:11434. Custom backend default is usually http://127.0.0.1:4188."
+          "description": "%config.providerUrl.description%"
         },
         "bezotcorpAi.model": {
           "type": "string",
           "default": "qwen2.5-coder:7b",
-          "description": "Model name used by the selected provider."
-        },
-        "bezotcorpAi.contextMode": {
-          "type": "string",
-          "default": "basic",
-          "enum": [
-            "basic",
-            "rich"
-          ],
-          "description": "Context mode. Basic sends focused context. Rich sends more workspace information."
+          "description": "%config.model.description%"
         },
         "bezotcorpAi.autonomyMode": {
           "type": "string",
@@ -81,46 +72,71 @@
             "auto"
           ],
           "enumDescriptions": [
-            "Only read and search tools are available.",
-            "Everything except reading inside the workspace asks for permission unless already granted.",
-            "File changes inside the workspace go ahead without asking; commands, network and MCP still ask.",
-            "Nothing asks, except operations matched by an ask rule. Deny rules always apply. Choose this explicitly."
+            "%config.autonomyMode.readOnly%",
+            "%config.autonomyMode.confirm%",
+            "%config.autonomyMode.acceptEdits%",
+            "%config.autonomyMode.auto%"
           ],
-          "description": "How much the AI may do on its own. Only read from user settings."
+          "description": "%config.autonomyMode.description%"
         },
         "bezotcorpAi.permissions": {
           "type": "object",
           "scope": "application",
           "default": {},
-          "markdownDescription": "What the AI may do with each tool, by tool identity, kept for every workspace: `{ \"edit_file\": \"allow\", \"git_push\": \"deny\" }`. Values: `allow` (no question), `ask` (confirm at each call), `deny` (the tool is not offered and cannot run). A tool without an entry uses its default: reading and consulting tools allow, the others ask. MCP tools are named `mcp__server__tool`. Use the command *BezotCorp AI: Manage Permissions* to edit this per session, workspace or globally. Only read from user settings.",
-          "additionalProperties": { "type": "string", "enum": ["allow", "ask", "deny"] }
+          "markdownDescription": "%config.permissions.markdownDescription%",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "ask",
+              "deny"
+            ]
+          }
         },
         "bezotcorpAi.protectedPaths": {
           "type": "array",
           "scope": "application",
           "default": [],
-          "items": { "type": "string" },
-          "markdownDescription": "Extra protected resources, added to the built-in ones (`.env`, `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `.npmrc`, `.git`, `.ssh`, `.aws`...). A protected resource is never read, changed, moved or deleted without asking, whatever a tool is allowed to do, and stays out of the context, searches and git output. A bare name or glob matches at any depth; `//abs/path`, `~/path` and `path` (from the workspace root) are also accepted."
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "%config.protectedPaths.markdownDescription%"
         },
         "bezotcorpAi.contextTokens": {
           "type": "number",
           "default": 16384,
           "minimum": 2048,
-          "description": "Context window requested from the model, in tokens (num_ctx for Ollama). It bounds how much conversation history is sent. The model's own maximum applies when lower."
+          "description": "%config.contextTokens.description%"
         },
         "bezotcorpAi.mcpServers": {
           "type": "object",
           "scope": "application",
           "default": {},
-          "description": "MCP servers started over stdio, keyed by name: { \"name\": { \"command\": \"npx\", \"args\": [\"-y\", \"server\"], \"env\": {}, \"cwd\": \"\" } }. Only read from user settings.",
+          "description": "%config.mcpServers.description%",
           "additionalProperties": {
             "type": "object",
-            "required": ["command"],
+            "required": [
+              "command"
+            ],
             "properties": {
-              "command": { "type": "string" },
-              "args": { "type": "array", "items": { "type": "string" } },
-              "env": { "type": "object", "additionalProperties": { "type": "string" } },
-              "cwd": { "type": "string" }
+              "command": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "cwd": {
+                "type": "string"
+              }
             }
           }
         }
@@ -130,7 +146,7 @@
       "activitybar": [
         {
           "id": "bezotcorp-ai",
-          "title": "BezotCorp AI",
+          "title": "%viewsContainer.title%",
           "icon": "assets/icon.png"
         }
       ]
@@ -139,7 +155,7 @@
       "bezotcorp-ai": [
         {
           "id": "bezotcorp-ai-chat",
-          "name": "Chat",
+          "name": "%view.chat.name%",
           "type": "webview",
           "icon": "assets/icon.png"
         }
@@ -148,23 +164,23 @@
     "commands": [
       {
         "command": "bezotcorp-ai.openChat",
-        "title": "BezotCorp AI: Open Chat"
+        "title": "%command.openChat.title%"
       },
       {
         "command": "bezotcorp-ai.openSettings",
-        "title": "BezotCorp AI: Open Settings"
+        "title": "%command.openSettings.title%"
       },
       {
         "command": "bezotcorp-ai.managePermissions",
-        "title": "BezotCorp AI: Manage Permissions"
+        "title": "%command.managePermissions.title%"
       },
       {
         "command": "bezotcorp-ai.revokeAllPermissions",
-        "title": "BezotCorp AI: Revoke All Permissions"
+        "title": "%command.revokeAllPermissions.title%"
       },
       {
         "command": "bezotcorp-ai.openPermissionRules",
-        "title": "BezotCorp AI: Open Permission Settings"
+        "title": "%command.openPermissionRules.title%"
       }
     ]
   },

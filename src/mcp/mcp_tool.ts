@@ -11,6 +11,7 @@ import {
 import { truncateText } from '../workspace';
 import { McpClient, McpToolInfo } from '.';
 import { McpRequestError } from './mcp_request_error';
+import { t } from '../i18n';
 
 const MAX_DESCRIPTION_CHARS = 1_000;
 const MAX_STRUCTURED_CHARS = 8_000;
@@ -58,9 +59,9 @@ export class McpTool implements Tool {
       {
         tool: this,
         action: `call the MCP tool ${sanitizeForPrompt(resource)}`,
+        actionLabel: t('action.mcp.call', { tool: sanitizeForPrompt(resource) }),
         resources: [],
-        inPerimeter: true,
-        detail: `Arguments: ${sanitizeForPrompt(JSON.stringify(input ?? {}), 500)}`,
+        detail: t('detail.arguments', { arguments: sanitizeForPrompt(JSON.stringify(input ?? {}), 500) }),
       },
       context?.signal,
     );

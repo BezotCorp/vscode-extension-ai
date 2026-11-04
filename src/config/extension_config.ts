@@ -4,12 +4,10 @@ import { McpServerConfig } from '../mcp';
 import { AutonomyMode, DEFAULT_AUTONOMY_MODE } from '../permissions';
 
 export type AiProviderKind = 'ollama' | 'customBackend' | 'bezotcorp';
-export type ContextMode = 'basic' | 'rich';
 
 export const DEFAULT_PROVIDER: AiProviderKind = 'ollama';
 export const DEFAULT_PROVIDER_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_MODEL = 'qwen2.5-coder:7b';
-export const DEFAULT_CONTEXT_MODE: ContextMode = 'basic';
 export const DEFAULT_CONTEXT_TOKENS = 16_384;
 export const MIN_CONTEXT_TOKENS = 2_048;
 
@@ -17,7 +15,6 @@ export type ExtensionConfig = {
   provider: AiProviderKind;
   providerUrl: string;
   model: string;
-  contextMode: ContextMode;
   autonomyMode: AutonomyMode;
   // Context window requested from the model, in tokens (the model's own maximum applies if it is lower).
   contextTokens: number;
@@ -31,7 +28,6 @@ export function getExtensionConfig(): ExtensionConfig {
     provider: config.get<AiProviderKind>('provider', DEFAULT_PROVIDER),
     providerUrl: normalizeProviderUrl(config.get<string>('providerUrl', DEFAULT_PROVIDER_URL)),
     model: config.get<string>('model', DEFAULT_MODEL),
-    contextMode: config.get<ContextMode>('contextMode', DEFAULT_CONTEXT_MODE),
     autonomyMode: getUserSetting<AutonomyMode>('autonomyMode', DEFAULT_AUTONOMY_MODE),
     contextTokens: Math.max(config.get<number>('contextTokens', DEFAULT_CONTEXT_TOKENS), MIN_CONTEXT_TOKENS),
     mcpServers: getUserSetting<Record<string, McpServerConfig>>('mcpServers', {}),

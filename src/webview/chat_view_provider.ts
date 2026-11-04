@@ -7,9 +7,6 @@ import { ModelManager } from '../models/model_manager';
 import { PermissionStore } from '../permissions';
 import { getChatHtml } from './html/chat_html';
 import { WebviewMessage } from '.';
-import { sendChatStore } from './chat_store_presenter';
-import { sendModelState, testConnection } from './model_state_presenter';
-import { sendContextPreview } from './context_preview_presenter';
 import { FileToolServices } from '../tools';
 import { GenerationController } from './generation_controller';
 import { WebviewMessageRouter } from './webview_message_router';
@@ -21,7 +18,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private readonly messageRouter: WebviewMessageRouter;
 
   constructor(
-    private readonly extensionUri: vscode.Uri,
     storageUri: vscode.Uri,
     permissionStore: PermissionStore,
     mcpManager: McpManager,
@@ -29,19 +25,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   ) {
     this.chatManager = new ChatManager(new ChatStorage(storageUri));
     this.generationController = new GenerationController(this.chatManager, permissionStore, mcpManager, files);
-    this.messageRouter = new WebviewMessageRouter(
-      this.chatManager,
-      this.modelManager,
-      this.generationController,
-    );
+    this.messageRouter = new WebviewMessageRouter(this.chatManager, this.modelManager, this.generationController);
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
     webviewView.webview.options = {
       enableScripts: true,
     };
-
-    webviewView.webview.html = getChatHtml();
 
     webviewView.webview.onDidReceiveMessage((message: WebviewMessage) => {
       void this.messageRouter.handle(webviewView, message);
@@ -53,16 +43,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async initialize(webviewView: vscode.WebviewView): Promise<void> {
     await this.chatManager.load();
 
-    sendChatStore(webviewView, this.chatManager);
-
-    await testConnection(webviewView);
-    await sendModelState(webviewView, this.modelManager);
-
-    await sendContextPreview(webviewView, {
-      includeActiveFile: true,
-      includeOpenFiles: false,
-      includeSelectedText: true,
-      includeWorkspaceTree: false,
-    });
+    webviewView.webview.html = getChatHtml();
   }
 }

@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "BezotCorp AI: Prepare Test Extension",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/test-extension.sh",
+      "args": [
+        "prepare"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "BezotCorp AI: Compile",
+      "type": "shell",
+      "command": "pnpm",
+      "args": [
+        "compile"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "BezotCorp AI: Start Test Extension",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "BezotCorp AI: Prepare Test Extension",
+        "BezotCorp AI: Compile"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "BezotCorp AI: Clean Test Extension",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/test-extension.sh",
+      "args": [
+        "clean"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

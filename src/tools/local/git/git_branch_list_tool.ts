@@ -7,7 +7,8 @@ export class GitBranchListTool extends GitTool {
   readonly name = 'Git Branch List';
   readonly readOnlyCompatible = true;
   readonly permissionDefault = 'allow' as const;
-  readonly description = 'Lists local and remote-tracking branches with their last commit and upstream (git branch --all).';
+  readonly description =
+    'Lists local and remote-tracking branches with their last commit and upstream (git branch --all).';
   readonly parameters = { type: 'object' as const, properties: { folder: FOLDER_PARAMETER } };
 
   protected async plan(): Promise<GitPlan | ToolExecutionResult> {

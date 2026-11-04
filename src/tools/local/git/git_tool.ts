@@ -6,6 +6,7 @@ import { readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import { GitPlan } from './git_plan';
 import { runGit } from './run_git';
+import { t } from '../../../i18n';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -29,7 +30,11 @@ export abstract class GitTool implements Tool {
   constructor(protected readonly accessGuard: ToolAccessGuard) {}
 
   // The command to run, or a failure result when the parameters are not valid.
-  protected abstract plan(input: unknown, repository: string, signal?: AbortSignal): Promise<GitPlan | ToolExecutionResult>;
+  protected abstract plan(
+    input: unknown,
+    repository: string,
+    signal?: AbortSignal,
+  ): Promise<GitPlan | ToolExecutionResult>;
 
   protected reject(message: string): ToolExecutionResult {
     return toolFailure('error', this.id, undefined, {
@@ -57,8 +62,15 @@ export abstract class GitTool implements Tool {
       {
         tool: this,
         action: plan.action ?? `run ${this.name} in ${repository}`,
-        resources: plan.paths ?? [],
-        inPerimeter: true,
+        actionLabel: plan.actionLabel ?? t('action.git.run', { tool: this.name, repository }),
+        resources: (plan.paths ?? []).map((fsPath) => ({
+          path: fsPath,
+          isDirectory: false,
+          boundary: {
+            kind: 'currentWindow' as const,
+            root: repository,
+          },
+        })),
         detail: plan.detail,
       },
       context?.signal,
@@ -69,7 +81,12 @@ export abstract class GitTool implements Tool {
 
   // Runs a plan without asking: for the read-only commands a tool uses to describe what it is about to do.
   protected async capture(args: string[], repository: string, signal?: AbortSignal): Promise<string | undefined> {
-    const run = await runGit({ args: ['--no-optional-locks', ...args], cwd: repository, timeoutMs: DEFAULT_TIMEOUT_MS, signal });
+    const run = await runGit({
+      args: ['--no-optional-locks', ...args],
+      cwd: repository,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+      signal,
+    });
 
     return run.started && run.exitCode === 0 ? run.stdout.trim() : undefined;
   }
@@ -88,12 +105,15 @@ export abstract class GitTool implements Tool {
 
     const chosen = folder ? roots.find((root) => path.basename(root) === folder) : roots[0];
 
-    return chosen ?? toolFailure('error', this.id, folder, {
-      reason: 'unknown_folder',
-      message: `No workspace folder is named "${folder}". Open folders: ${roots.map((root) => path.basename(root)).join(', ')}.`,
-      executed: false,
-      retryable: true,
-    });
+    return (
+      chosen ??
+      toolFailure('error', this.id, folder, {
+        reason: 'unknown_folder',
+        message: `No workspace folder is named "${folder}". Open folders: ${roots.map((root) => path.basename(root)).join(', ')}.`,
+        executed: false,
+        retryable: true,
+      })
+    );
   }
 
   private async run(plan: GitPlan, repository: string, signal?: AbortSignal): Promise<ToolExecutionResult> {
@@ -105,7 +125,12 @@ export abstract class GitTool implements Tool {
       signal,
     });
     const resource = `git ${plan.args[0]}`;
-    const details = { command: plan.args[0], exitCode: run.exitCode, durationMs: run.durationMs, outputTruncated: run.truncated };
+    const details = {
+      command: plan.args[0],
+      exitCode: run.exitCode,
+      durationMs: run.durationMs,
+      outputTruncated: run.truncated,
+    };
 
     if (!run.started) {
       if (run.aborted) {
@@ -131,7 +156,11 @@ export abstract class GitTool implements Tool {
     const output = [run.stdout && run.stdout, run.stderr && `[stderr]\n${run.stderr}`].filter(Boolean).join('\n');
 
     if (run.aborted || run.timedOut || run.terminatedBySignal) {
-      const why = run.aborted ? 'stopped by cancellation' : run.timedOut ? `stopped after ${timeoutMs} ms` : `terminated by ${run.terminatedBySignal}`;
+      const why = run.aborted
+        ? 'stopped by cancellation'
+        : run.timedOut
+          ? `stopped after ${timeoutMs} ms`
+          : `terminated by ${run.terminatedBySignal}`;
 
       return toolFailure(run.aborted ? 'cancelled' : 'interrupted', this.id, resource, {
         reason: run.aborted ? 'cancelled_by_user' : run.timedOut ? 'timeout' : 'terminated_by_signal',

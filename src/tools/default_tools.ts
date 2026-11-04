@@ -1,4 +1,3 @@
-import { getSelectedText, getWorkspaceFiles } from '../context';
 import {
   CreateFilesTool,
   CreateFileTool,
@@ -26,9 +25,7 @@ import {
   SearchTextTool,
   UpdateFilesTool,
   UpdateFileTool,
-  WorkspaceTreeTool,
 } from './local';
-import { SelectedTextTool } from './local/selection';
 import { WebFetchTool } from './remote';
 import { FileVersionTracker } from './local/filesystem/file_version_tracker';
 import { Tool } from './tool';
@@ -56,8 +53,6 @@ export function createBuiltInTools(
     new ReadFilesTool(readFile),
     new ListFilesTool(accessGuard),
     new SearchTextTool(accessGuard),
-    new SelectedTextTool(getSelectedText),
-    new WorkspaceTreeTool(getWorkspaceFiles),
     createFile,
     new CreateFilesTool(createFile),
     updateFile,

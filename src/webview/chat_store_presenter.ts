@@ -15,6 +15,8 @@ export function sendChatStore(webviewView: vscode.WebviewView, chatManager: Chat
       title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
+      archivedAt: session.archivedAt,
+      trashedAt: session.trashedAt,
       messageCount: session.messages.length,
     })),
     messages: (activeSession?.messages ?? []).map((message) => ({

@@ -6,22 +6,24 @@ import { ToolCall, ToolExecutionResult } from '../tools';
 
 const MAX_ARGUMENT_CHARS = 200;
 
-export function sendToolCall(webviewView: vscode.WebviewView, call: ToolCall): void {
+export function sendToolCall(webviewView: vscode.WebviewView, sessionId: string, call: ToolCall): void {
   webviewView.webview.postMessage({
     type: 'responseChunk',
+    sessionId,
     text: formatToolCall(call.name, call.arguments),
   });
 }
 
-export function sendToolResult(webviewView: vscode.WebviewView, result: ToolExecutionResult): void {
+export function sendToolResult(webviewView: vscode.WebviewView, sessionId: string, result: ToolExecutionResult): void {
   webviewView.webview.postMessage({
     type: 'responseChunk',
+    sessionId,
     text: formatToolOutcome(result.status, result.reason),
   });
 }
 
-export function sendToolNotice(webviewView: vscode.WebviewView, text: string): void {
-  webviewView.webview.postMessage({ type: 'responseChunk', text });
+export function sendToolNotice(webviewView: vscode.WebviewView, sessionId: string, text: string): void {
+  webviewView.webview.postMessage({ type: 'responseChunk', sessionId, text });
 }
 
 // What the chat shows for a stored message: the same tool lines that were streamed while it was generated.

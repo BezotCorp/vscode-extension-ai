@@ -2,6 +2,7 @@ import { ToolExecutionResult } from '../..';
 import { readRemote } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 const NETWORK_TIMEOUT_MS = 120_000;
 
@@ -25,6 +26,11 @@ export class GitFetchTool extends GitTool {
 
     return remote instanceof Error
       ? this.reject(remote.message)
-      : { args: ['fetch', '--prune', remote], action: `fetch from the git remote ${remote}`, timeoutMs: NETWORK_TIMEOUT_MS };
+      : {
+          args: ['fetch', '--prune', remote],
+          action: `fetch from the git remote ${remote}`,
+          actionLabel: t('action.git.fetch', { remote }),
+          timeoutMs: NETWORK_TIMEOUT_MS,
+        };
   }
 }

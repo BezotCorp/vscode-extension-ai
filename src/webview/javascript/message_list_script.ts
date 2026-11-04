@@ -14,8 +14,8 @@ function addMessage(text, role) {
     const copy = document.createElement('button');
     copy.type = 'button';
     copy.className = 'copy-message';
-    copy.textContent = 'Copier';
-    copy.title = 'Copier la réponse';
+    copy.textContent = tr('ui.copy');
+    copy.title = tr('ui.copyTitle');
     copy.addEventListener('click', () => {
       vscode.postMessage({
         type: 'copyMessage',
@@ -35,7 +35,7 @@ function clearMessages() {
   currentAssistantMessage = null;
 }
 
-function restoreHistory(restoredMessages) {
+function restoreMessages(restoredMessages) {
   clearMessages();
 
   for (const message of restoredMessages) {

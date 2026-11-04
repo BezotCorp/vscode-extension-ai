@@ -2,13 +2,15 @@ import { ToolExecutionResult } from '../..';
 import { readBranchName, readRevision } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 export class GitBranchCreateTool extends GitTool {
   readonly id = 'git_branch_create';
   readonly name = 'Git Branch Create';
   readonly readOnlyCompatible = false;
   readonly permissionDefault = 'ask' as const;
-  readonly description = 'Creates a branch, from HEAD or from a given revision, without switching to it (use git_switch).';
+  readonly description =
+    'Creates a branch, from HEAD or from a given revision, without switching to it (use git_switch).';
   readonly parameters = {
     type: 'object' as const,
     properties: {
@@ -34,6 +36,7 @@ export class GitBranchCreateTool extends GitTool {
     return {
       args: ['branch', name, ...(start ? [start] : [])],
       action: `create the git branch ${name}`,
+      actionLabel: t('action.git.branchCreate', { branch: name }),
     };
   }
 }

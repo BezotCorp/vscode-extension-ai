@@ -6,6 +6,7 @@ import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from
 import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
+import { t } from '../../../i18n';
 
 export class DeleteFileTool implements Tool {
   readonly id = 'delete_file';
@@ -14,7 +15,7 @@ export class DeleteFileTool implements Tool {
   readonly permissionDefault = 'ask' as const;
   readonly editsFiles = true;
   readonly description =
-    'Moves a file or folder to the trash. Refused when it contains files with unsaved changes in the editor. Outside the current window the user is always asked (access elevated); for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
+    'Moves a file or folder to the trash. Refused when it contains files with unsaved changes in the editor. Outside the current window the user is asked unless that resource has already been explicitly authorized; for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
   readonly parameters = {
     type: 'object' as const,
     properties: {
@@ -37,7 +38,7 @@ export class DeleteFileTool implements Tool {
     }
 
     await this.accessGuard.assertPath(this, 'delete', resolved, isDirectory, {
-      detail: isDirectory ? 'Folder: everything inside it is moved to the trash.' : undefined,
+      detail: isDirectory ? t('detail.folderToTrash') : undefined,
       effects: [removalEffect(fsPath)],
       access: readAccessArg(input),
       signal: context?.signal,

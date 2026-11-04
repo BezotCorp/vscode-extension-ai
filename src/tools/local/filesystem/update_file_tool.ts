@@ -16,6 +16,7 @@ import { UpdateRequest } from './update_request';
 import { WriteFileData } from './write_file_data';
 import { WriteFilePipeline } from './write_file_pipeline';
 import { WriteFileState } from './write_file_state';
+import { t } from '../../../i18n';
 
 // Retries allowed after the first attempt when the file keeps changing: the initial attempt and two retries.
 const MAX_RETRY = 2;
@@ -159,7 +160,7 @@ export class UpdateFileTool implements Tool {
           });
         default:
           void vscode.window.showErrorMessage(
-            `BezotCorp AI: ${fsPath} could not be written correctly and could not be restored. The original is kept at ${data.backupPath}.`,
+            t('notify.writeNotRestored', { path: fsPath, backup: data.backupPath }),
           );
 
           return toolFailure('error', this.id, fsPath, {
@@ -186,11 +187,16 @@ export class UpdateFileTool implements Tool {
     const hasContent = values.content !== undefined;
 
     if (hasEdit === hasContent) {
-      return { error: 'Give either old_text with new_text (a local change) or content (the whole file), not both and not neither.' };
+      return {
+        error:
+          'Give either old_text with new_text (a local change) or content (the whole file), not both and not neither.',
+      };
     }
 
     if (hasContent) {
-      return typeof values.content === 'string' ? { kind: 'replace', content: values.content } : { error: 'Argument "content" must be a string.' };
+      return typeof values.content === 'string'
+        ? { kind: 'replace', content: values.content }
+        : { error: 'Argument "content" must be a string.' };
     }
 
     if (typeof values.old_text !== 'string' || values.old_text === '') {
@@ -245,7 +251,12 @@ export class UpdateFileTool implements Tool {
     const part =
       projection.anchor === undefined
         ? undefined
-        : this.versions.receivedPart(fsPath, projection.before, projection.anchor.offset, projection.anchor.oldText.length);
+        : this.versions.receivedPart(
+            fsPath,
+            projection.before,
+            projection.anchor.offset,
+            projection.anchor.oldText.length,
+          );
 
     if (!current && part === undefined) {
       return this.conflict(fsPath, read, request, this.versions.hasSeen(fsPath), maxResultChars);
@@ -259,7 +270,12 @@ export class UpdateFileTool implements Tool {
   private rememberWritten(fsPath: string, request: UpdateRequest, prepared: Prepared, sha: string): void {
     const { projection } = prepared;
 
-    if (request.kind === 'replace' || prepared.contextWasCurrent || projection.anchor === undefined || prepared.part === undefined) {
+    if (
+      request.kind === 'replace' ||
+      prepared.contextWasCurrent ||
+      projection.anchor === undefined ||
+      prepared.part === undefined
+    ) {
       this.versions.remember(fsPath, sha, projection.after, true);
       return;
     }
@@ -300,7 +316,7 @@ export class UpdateFileTool implements Tool {
     if (stopped) {
       this.versions.clearConflicts(fsPath);
       void vscode.window.showWarningMessage(
-        `BezotCorp AI: update_file was stopped on ${fsPath}. The file kept changing between attempts, so the operation could not be done. No change was applied to the file.`,
+        t('notify.updateStopped', { path: fsPath }),
       );
     }
 

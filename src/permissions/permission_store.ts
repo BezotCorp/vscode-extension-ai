@@ -1,97 +1,468 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { PermissionEntry, PermissionPolicy, PermissionResolution, PermissionScope } from '.';
+import {
+  PermissionEntry,
+  PermissionLifetime,
+  PermissionPolicy,
+  PermissionResolution,
+  ResourcePermissionGrant,
+  ResourcePermissionKind,
+} from '.';
 
-const WORKSPACE_KEY = 'bezotcorpAi.toolPermissions';
-const SETTING = 'permissions';
-const SCOPES_BY_PRIORITY: PermissionScope[] = ['session', 'workspace', 'global'];
+const TOOL_SETTING = 'permissions';
+const RESOURCE_KEY = 'bezotcorpAi.resourcePermissions.v2';
 
-// Decisions about tools, by tool identity. Session decisions live in memory, workspace decisions in the workspace
-// state, global decisions in the user setting bezotcorpAi.permissions (which the manager edits).
+const LIFETIMES: PermissionLifetime[] = [
+  'currentSession',
+  'allSessions',
+];
+
 export class PermissionStore {
-  private readonly session = new Map<string, PermissionPolicy>();
+  private readonly sessionTools =
+    new Map<string, PermissionPolicy>();
 
-  constructor(private readonly workspaceState: vscode.Memento) {}
+  private readonly sessionResources:
+    ResourcePermissionGrant[] = [];
 
-  get(toolId: string, scope: PermissionScope): PermissionPolicy | undefined {
-    return this.read(scope).get(toolId);
+  constructor(
+    private readonly globalState: vscode.Memento,
+  ) {}
+
+  get(
+    toolId: string,
+    lifetime: PermissionLifetime,
+  ): PermissionPolicy | undefined {
+    return this.readToolDecisions(
+      lifetime,
+    ).get(toolId);
   }
 
-  // A deny at any scope wins. Otherwise the most specific scope decides: session, then workspace, then global.
-  resolve(toolId: string): PermissionResolution | undefined {
-    const decisions = SCOPES_BY_PRIORITY.flatMap((scope) => {
-      const policy = this.get(toolId, scope);
+  resolve(
+    toolId: string,
+  ): PermissionResolution | undefined {
+    const decisions =
+      LIFETIMES.flatMap((lifetime) => {
+        const policy =
+          this.get(toolId, lifetime);
 
-      return policy ? [{ policy, scope }] : [];
-    });
+        return policy
+          ? [{
+              policy,
+              lifetime,
+            }]
+          : [];
+      });
 
-    return decisions.find((decision) => decision.policy === 'deny') ?? decisions[0];
-  }
-
-  async set(toolId: string, policy: PermissionPolicy, scope: PermissionScope): Promise<void> {
-    const decisions = this.read(scope);
-
-    decisions.set(toolId, policy);
-    await this.write(scope, decisions);
-  }
-
-  async clear(toolId: string, scope: PermissionScope): Promise<void> {
-    const decisions = this.read(scope);
-
-    if (decisions.delete(toolId)) {
-      await this.write(scope, decisions);
-    }
-  }
-
-  async clearScope(scope: PermissionScope): Promise<void> {
-    await this.write(scope, new Map());
-  }
-
-  list(): PermissionEntry[] {
-    return SCOPES_BY_PRIORITY.flatMap((scope) =>
-      [...this.read(scope).entries()].map(([toolId, policy]) => ({ toolId, policy, scope })),
+    // A deny always wins. Otherwise the current session is more specific than all sessions.
+    return (
+      decisions.find(
+        (decision) =>
+          decision.policy === 'deny',
+      ) ??
+      decisions[0]
     );
   }
 
-  private read(scope: PermissionScope): Map<string, PermissionPolicy> {
-    switch (scope) {
-      case 'session':
-        return this.session;
-      case 'workspace':
-        return toMap(this.workspaceState.get<unknown>(WORKSPACE_KEY, {}));
-      case 'global':
-        // User settings only: a workspace file cannot grant a tool.
-        return toMap(vscode.workspace.getConfiguration('bezotcorpAi').inspect<unknown>(SETTING)?.globalValue);
+  async set(
+    toolId: string,
+    policy: PermissionPolicy,
+    lifetime: PermissionLifetime,
+  ): Promise<void> {
+    const decisions =
+      this.readToolDecisions(lifetime);
+
+    decisions.set(toolId, policy);
+
+    await this.writeToolDecisions(
+      lifetime,
+      decisions,
+    );
+  }
+
+  async clear(
+    toolId: string,
+    lifetime: PermissionLifetime,
+  ): Promise<void> {
+    const decisions =
+      this.readToolDecisions(lifetime);
+
+    if (!decisions.delete(toolId)) {
+      return;
+    }
+
+    await this.writeToolDecisions(
+      lifetime,
+      decisions,
+    );
+  }
+
+  async clearToolDecisions(
+    lifetime: PermissionLifetime,
+  ): Promise<void> {
+    await this.writeToolDecisions(
+      lifetime,
+      new Map(),
+    );
+  }
+
+  list(): PermissionEntry[] {
+    return LIFETIMES.flatMap(
+      (lifetime) =>
+        [
+          ...this
+            .readToolDecisions(lifetime)
+            .entries(),
+        ].map(
+          ([toolId, policy]) => ({
+            toolId,
+            policy,
+            lifetime,
+          }),
+        ),
+    );
+  }
+
+  listResourcePermissions():
+    ResourcePermissionGrant[] {
+    return [
+      ...this.sessionResources,
+      ...this.readAllSessionsResources(),
+    ];
+  }
+
+  isResourceAllowed(
+    toolId: string,
+    target: string,
+  ): ResourcePermissionGrant | undefined {
+    const resolved =
+      path.resolve(target);
+
+    const session =
+      [...this.sessionResources]
+        .reverse()
+        .find(
+          (grant) =>
+            grant.toolId === toolId &&
+            grantCovers(
+              grant,
+              resolved,
+            ),
+        );
+
+    if (session) {
+      return session;
+    }
+
+    return this
+      .readAllSessionsResources()
+      .reverse()
+      .find(
+        (grant) =>
+          grant.toolId === toolId &&
+          grantCovers(
+            grant,
+            resolved,
+          ),
+      );
+  }
+
+  async allowResource(
+    toolId: string,
+    target: string,
+    kind: ResourcePermissionKind,
+    lifetime: PermissionLifetime,
+  ): Promise<void> {
+    const grant:
+      ResourcePermissionGrant = {
+        toolId,
+        path: path.resolve(target),
+        kind,
+        lifetime,
+      };
+
+    const grants =
+      lifetime === 'currentSession'
+        ? [...this.sessionResources]
+        : this.readAllSessionsResources();
+
+    const filtered =
+      grants.filter(
+        (candidate) =>
+          !(
+            candidate.toolId ===
+              grant.toolId &&
+            candidate.path ===
+              grant.path &&
+            candidate.kind ===
+              grant.kind
+          ),
+      );
+
+    filtered.push(grant);
+
+    await this.writeResources(
+      lifetime,
+      filtered,
+    );
+  }
+
+  async removeResourcePermission(
+    grant: ResourcePermissionGrant,
+  ): Promise<void> {
+    const grants =
+      grant.lifetime === 'currentSession'
+        ? [...this.sessionResources]
+        : this.readAllSessionsResources();
+
+    await this.writeResources(
+      grant.lifetime,
+      grants.filter(
+        (candidate) =>
+          !sameGrant(candidate, grant),
+      ),
+    );
+  }
+
+  async clearResourcePermissions(
+    lifetime: PermissionLifetime,
+  ): Promise<void> {
+    await this.writeResources(
+      lifetime,
+      [],
+    );
+  }
+
+  async clearAll(
+    lifetime: PermissionLifetime,
+  ): Promise<void> {
+    await this.clearToolDecisions(
+      lifetime,
+    );
+
+    await this.clearResourcePermissions(
+      lifetime,
+    );
+  }
+
+  private readToolDecisions(
+    lifetime: PermissionLifetime,
+  ): Map<string, PermissionPolicy> {
+    switch (lifetime) {
+      case 'currentSession':
+        return new Map(this.sessionTools);
+
+      case 'allSessions':
+        return toToolMap(
+          vscode.workspace
+            .getConfiguration(
+              'bezotcorpAi',
+            )
+            .inspect<unknown>(
+              TOOL_SETTING,
+            )
+            ?.globalValue,
+        );
     }
   }
 
-  private async write(scope: PermissionScope, decisions: Map<string, PermissionPolicy>): Promise<void> {
-    const value = Object.fromEntries(decisions);
+  private async writeToolDecisions(
+    lifetime: PermissionLifetime,
+    decisions:
+      Map<string, PermissionPolicy>,
+  ): Promise<void> {
+    if (lifetime === 'currentSession') {
+      this.sessionTools.clear();
 
-    switch (scope) {
-      case 'session':
-        return;
-      case 'workspace':
-        await this.workspaceState.update(WORKSPACE_KEY, value);
-        return;
-      case 'global':
-        await vscode.workspace
-          .getConfiguration('bezotcorpAi')
-          .update(SETTING, value, vscode.ConfigurationTarget.Global);
+      for (
+        const [toolId, policy]
+        of decisions
+      ) {
+        this.sessionTools.set(
+          toolId,
+          policy,
+        );
+      }
+
+      return;
     }
+
+    await vscode.workspace
+      .getConfiguration('bezotcorpAi')
+      .update(
+        TOOL_SETTING,
+        Object.fromEntries(
+          decisions,
+        ),
+        vscode.ConfigurationTarget.Global,
+      );
+  }
+
+  private readAllSessionsResources():
+    ResourcePermissionGrant[] {
+    const value =
+      this.globalState.get<unknown>(
+        RESOURCE_KEY,
+        [],
+      );
+
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.flatMap(
+      (entry) =>
+        parseResourceGrant(
+          entry,
+          'allSessions',
+        ),
+    );
+  }
+
+  private async writeResources(
+    lifetime: PermissionLifetime,
+    grants: ResourcePermissionGrant[],
+  ): Promise<void> {
+    if (lifetime === 'currentSession') {
+      this.sessionResources.splice(
+        0,
+        this.sessionResources.length,
+        ...grants,
+      );
+
+      return;
+    }
+
+    await this.globalState.update(
+      RESOURCE_KEY,
+      grants.map(
+        ({
+          toolId,
+          path,
+          kind,
+        }) => ({
+          toolId,
+          path,
+          kind,
+        }),
+      ),
+    );
   }
 }
 
-function toMap(value: unknown): Map<string, PermissionPolicy> {
-  const decisions = new Map<string, PermissionPolicy>();
+function toToolMap(
+  value: unknown,
+): Map<string, PermissionPolicy> {
+  const result =
+    new Map<string, PermissionPolicy>();
 
-  if (typeof value === 'object' && value !== null) {
-    for (const [toolId, policy] of Object.entries(value)) {
-      if (policy === 'allow' || policy === 'ask' || policy === 'deny') {
-        decisions.set(toolId, policy);
-      }
+  if (
+    typeof value !== 'object' ||
+    value === null
+  ) {
+    return result;
+  }
+
+  for (
+    const [toolId, policy]
+    of Object.entries(value)
+  ) {
+    if (
+      policy === 'allow' ||
+      policy === 'ask' ||
+      policy === 'deny'
+    ) {
+      result.set(
+        toolId,
+        policy,
+      );
     }
   }
 
-  return decisions;
+  return result;
+}
+
+function parseResourceGrant(
+  value: unknown,
+  lifetime: PermissionLifetime,
+): ResourcePermissionGrant[] {
+  if (
+    typeof value !== 'object' ||
+    value === null
+  ) {
+    return [];
+  }
+
+  const candidate =
+    value as Record<string, unknown>;
+
+  if (
+    typeof candidate.toolId !==
+      'string' ||
+    typeof candidate.path !==
+      'string' ||
+    !isResourceKind(
+      candidate.kind,
+    )
+  ) {
+    return [];
+  }
+
+  return [{
+    toolId: candidate.toolId,
+    path: path.resolve(
+      candidate.path,
+    ),
+    kind: candidate.kind,
+    lifetime,
+  }];
+}
+
+function isResourceKind(
+  value: unknown,
+): value is ResourcePermissionKind {
+  return (
+    value === 'exact' ||
+    value === 'directory' ||
+    value === 'structuralWorkspace'
+  );
+}
+
+function grantCovers(
+  grant: ResourcePermissionGrant,
+  target: string,
+): boolean {
+  if (grant.kind === 'exact') {
+    return (
+      path.resolve(grant.path) ===
+      target
+    );
+  }
+
+  const relative =
+    path.relative(
+      path.resolve(grant.path),
+      target,
+    );
+
+  return (
+    relative === '' ||
+    (
+      !relative.startsWith('..') &&
+      !path.isAbsolute(relative)
+    )
+  );
+}
+
+function sameGrant(
+  left: ResourcePermissionGrant,
+  right: ResourcePermissionGrant,
+): boolean {
+  return (
+    left.toolId === right.toolId &&
+    left.path === right.path &&
+    left.kind === right.kind &&
+    left.lifetime ===
+      right.lifetime
+  );
 }

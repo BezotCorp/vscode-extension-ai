@@ -1,4 +1,6 @@
-export { ContextSelection } from './context_selection';
+export { AiContext } from './ai_context';
 export { ContextFile } from './context_file';
-export { ChatContext } from './chat_context';
-export { buildChatContext, getSelectedText, getWorkspaceFiles } from './context_builder';
+export { ContextFilter } from './context_filter';
+export { ContextSource } from './context_source';
+export { EditorContext } from './editor_context';
+export { buildAiContext } from './context_builder';

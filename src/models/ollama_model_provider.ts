@@ -35,8 +35,6 @@ export class OllamaModelProvider implements ModelProvider {
         id: name,
         name,
         provider: this.provider,
-        supportsStreaming: true,
-        supportsTools: false,
       }));
   }
 }

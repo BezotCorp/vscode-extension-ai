@@ -3,7 +3,11 @@ import { Tool, ToolExecutionContext, ToolExecutionResult } from '.';
 import { toolErrorFromException, toolFailure } from './tool_result';
 
 // What a tool that threw becomes for the model: a refusal, a cancellation or a technical failure, never an exception.
-export function toolFailureFromException(tool: Tool, error: unknown, context?: ToolExecutionContext): ToolExecutionResult {
+export function toolFailureFromException(
+  tool: Tool,
+  error: unknown,
+  context?: ToolExecutionContext,
+): ToolExecutionResult {
   if (error instanceof PermissionError) {
     const resource = error.resource;
 

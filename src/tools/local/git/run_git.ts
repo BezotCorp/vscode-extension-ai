@@ -11,11 +11,16 @@ const KILL_GRACE_MS = 2_000;
 // them (file system monitor, pager, external protocol helpers, credential prompts), and output is plain text.
 const SAFETY_OPTIONS = [
   '--no-pager',
-  '-c', 'core.fsmonitor=false',
-  '-c', 'core.pager=cat',
-  '-c', 'core.quotepath=false',
-  '-c', 'color.ui=false',
-  '-c', 'protocol.ext.allow=never',
+  '-c',
+  'core.fsmonitor=false',
+  '-c',
+  'core.pager=cat',
+  '-c',
+  'core.quotepath=false',
+  '-c',
+  'color.ui=false',
+  '-c',
+  'protocol.ext.allow=never',
 ];
 
 // The only program the extension starts for git tools is git itself, without a shell, with arguments the tools
@@ -48,7 +53,14 @@ export function runGit(options: GitRunOptions): Promise<GitRunResult> {
       cwd: options.cwd,
       shell: false,
       env: {
-        ...baseEnvironment(['SSH_AUTH_SOCK', 'XDG_CONFIG_HOME', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL']),
+        ...baseEnvironment([
+          'SSH_AUTH_SOCK',
+          'XDG_CONFIG_HOME',
+          'GIT_AUTHOR_NAME',
+          'GIT_AUTHOR_EMAIL',
+          'GIT_COMMITTER_NAME',
+          'GIT_COMMITTER_EMAIL',
+        ]),
         // No prompt can be answered: a missing credential or an editor request must fail, not hang.
         GIT_TERMINAL_PROMPT: '0',
         GIT_EDITOR: 'true',

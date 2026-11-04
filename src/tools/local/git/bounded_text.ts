@@ -28,6 +28,8 @@ export class BoundedText {
   }
 
   toString(): string {
-    return this.omitted > 0 ? `${this.head}\n/* ${this.omitted} characters omitted */\n${this.tail}` : this.head + this.tail;
+    return this.omitted > 0
+      ? `${this.head}\n/* ${this.omitted} characters omitted */\n${this.tail}`
+      : this.head + this.tail;
   }
 }

@@ -10,5 +10,4 @@ export { ReadFilesTool } from './read_files_tool';
 export { SearchTextTool } from './search_text_tool';
 export { UpdateFileTool } from './update_file_tool';
 export { UpdateFilesTool } from './update_files_tool';
-export { WorkspaceTreeTool } from './workspace_tree_tool';
 export { FileToolServices } from './file_tool_services';

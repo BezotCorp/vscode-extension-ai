@@ -1,90 +1,189 @@
+import { currentLocale, escapeHtml, t } from '../../i18n';
+import { getStyles } from '../css';
 import { getChatScript } from '../javascript/chat_script';
-import { getChatStyles } from '../css/chat_styles';
 import { getModelManagementHtml } from './model_management_html';
 
+// Every visible text is read from the catalog in the display language; the page never mixes two languages.
 export function getChatHtml(): string {
+  const ui = (key: Parameters<typeof t>[0]): string => escapeHtml(t(key));
+
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${currentLocale()}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-${getChatStyles()}
+${getStyles()}
 </style>
 </head>
 <body>
-<div id="welcome">
-  <strong>BezotCorp AI</strong>
-  <p>Use Ollama, your own backend, or the future BezotCorp backend.</p>
 
-  <div id="backend-card">
-    <div id="backend-status">🟡 Connecting...</div>
-    <div id="backend-url"></div>
-    <button id="test-connection">Test Connection</button>
-    <button id="settings">Open Settings</button>
+<header id="chat-header">
+  <div id="view-title"><span id="view-title-text">${ui('ui.newConversation')}</span></div>
+
+  <div id="header-actions">
+    <button
+      id="open-history"
+      class="header-action"
+      type="button"
+      title="${ui('ui.history')}"
+      aria-label="${ui('ui.history')}"
+    >
+      ◷
+    </button>
+
+    <button
+      id="new-chat"
+      class="header-action"
+      type="button"
+      title="${ui('ui.newConversation')}"
+      aria-label="${ui('ui.newConversation')}"
+    >
+      +
+    </button>
+
+    <button
+      id="open-configuration"
+      class="header-action"
+      type="button"
+      title="${ui('ui.configuration')}"
+      aria-label="${ui('ui.configuration')}"
+    >
+      ⚙
+    </button>
   </div>
-</div>
-${getModelManagementHtml()}
-<div id="chat-session-card">
-  <div id="chat-session-header">
-    <strong>Chats</strong>
-    <button id="new-chat">New Chat</button>
+</header>
+
+<section id="history-drawer" hidden>
+  <div id="history-filters">
+    <button
+      class="history-filter active"
+      data-history-filter="active"
+      type="button"
+    >
+      ${ui('ui.filterActive')}
+    </button>
+
+    <button
+      class="history-filter"
+      data-history-filter="archived"
+      type="button"
+    >
+      ${ui('ui.filterArchived')}
+    </button>
+
+    <button
+      class="history-filter"
+      data-history-filter="trash"
+      type="button"
+    >
+      ${ui('ui.filterTrash')}
+    </button>
   </div>
 
-  <select id="chat-session-select"></select>
+  <ul id="history-session-list"></ul>
 
-  <div id="chat-session-actions">
-    <button id="rename-chat">Rename</button>
-    <button id="delete-chat">Delete</button>
-    <button id="clear-history">Clear Current</button>
+  <div id="history-empty" hidden>
+    ${ui('ui.historyEmpty')}
   </div>
-</div>
 
-<div id="context-card">
-  <label>
-    <input id="include-selected-text" type="checkbox" checked>
-    Include selected text
-  </label>
-  <div id="selected-text-status">Selected text will be attached when available.</div>
+  <div id="history-bulk-actions">
+    <button
+      id="clear-current-chat"
+      class="history-bulk-action"
+      type="button"
+    >
+      ${ui('ui.clearCurrent')}
+    </button>
 
-  <label>
-    <input id="include-active-file" type="checkbox" checked>
-    Include active file
-  </label>
-  <div id="active-file-status">Active file will be attached when available.</div>
+    <button
+      id="trash-archived-chats"
+      class="history-bulk-action destructive"
+      type="button"
+      hidden
+    >
+      ${ui('ui.trashArchived')}
+    </button>
 
-  <label>
-    <input id="include-open-files" type="checkbox">
-    Include open files
-  </label>
-  <div id="open-files-status">Open files disabled.</div>
+    <button
+      id="empty-trash"
+      class="history-bulk-action destructive"
+      type="button"
+      hidden
+    >
+      ${ui('ui.emptyTrash')}
+    </button>
+  </div>
+</section>
 
-  <label>
-    <input id="include-workspace-tree" type="checkbox">
-    Include workspace tree
-  </label>
-  <div id="workspace-tree-status">Workspace tree disabled.</div>
-</div>
+<main id="main-content">
 
-<div id="context-preview-card">
-  <strong>Context</strong>
-  <div id="context-mode">Mode: basic</div>
-  <div id="context-preview-selected-text">Selected text: none</div>
-  <div id="context-preview-active-file">Active file: none</div>
-  <div id="context-preview-open-files">Open files: 0</div>
-  <div id="context-preview-workspace-files">Workspace files: 0</div>
-</div>
+  <section id="view-chat" class="view-panel active">
+    <div id="backend-alert" hidden>
+      <span>${ui('ui.backendUnavailable')}</span>
 
-<div id="messages"></div>
-<div id="input-area">
-  <textarea id="input" placeholder="Ask anything..." rows="1"></textarea>
-  <button id="send">Send</button>
-  <button id="stop" disabled>Stop</button>
-</div>
+      <button id="backend-alert-configure" type="button">
+        ${ui('ui.openConfiguration')}
+      </button>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="composer">
+      <div id="composer-toolbar">
+        <select
+          id="chat-model-select"
+          aria-label="${ui('ui.activeModel')}"
+        ></select>
+
+        <button
+          id="chat-configure-ai"
+          type="button"
+          hidden
+        >
+          ${ui('ui.configure')}
+        </button>
+      </div>
+
+      <div id="input-area">
+        <textarea
+          id="input"
+          placeholder="${ui('ui.placeholder')}"
+          rows="1"
+        ></textarea>
+
+        <button
+          id="send"
+          type="button"
+          title="${ui('ui.send')}"
+          aria-label="${ui('ui.send')}"
+        >
+          ↑
+        </button>
+
+        <button
+          id="stop"
+          type="button"
+          title="${ui('ui.stop')}"
+          aria-label="${ui('ui.stop')}"
+          disabled
+        >
+          ■
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-configuration" class="view-panel">
+    ${getModelManagementHtml(ui)}
+  </section>
+
+</main>
 
 <script>
 ${getChatScript()}
 </script>
+
 </body>
 </html>`;
 }

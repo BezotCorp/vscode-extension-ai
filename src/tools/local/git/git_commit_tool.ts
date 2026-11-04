@@ -2,6 +2,7 @@ import { ToolExecutionResult } from '../..';
 import { readMessage } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 export class GitCommitTool extends GitTool {
   readonly id = 'git_commit';
@@ -19,7 +20,11 @@ export class GitCommitTool extends GitTool {
     required: ['message'],
   };
 
-  protected async plan(input: unknown, repository: string, signal?: AbortSignal): Promise<GitPlan | ToolExecutionResult> {
+  protected async plan(
+    input: unknown,
+    repository: string,
+    signal?: AbortSignal,
+  ): Promise<GitPlan | ToolExecutionResult> {
     const message = readMessage(input, 'message');
 
     if (message instanceof Error) {
@@ -35,7 +40,8 @@ export class GitCommitTool extends GitTool {
     return {
       args: ['commit', '-m', message],
       action: 'create a git commit',
-      detail: `Message: ${message}\nStaged:\n${staged ?? '(could not be listed)'}`,
+      actionLabel: t('action.git.commit'),
+      detail: t('detail.commit', { message, staged: staged ?? t('detail.stagedUnknown') }),
     };
   }
 }

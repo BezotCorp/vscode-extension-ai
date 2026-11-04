@@ -39,8 +39,6 @@ export class ModelManager {
             id: config.model,
             name: config.model,
             provider: config.provider,
-            supportsStreaming: true,
-            supportsTools: false,
           },
         ],
         error: String(error),
@@ -71,8 +69,6 @@ function ensureActiveModelExists(models: ModelInfo[], config: ExtensionConfig): 
       id: config.model,
       name: config.model,
       provider: config.provider,
-      supportsStreaming: true,
-      supportsTools: false,
     },
     ...models,
   ];

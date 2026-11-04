@@ -3,6 +3,7 @@ import { truncateText } from '../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '..';
 import { describeContent, readStringArg } from '../tool_input';
 import { toolFailure, toolSuccess } from '../tool_result';
+import { t } from '../../i18n';
 
 const TIMEOUT_MS = 15_000;
 const MAX_BODY_BYTES = 1_000_000;
@@ -68,18 +69,18 @@ export class WebFetchTool implements Tool {
       {
         tool: this,
         action: `send a ${method} request to ${sanitizeForPrompt(url.host)}`,
+        actionLabel: t('action.web.request', { method, host: sanitizeForPrompt(url.host) }),
         resources: [],
-        inPerimeter: true,
         // A refusal covers every method to that server.
         effects: [networkEffect(url.hostname.toLowerCase())],
         detail: [
           `${method} ${url.origin}${url.pathname}`,
-          bodyText ? `Body: ${describeContent(bodyText)}` : undefined,
+          bodyText ? t('detail.body', { content: describeContent(bodyText) }) : undefined,
         ]
           .filter(Boolean)
           .join('\n'),
         warning: isLocalOrPrivateHost(url.hostname)
-          ? 'Warning: this address is on the local or private network, not the public internet.'
+          ? t('warning.privateNetwork')
           : undefined,
       },
       context?.signal,

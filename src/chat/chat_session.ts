@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import { defaultChatTitle, isDefaultChatTitle } from '../i18n';
 import { ToolRound } from '../tools/tool_round';
 import { ChatMessage, cloneChatMessage, createChatMessage } from './chat_message';
 import type { ChatRole } from './chat_role';
-
-export const DEFAULT_CHAT_TITLE = 'New chat';
 
 /**
  * Represents a chat session.
@@ -14,15 +13,17 @@ export type ChatSession = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
+  trashedAt?: string;
   messages: ChatMessage[];
 };
 
 /**
  * Creates a new chat session with an optional title.
- * @param title - The title of the chat session. Defaults to 'New chat'.
+ * @param title - The title of the chat session. Defaults to the "new conversation" title in the display language.
  * @returns A new chat session.
  */
-export function createChatSession(title = DEFAULT_CHAT_TITLE): ChatSession {
+export function createChatSession(title = defaultChatTitle()): ChatSession {
   const now = new Date().toISOString();
 
   if (!title) {
@@ -90,7 +91,7 @@ export function addMessageToChatSession(
   session.messages.push(message);
   session.updatedAt = message.createdAt;
 
-  if (role === 'user' && session.title === DEFAULT_CHAT_TITLE) {
+  if (role === 'user' && isDefaultChatTitle(session.title)) {
     session.title = createChatTitleFromMessage(content);
   }
 }
@@ -100,7 +101,7 @@ export function addMessageToChatSession(
  * @param session - The chat session to clear.
  */
 export function clearChatSession(session: ChatSession): void {
-  session.title = DEFAULT_CHAT_TITLE;
+  session.title = defaultChatTitle();
   session.messages = [];
   session.updatedAt = new Date().toISOString();
 }
@@ -127,11 +128,18 @@ export function renameChatSession(session: ChatSession, title: string): void {
  * @returns A normalized chat session.
  */
 export function normalizeChatSession(session: ChatSession): ChatSession {
+  const title = session.title?.trim();
+  const trashedAt = typeof session.trashedAt === 'string' ? session.trashedAt : undefined;
+
   return {
     id: session.id || randomUUID(),
-    title: session.title?.trim() || DEFAULT_CHAT_TITLE,
+    // Every default title ever used ("New chat", "New conversation", "Nouvelle conversation") becomes the one of the
+    // display language; a title the user chose is kept as it is.
+    title: !title || isDefaultChatTitle(title) ? defaultChatTitle() : title,
     createdAt: session.createdAt || new Date().toISOString(),
     updatedAt: session.updatedAt || session.createdAt || new Date().toISOString(),
+    archivedAt: typeof session.archivedAt === 'string' ? session.archivedAt : undefined,
+    trashedAt,
     messages: Array.isArray(session.messages) ? session.messages.map(cloneChatMessage) : [],
   };
 }
@@ -156,7 +164,7 @@ function createChatTitleFromMessage(message: string): string {
   const clean = message.trim().replace(/\s+/g, ' ');
 
   if (!clean) {
-    return DEFAULT_CHAT_TITLE;
+    return defaultChatTitle();
   }
 
   return clean.length > 48 ? `${clean.slice(0, 48)}...` : clean;

@@ -2,6 +2,7 @@ import { ToolExecutionResult } from '../..';
 import { readBranchName, readRemote } from './git_arguments';
 import { GitPlan } from './git_plan';
 import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { t } from '../../../i18n';
 
 const NETWORK_TIMEOUT_MS = 120_000;
 
@@ -36,6 +37,7 @@ export class GitPullTool extends GitTool {
     return {
       args: ['pull', '--ff-only', remote, ...(branch ? [branch] : [])],
       action: `pull ${branch ?? 'the current branch'} from the git remote ${remote}`,
+      actionLabel: t('action.git.pull', { branch: branch ?? t('action.git.currentBranch'), remote }),
       timeoutMs: NETWORK_TIMEOUT_MS,
     };
   }
