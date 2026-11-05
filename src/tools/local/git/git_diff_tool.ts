@@ -1,11 +1,11 @@
 import { protectedPathspecs } from "../../../permissions";
-import { ToolExecutionResult } from "../..";
+import type { ToolExecutionResult } from "../..";
 import {
 	readBoolean,
 	readRepositoryPaths,
 	readRevision,
 } from "./git_arguments";
-import { GitPlan } from "./git_plan";
+import type { GitPlan } from "./git_plan";
 import { FOLDER_PARAMETER, GitTool } from "./git_tool";
 
 export class GitDiffTool extends GitTool {

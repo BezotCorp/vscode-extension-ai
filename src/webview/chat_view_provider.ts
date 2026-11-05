@@ -1,13 +1,13 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
 import { ChatManager } from "../chat/chat_manager";
 import { ChatStorage } from "../chat/chat_storage";
-import { McpManager } from "../mcp";
+import type { McpManager } from "../mcp";
 import { ModelManager } from "../models/model_manager";
-import { PermissionStore } from "../permissions";
+import type { PermissionStore } from "../permissions";
 import { getChatHtml } from "./html/chat_html";
-import { WebviewMessage } from ".";
-import { FileToolServices } from "../tools";
+import type { WebviewMessage } from ".";
+import type { FileToolServices } from "../tools";
 import { GenerationController } from "./generation_controller";
 import { WebviewMessageRouter } from "./webview_message_router";
 

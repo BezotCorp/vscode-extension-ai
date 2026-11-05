@@ -1,11 +1,11 @@
 import {
-	AiProviderKind,
-	ExtensionConfig,
+	type AiProviderKind,
+	type ExtensionConfig,
 	getExtensionConfig,
 	updateExtensionModel,
 	updateExtensionProviderSettings,
 } from "../config/extension_config";
-import { ModelInfo } from "./model_info";
+import type { ModelInfo } from "./model_info";
 import { createModelProvider } from "./model_registry";
 
 export type ModelState = {

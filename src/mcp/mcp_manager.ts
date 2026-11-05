@@ -1,12 +1,7 @@
 import * as vscode from "vscode";
-import { McpStartFailure } from "./mcp_start_failure";
-import { Tool, ToolAccessGuard } from "../tools";
-import {
-	McpServerConfig,
-	McpToolDescriptor,
-	McpToolInfo,
-	McpServerEntry,
-} from ".";
+import type { McpStartFailure } from "./mcp_start_failure";
+import type { Tool, ToolAccessGuard } from "../tools";
+import type { McpServerConfig, McpToolDescriptor, McpServerEntry } from ".";
 import { McpClient } from "./mcp_client";
 import { McpTool, mcpToolId } from "./mcp_tool";
 import { t } from "../i18n";

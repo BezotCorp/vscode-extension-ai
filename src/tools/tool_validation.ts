@@ -1,4 +1,4 @@
-import { ToolParametersSchema } from ".";
+import type { ToolParametersSchema } from ".";
 
 // Returns a problem description, or undefined when the input satisfies the schema.
 export function validateToolInput(

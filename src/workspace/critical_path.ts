@@ -2,7 +2,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
-import { ResolvedPath } from ".";
+import type { ResolvedPath } from ".";
 
 // Where the operating system keeps what it runs on. Touching these is what "critical" means beyond the user's own
 // folders: a mistake there can make the machine or a service unusable.

@@ -1,4 +1,4 @@
-import { ToolRound } from "../tools/tool_round";
+import type { ToolRound } from "../tools/tool_round";
 import type { ChatRole } from "./chat_role";
 
 export type ChatMessage = {

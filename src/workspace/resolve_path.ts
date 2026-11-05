@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { detectStructuralWorkspace } from "./detect_structural_workspace";
-import { parseResourceUri, ResolvedPath } from "./resolved_path";
+import { parseResourceUri, type ResolvedPath } from "./resolved_path";
 
 export async function resolvePath(inputPath: string): Promise<ResolvedPath> {
 	const roots = getWorkspaceRoots();

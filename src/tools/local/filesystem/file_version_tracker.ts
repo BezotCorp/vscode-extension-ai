@@ -75,7 +75,7 @@ export class FileVersionTracker {
 	isCurrent(path: string, sha: string): boolean {
 		const seen = this.seenFiles.get(path);
 
-		return seen !== undefined && seen.complete && seen.sha === sha;
+		return seen?.complete === true && seen.sha === sha;
 	}
 
 	// The file is the version the model last received, whether or not it received all of it.

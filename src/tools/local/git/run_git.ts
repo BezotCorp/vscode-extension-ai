@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 
 import { baseEnvironment } from "../../base_environment";
 import { BoundedText } from "./bounded_text";
-import { GitRunOptions } from "./git_run_options";
-import { GitRunResult } from "./git_run_result";
+import type { GitRunOptions } from "./git_run_options";
+import type { GitRunResult } from "./git_run_result";
 
 const KILL_GRACE_MS = 2_000;
 

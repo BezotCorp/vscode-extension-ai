@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 
 import { contentEffect } from "../../../permissions";
 import { resolvePath, resourcePath, sha256Hex } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,
@@ -17,7 +17,7 @@ import {
 	readStringArg,
 } from "../../tool_input";
 import { toolFailure, toolSuccess } from "../../tool_result";
-import { FileVersionTracker } from "./file_version_tracker";
+import type { FileVersionTracker } from "./file_version_tracker";
 
 export class CreateFileTool implements Tool {
 	readonly id = "create_file";

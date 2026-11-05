@@ -1,5 +1,5 @@
-import { StateMachineDefinition } from "../../../state_machine";
-import { WriteFileState } from "./write_file_state";
+import type { StateMachineDefinition } from "../../../state_machine";
+import type { WriteFileState } from "./write_file_state";
 
 export const WRITE_FILE_KIND = "write_file";
 

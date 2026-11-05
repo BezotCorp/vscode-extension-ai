@@ -1,5 +1,5 @@
 import { BatchFileTool } from "./batch_file_tool";
-import { DeleteFileTool } from "./delete_file_tool";
+import type { DeleteFileTool } from "./delete_file_tool";
 
 export class DeleteFilesTool extends BatchFileTool {
 	constructor(single: DeleteFileTool) {

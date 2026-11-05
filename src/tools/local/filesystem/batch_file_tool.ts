@@ -1,4 +1,4 @@
-import { Tool, ToolExecutionContext, ToolExecutionResult } from "../..";
+import type { Tool, ToolExecutionContext, ToolExecutionResult } from "../..";
 import { toolFailureFromException } from "../../tool_failure_from_exception";
 import {
 	MAX_SERIALIZED_CHARS,

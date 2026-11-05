@@ -1,11 +1,11 @@
-import { AiContext, ContextFilter } from "../context";
-import {
+import type { AiContext, ContextFilter } from "../context";
+import type {
 	ToolCall,
 	ToolExecutionResult,
 	ToolRegistry,
 	ToolRound,
 } from "../tools";
-import { ProviderStatus } from "./provider_status";
+import type { ProviderStatus } from "./provider_status";
 
 export type ChatHistoryMessage = {
 	role: "user" | "assistant";

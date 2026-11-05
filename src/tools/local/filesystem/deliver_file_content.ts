@@ -1,9 +1,9 @@
 import {
 	TRUNCATION_MARKER,
-	TruncatedText,
+	type TruncatedText,
 	truncateText,
 } from "../../../workspace";
-import { ToolExecutionResult } from "../..";
+import type { ToolExecutionResult } from "../..";
 import { fitToolResult } from "../../tool_result";
 
 export type DeliveredContent = {

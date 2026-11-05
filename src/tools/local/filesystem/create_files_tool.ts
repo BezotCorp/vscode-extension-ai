@@ -1,5 +1,5 @@
 import { BatchFileTool } from "./batch_file_tool";
-import { CreateFileTool } from "./create_file_tool";
+import type { CreateFileTool } from "./create_file_tool";
 
 export class CreateFilesTool extends BatchFileTool {
 	constructor(single: CreateFileTool) {

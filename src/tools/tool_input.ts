@@ -1,4 +1,4 @@
-import { AccessRequest, sanitizeForPrompt } from "../permissions";
+import { type AccessRequest, sanitizeForPrompt } from "../permissions";
 import { t } from "../i18n";
 
 export function readStringArg(input: unknown, key: string): string | undefined {

@@ -1,5 +1,5 @@
-import { ExtensionConfig } from "../config/extension_config";
-import { AiProvider } from "./ai_provider";
+import type { ExtensionConfig } from "../config/extension_config";
+import type { AiProvider } from "./ai_provider";
 import { CustomBackendProvider } from "./custom_backend_provider";
 import { OllamaProvider } from "./ollama_provider";
 import { t } from "../i18n";

@@ -1,5 +1,5 @@
 import { BatchFileTool } from "./batch_file_tool";
-import { ReadFileTool } from "./read_file_tool";
+import type { ReadFileTool } from "./read_file_tool";
 
 export class ReadFilesTool extends BatchFileTool {
 	constructor(single: ReadFileTool) {

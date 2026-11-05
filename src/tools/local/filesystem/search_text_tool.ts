@@ -6,7 +6,7 @@ import {
 	resourcePath,
 	WORKSPACE_EXCLUDE_GLOB,
 } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,

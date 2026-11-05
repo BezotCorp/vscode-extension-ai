@@ -1,4 +1,4 @@
-import { ToolExecutionResult } from "../..";
+import type { ToolExecutionResult } from "../..";
 import { toolFailure } from "../../tool_result";
 
 export function unsavedChangesFailure(

@@ -1,4 +1,4 @@
-import { PermissionLifetime, PermissionPolicy } from ".";
+import type { PermissionLifetime, PermissionPolicy } from ".";
 
 export type PermissionEntry = {
 	toolId: string;

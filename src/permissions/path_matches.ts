@@ -1,6 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
 import { parseResourceUri } from "../workspace";
 import { globMatches } from "./glob_matches";

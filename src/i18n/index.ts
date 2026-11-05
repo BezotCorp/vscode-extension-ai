@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { en, MessageKey } from "./messages_en";
+import { en, type MessageKey } from "./messages_en";
 import { fr } from "./messages_fr";
 
 export type Locale = "en" | "fr";

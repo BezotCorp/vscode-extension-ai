@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { getWorkspaceRoots, truncateText } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,
@@ -10,7 +10,7 @@ import {
 } from "../..";
 import { readStringArg } from "../../tool_input";
 import { toolFailure, toolSuccess } from "../../tool_result";
-import { GitPlan } from "./git_plan";
+import type { GitPlan } from "./git_plan";
 import { runGit } from "./run_git";
 import { t } from "../../../i18n";
 

@@ -1,4 +1,4 @@
-import * as http from "node:http";
+import type * as http from "node:http";
 import * as vscode from "vscode";
 
 import { isProtectedResource } from "../permissions";

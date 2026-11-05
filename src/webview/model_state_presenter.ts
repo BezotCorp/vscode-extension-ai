@@ -1,7 +1,7 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
 import { getExtensionConfig } from "../config/extension_config";
-import { ModelManager } from "../models/model_manager";
+import type { ModelManager } from "../models/model_manager";
 import { createProvider } from "../providers/provider_factory";
 import { t } from "../i18n";
 

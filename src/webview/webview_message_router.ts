@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 
-import { ChatManager } from "../chat/chat_manager";
-import { ModelManager } from "../models/model_manager";
-import { GenerationController } from "./generation_controller";
-import { WebviewMessage } from ".";
+import type { ChatManager } from "../chat/chat_manager";
+import type { ModelManager } from "../models/model_manager";
+import type { GenerationController } from "./generation_controller";
+import type { WebviewMessage } from ".";
 import { sendChatStore } from "./chat_store_presenter";
 import { sendModelState, testConnection } from "./model_state_presenter";
 import { t } from "../i18n";

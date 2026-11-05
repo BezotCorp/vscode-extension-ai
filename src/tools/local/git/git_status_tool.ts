@@ -1,6 +1,6 @@
-import { ToolExecutionResult } from "../..";
+import type { ToolExecutionResult } from "../..";
 import { FOLDER_PARAMETER, GitTool } from "./git_tool";
-import { GitPlan } from "./git_plan";
+import type { GitPlan } from "./git_plan";
 
 export class GitStatusTool extends GitTool {
 	readonly id = "git_status";

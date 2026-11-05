@@ -1,6 +1,6 @@
 import { networkEffect, sanitizeForPrompt } from "../../permissions";
 import { truncateText } from "../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,
@@ -9,7 +9,7 @@ import {
 import { describeContent, readStringArg } from "../tool_input";
 import { toolFailure, toolSuccess } from "../tool_result";
 import { t } from "../../i18n";
-import { Decoding } from "./decoding";
+import type { Decoding } from "./decoding";
 
 const TIMEOUT_MS = 15_000;
 const MAX_BODY_BYTES = 1_000_000;

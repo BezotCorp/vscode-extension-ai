@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 import { isProtectedResource } from "../permissions";
 import { truncateContent } from "../workspace";
-import { AiContext, ContextFile } from ".";
+import type { AiContext, ContextFile } from ".";
 
 export async function buildAiContext(): Promise<AiContext> {
 	return {

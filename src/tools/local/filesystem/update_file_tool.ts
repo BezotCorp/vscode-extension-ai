@@ -3,12 +3,12 @@ import * as vscode from "vscode";
 import { contentEffect, PermissionError } from "../../../permissions";
 import {
 	findDirtyDocuments,
-	ResolvedPath,
+	type ResolvedPath,
 	resolvePath,
 	resourcePath,
-	TruncatedText,
+	type TruncatedText,
 } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,
@@ -24,17 +24,17 @@ import {
 	toolFailure,
 	toolSuccess,
 } from "../../tool_result";
-import { FileRead } from "./file_read";
+import type { FileRead } from "./file_read";
 import { deliverFileContent } from "./deliver_file_content";
-import { FileVersionTracker, ReceivedPart } from "./file_version_tracker";
+import type { FileVersionTracker, ReceivedPart } from "./file_version_tracker";
 import { READ_MODE_COMPOSED } from "./read_mode";
-import { ReadFileTool } from "./read_file_tool";
+import type { ReadFileTool } from "./read_file_tool";
 import { unsavedChangesFailure } from "./unsaved_changes_failure";
-import { UpdateProjection, projectUpdate } from "./update_projection";
-import { UpdateRequest } from "./update_request";
-import { WriteFileData } from "./write_file_data";
-import { WriteFilePipeline } from "./write_file_pipeline";
-import { WriteFileState } from "./write_file_state";
+import { type UpdateProjection, projectUpdate } from "./update_projection";
+import type { UpdateRequest } from "./update_request";
+import type { WriteFileData } from "./write_file_data";
+import type { WriteFilePipeline } from "./write_file_pipeline";
+import type { WriteFileState } from "./write_file_state";
 import { t } from "../../../i18n";
 
 // Retries allowed after the first attempt when the file keeps changing: the initial attempt and two retries.

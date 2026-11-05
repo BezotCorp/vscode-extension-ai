@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import { defaultChatTitle, isDefaultChatTitle } from "../i18n";
-import { ToolRound } from "../tools/tool_round";
+import type { ToolRound } from "../tools/tool_round";
 import {
-	ChatMessage,
+	type ChatMessage,
 	cloneChatMessage,
 	createChatMessage,
 } from "./chat_message";

@@ -1,12 +1,12 @@
-import { ToolRound } from "../tools/tool_round";
+import type { ToolRound } from "../tools/tool_round";
 import type { ChatRole } from "./chat_role";
 import {
 	addMessageToChatSession,
-	ChatSession,
+	type ChatSession,
 	cloneChatSession,
 } from "./chat_session";
 import {
-	ChatStore,
+	type ChatStore,
 	activateMostRecentNonEmptyChatSession,
 	archiveChatSessionById,
 	clearActiveChatSession,
@@ -24,7 +24,7 @@ import {
 	trashArchivedChatSessions,
 	trashChatSessionById,
 } from "./chat_store";
-import { ChatStorage } from "./chat_storage";
+import type { ChatStorage } from "./chat_storage";
 
 export class ChatManager {
 	private store: ChatStore = createChatStore();

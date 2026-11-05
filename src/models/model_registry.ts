@@ -1,5 +1,5 @@
-import { ExtensionConfig } from "../config/extension_config";
-import { ModelProvider } from "./model_provider";
+import type { ExtensionConfig } from "../config/extension_config";
+import type { ModelProvider } from "./model_provider";
 import { OllamaModelProvider } from "./ollama_model_provider";
 import { StaticModelProvider } from "./static_model_provider";
 

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 import { t } from "../i18n";
-import {
+import type {
 	PermissionLifetime,
 	PermissionPolicy,
 	PermissionStore,

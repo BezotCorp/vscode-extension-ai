@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 
-import { StructuralWorkspace } from "./structural_workspace";
+import type { StructuralWorkspace } from "./structural_workspace";
 
 const MAX_MANIFEST_BYTES = 1_000_000;
 

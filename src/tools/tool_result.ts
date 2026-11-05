@@ -1,4 +1,4 @@
-import { ToolExecutionResult, ToolStatus } from ".";
+import type { ToolExecutionResult, ToolStatus } from ".";
 
 export const MAX_SERIALIZED_CHARS = 48_000;
 

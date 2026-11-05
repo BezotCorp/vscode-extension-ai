@@ -6,7 +6,7 @@ import {
 	resolvePath,
 	resourcePath,
 } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,

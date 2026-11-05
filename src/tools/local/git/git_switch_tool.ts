@@ -1,6 +1,6 @@
-import { ToolExecutionResult } from "../..";
+import type { ToolExecutionResult } from "../..";
 import { readBranchName } from "./git_arguments";
-import { GitPlan } from "./git_plan";
+import type { GitPlan } from "./git_plan";
 import { FOLDER_PARAMETER, GitTool } from "./git_tool";
 import { t } from "../../../i18n";
 

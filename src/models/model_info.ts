@@ -1,4 +1,4 @@
-import { AiProviderKind } from "../config/extension_config";
+import type { AiProviderKind } from "../config/extension_config";
 
 export type ModelInfo = {
 	id: string;

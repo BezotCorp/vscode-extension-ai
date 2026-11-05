@@ -3,7 +3,7 @@ import {
 	CreateFileTool,
 	DeleteFilesTool,
 	DeleteFileTool,
-	FileToolServices,
+	type FileToolServices,
 	GitAddTool,
 	GitBranchCreateTool,
 	GitBranchListTool,
@@ -28,8 +28,8 @@ import {
 } from "./local";
 import { WebFetchTool } from "./remote";
 import { FileVersionTracker } from "./local/filesystem/file_version_tracker";
-import { Tool } from "./tool";
-import { ToolAccessGuard } from "./tool_access_guard";
+import type { Tool } from "./tool";
+import type { ToolAccessGuard } from "./tool_access_guard";
 import { ToolRegistry } from "./tool_registry";
 
 // Every tool the extension itself provides. There is no tool that runs an arbitrary program or shell command:

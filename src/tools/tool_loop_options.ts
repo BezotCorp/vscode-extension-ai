@@ -1,4 +1,4 @@
-import { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from ".";
+import type { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from ".";
 import { serializeToolResult, toolFailure } from "./tool_result";
 
 const MAX_CALLS_PER_ROUND = 8;

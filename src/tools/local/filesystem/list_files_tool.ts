@@ -6,7 +6,7 @@ import {
 	resolvePath,
 	resourcePath,
 } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,
@@ -308,7 +308,7 @@ async function walkDirectory(
 }
 
 function formatSection(section: FileSection): string {
-	const lines = [section.label + "/"];
+	const lines = [`${section.label}/`];
 
 	for (const entry of section.entries) {
 		const indent = "  ".repeat(entry.depth);

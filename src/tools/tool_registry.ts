@@ -1,5 +1,5 @@
-import { ToolAccessProfile } from "../permissions";
-import {
+import type { ToolAccessProfile } from "../permissions";
+import type {
 	Tool,
 	ToolDefinition,
 	UnavailableTool,

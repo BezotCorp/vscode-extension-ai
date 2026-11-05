@@ -1,11 +1,11 @@
-import { ExtensionConfig } from "../config/extension_config";
-import {
+import type { ExtensionConfig } from "../config/extension_config";
+import type {
 	AiProvider,
 	ChatRequest,
 	ChatResult,
 	ChatStreamHandler,
 } from "./ai_provider";
-import { ProviderStatus } from "./provider_status";
+import type { ProviderStatus } from "./provider_status";
 import { t } from "../i18n";
 
 type CustomBackendResponse = {

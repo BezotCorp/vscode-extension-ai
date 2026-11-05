@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 
 import { parseResourceUri } from "../workspace";
 
-import {
+import type {
 	PermissionEntry,
 	PermissionLifetime,
 	PermissionPolicy,

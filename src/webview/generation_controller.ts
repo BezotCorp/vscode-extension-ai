@@ -1,21 +1,21 @@
 import * as vscode from "vscode";
 
-import { ChatManager } from "../chat/chat_manager";
-import { ChatMessage } from "../chat/chat_message";
+import type { ChatManager } from "../chat/chat_manager";
+import type { ChatMessage } from "../chat/chat_message";
 import type { ChatRole } from "../chat/chat_role";
 import { closingText } from "../chat/message_text";
 import { getExtensionConfig } from "../config/extension_config";
 import { buildAiContext } from "../context";
-import { ChatHistoryMessage } from "../providers/ai_provider";
+import type { ChatHistoryMessage } from "../providers/ai_provider";
 import { createProvider } from "../providers/provider_factory";
-import { McpManager } from "../mcp";
-import { PermissionStore } from "../permissions";
+import type { McpManager } from "../mcp";
+import type { PermissionStore } from "../permissions";
 import {
 	createDefaultToolRegistry,
-	FileToolServices,
+	type FileToolServices,
 	ToolAccessGuard,
-	ToolRegistry,
-	ToolRound,
+	type ToolRegistry,
+	type ToolRound,
 } from "../tools";
 import { sendChatStore } from "./chat_store_presenter";
 import {

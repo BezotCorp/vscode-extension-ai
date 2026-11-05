@@ -2,7 +2,7 @@ import * as path from "node:path";
 
 import { resolvePath } from "../../../workspace";
 import { readNumberArg, readStringArg } from "../../tool_input";
-import { RepositoryPaths } from "./repository_paths";
+import type { RepositoryPaths } from "./repository_paths";
 
 const REF = /^[A-Za-z0-9_][A-Za-z0-9._/@{}^~+-]*$/;
 const NAME = /^[A-Za-z0-9_][A-Za-z0-9._/-]*$/;

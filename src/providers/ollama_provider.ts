@@ -1,19 +1,19 @@
-import { ExtensionConfig } from "../config/extension_config";
-import {
+import type { ExtensionConfig } from "../config/extension_config";
+import type {
 	AiContext,
 	ContextFile,
 	ContextFilter,
 	ContextSource,
 } from "../context";
-import { runToolLoop, ToolDefinition, ToolRegistry } from "../tools";
-import {
+import { runToolLoop, type ToolDefinition, type ToolRegistry } from "../tools";
+import type {
 	AiProvider,
 	ChatHistoryMessage,
 	ChatRequest,
 	ChatResult,
 	ChatStreamHandler,
 } from "./ai_provider";
-import { ProviderStatus } from "./provider_status";
+import type { ProviderStatus } from "./provider_status";
 import { t } from "../i18n";
 
 const MAX_TOOL_ROUNDS = 8;

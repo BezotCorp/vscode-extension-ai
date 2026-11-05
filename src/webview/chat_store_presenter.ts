@@ -1,6 +1,6 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
-import { ChatManager } from "../chat/chat_manager";
+import type { ChatManager } from "../chat/chat_manager";
 import { displayContent } from "./tool_call_presenter";
 
 export function sendChatStore(

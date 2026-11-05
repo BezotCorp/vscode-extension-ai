@@ -1,6 +1,6 @@
-import { StateMachineDatabase } from "./state_machine_database";
-import { StateMachineDefinition } from "./state_machine_definition";
-import { StateMachineRecord } from "./state_machine_record";
+import type { StateMachineDatabase } from "./state_machine_database";
+import type { StateMachineDefinition } from "./state_machine_definition";
+import type { StateMachineRecord } from "./state_machine_record";
 
 type Row = {
 	id: string;

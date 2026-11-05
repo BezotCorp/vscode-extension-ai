@@ -1,5 +1,5 @@
 import { BatchFileTool } from "./batch_file_tool";
-import { UpdateFileTool } from "./update_file_tool";
+import type { UpdateFileTool } from "./update_file_tool";
 
 export class UpdateFilesTool extends BatchFileTool {
 	constructor(single: UpdateFileTool) {

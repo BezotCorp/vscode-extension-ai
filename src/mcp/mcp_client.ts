@@ -1,8 +1,8 @@
-import { ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 
 import { baseEnvironment } from "../tools/base_environment";
 import { getWorkspaceRoot } from "../workspace";
-import { McpServerConfig, McpToolInfo } from ".";
+import type { McpServerConfig, McpToolInfo } from ".";
 import { McpRequestError } from "./mcp_request_error";
 
 const PROTOCOL_VERSION = "2024-11-05";

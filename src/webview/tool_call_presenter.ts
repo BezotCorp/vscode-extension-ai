@@ -1,8 +1,8 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
-import { ChatMessage } from "../chat/chat_message";
+import type { ChatMessage } from "../chat/chat_message";
 import { closingText } from "../chat/message_text";
-import { ToolCall, ToolExecutionResult } from "../tools";
+import type { ToolCall, ToolExecutionResult } from "../tools";
 
 const MAX_ARGUMENT_CHARS = 200;
 

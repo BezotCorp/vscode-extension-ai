@@ -1,6 +1,6 @@
-import { ToolExecutionResult } from "../..";
+import type { ToolExecutionResult } from "../..";
 import { readCount, readRepositoryPaths, readRevision } from "./git_arguments";
-import { GitPlan } from "./git_plan";
+import type { GitPlan } from "./git_plan";
 import { FOLDER_PARAMETER, GitTool } from "./git_tool";
 
 export class GitLogTool extends GitTool {

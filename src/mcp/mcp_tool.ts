@@ -1,15 +1,15 @@
 import { sanitizeForPrompt } from "../permissions";
 import {
-	Tool,
-	ToolAccessGuard,
-	ToolExecutionContext,
-	ToolExecutionResult,
-	ToolParametersSchema,
+	type Tool,
+	type ToolAccessGuard,
+	type ToolExecutionContext,
+	type ToolExecutionResult,
+	type ToolParametersSchema,
 	toolFailure,
 	toolSuccess,
 } from "../tools";
 import { truncateText } from "../workspace";
-import { McpClient, McpToolInfo } from ".";
+import type { McpClient, McpToolInfo } from ".";
 import { McpRequestError } from "./mcp_request_error";
 import { t } from "../i18n";
 

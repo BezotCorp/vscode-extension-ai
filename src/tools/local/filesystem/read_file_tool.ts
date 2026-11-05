@@ -2,12 +2,12 @@ import * as vscode from "vscode";
 
 import {
 	findOpenDocument,
-	ResolvedPath,
+	type ResolvedPath,
 	resolvePath,
 	resourcePath,
 	sha256Hex,
 } from "../../../workspace";
-import {
+import type {
 	Tool,
 	ToolAccessGuard,
 	ToolExecutionContext,
@@ -15,10 +15,10 @@ import {
 } from "../..";
 import { readNumberArg, readStringArg } from "../../tool_input";
 import { toolFailure, toolSuccess } from "../../tool_result";
-import { FileRead } from "./file_read";
+import type { FileRead } from "./file_read";
 import { deliverFileContent } from "./deliver_file_content";
-import { FileVersionTracker } from "./file_version_tracker";
-import { READ_MODE_DIRECT, ReadMode } from "./read_mode";
+import type { FileVersionTracker } from "./file_version_tracker";
+import { READ_MODE_DIRECT, type ReadMode } from "./read_mode";
 
 export class ReadFileTool implements Tool {
 	readonly id = "read_file";

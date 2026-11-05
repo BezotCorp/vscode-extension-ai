@@ -1,6 +1,6 @@
 import { buildDiffLines } from "./diff_builder";
 import { sha256Hex } from "../../../workspace";
-import { UpdateRequest } from "./update_request";
+import type { UpdateRequest } from "./update_request";
 import { findUniqueMatch } from "./unique_match";
 import { t } from "../../../i18n";
 

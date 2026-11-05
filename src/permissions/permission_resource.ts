@@ -1,4 +1,4 @@
-import { ResourceBoundary } from ".";
+import type { ResourceBoundary } from ".";
 
 export type PermissionResource = {
 	path: string;

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
-import { McpServerConfig } from "../mcp";
-import { AutonomyMode, DEFAULT_AUTONOMY_MODE } from "../permissions";
+import type { McpServerConfig } from "../mcp";
+import { type AutonomyMode, DEFAULT_AUTONOMY_MODE } from "../permissions";
 
 export type AiProviderKind = "ollama" | "customBackend" | "bezotcorp";
 

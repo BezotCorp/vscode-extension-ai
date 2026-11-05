@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 
-import { ChatMessage } from "./chat_message";
-import { ChatSession, createChatSessionFromLegacy } from "./chat_session";
+import type { ChatMessage } from "./chat_message";
+import { type ChatSession, createChatSessionFromLegacy } from "./chat_session";
 import {
 	CHAT_STORE_VERSION,
-	ChatStore,
+	type ChatStore,
 	normalizeChatStore,
 } from "./chat_store";
 import { t } from "../i18n";

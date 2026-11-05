@@ -1,24 +1,24 @@
 import * as vscode from "vscode";
 
 import {
-	AccessRequest,
-	AutonomyMode,
+	type AccessRequest,
+	type AutonomyMode,
 	isProtectedResource,
-	PermissionCapability,
+	type PermissionCapability,
 	PermissionError,
-	PermissionRequest,
-	PermissionStore,
+	type PermissionRequest,
+	type PermissionStore,
 	sanitizeForPrompt,
-	ToolAccessProfile,
+	type ToolAccessProfile,
 } from "../permissions";
 import {
 	describeCriticalPath,
-	ResolvedPath,
+	type ResolvedPath,
 	resourcePath,
-	StructuralWorkspace,
+	type StructuralWorkspace,
 } from "../workspace";
-import { MessageKey, t } from "../i18n";
-import { GuardOptions } from "./guard_options";
+import { type MessageKey, t } from "../i18n";
+import type { GuardOptions } from "./guard_options";
 
 const MAX_DETAIL_LINES = 24;
 const MAX_DETAIL_LINE_CHARS = 200;

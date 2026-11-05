@@ -1,5 +1,5 @@
-import { ToolExecutionResult } from "../..";
-import { GitPlan } from "./git_plan";
+import type { ToolExecutionResult } from "../..";
+import type { GitPlan } from "./git_plan";
 import { FOLDER_PARAMETER, GitTool } from "./git_tool";
 
 export class GitBranchListTool extends GitTool {

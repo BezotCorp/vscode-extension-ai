@@ -1,9 +1,9 @@
 import { isMessageKey, t } from "../i18n";
-import { McpManager } from "../mcp";
-import { ToolPermissionInfo } from "../permissions";
+import type { McpManager } from "../mcp";
+import type { ToolPermissionInfo } from "../permissions";
 import { createBuiltInTools } from "./default_tools";
-import { FileToolServices } from "./local";
-import { ToolAccessGuard } from "./tool_access_guard";
+import type { FileToolServices } from "./local";
+import type { ToolAccessGuard } from "./tool_access_guard";
 
 // Every tool the AI could use, for the permission manager: the extension's own tools, then each MCP server's.
 export async function listToolPermissions(

@@ -1,5 +1,5 @@
 import {
-	ChatSession,
+	type ChatSession,
 	clearChatSession,
 	cloneChatSession,
 	createChatSession,

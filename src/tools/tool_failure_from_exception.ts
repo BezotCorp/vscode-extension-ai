@@ -1,5 +1,5 @@
 import { PermissionError } from "../permissions";
-import { Tool, ToolExecutionContext, ToolExecutionResult } from ".";
+import type { Tool, ToolExecutionContext, ToolExecutionResult } from ".";
 import { toolErrorFromException, toolFailure } from "./tool_result";
 
 // What a tool that threw becomes for the model: a refusal, a cancellation or a technical failure, never an exception.

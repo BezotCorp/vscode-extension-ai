@@ -1,6 +1,6 @@
-import { AiProviderKind } from "../config/extension_config";
-import { ModelInfo } from "./model_info";
-import { ModelProvider } from "./model_provider";
+import type { AiProviderKind } from "../config/extension_config";
+import type { ModelInfo } from "./model_info";
+import type { ModelProvider } from "./model_provider";
 
 type OllamaTagsResponse = {
 	models?: OllamaModel[];

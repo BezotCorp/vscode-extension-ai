@@ -1,4 +1,4 @@
-import { PermissionPolicy } from ".";
+import type { PermissionPolicy } from ".";
 
 // What the permission system needs to know about a tool.
 export type ToolAccessProfile = {

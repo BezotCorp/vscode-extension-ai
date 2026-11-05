@@ -1,5 +1,5 @@
 import { BatchFileTool } from "./batch_file_tool";
-import { MoveFileTool } from "./move_file_tool";
+import type { MoveFileTool } from "./move_file_tool";
 
 export class MoveFilesTool extends BatchFileTool {
 	constructor(single: MoveFileTool) {
