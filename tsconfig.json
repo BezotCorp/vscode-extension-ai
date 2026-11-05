@@ -1,13 +1,13 @@
 {
-	"compilerOptions": {
-		"module": "commonjs",
-		"target": "ES2022",
-		"outDir": "out",
-		"rootDir": "src",
-		"strict": true,
-		"sourceMap": true,
-		"declaration": true,
-		"skipLibCheck": true,
-		"types": ["node", "vscode"]
-	}
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "outDir": "out",
+    "rootDir": "src",
+    "strict": true,
+    "sourceMap": true,
+    "declaration": true,
+    "skipLibCheck": true,
+    "types": ["node", "vscode"]
+  }
 }

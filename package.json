@@ -1,212 +1,214 @@
 {
-	"name": "bezotcorp-ai",
-	"displayName": "%displayName%",
-	"description": "%description%",
-	"version": "1.8.0",
-	"publisher": "bezotcorp",
-	"icon": "assets/icon.png",
-	"galleryBanner": {
-		"color": "#0A1025",
-		"theme": "dark"
-	},
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Bezot-Corp/vscode-extension-ai.git"
-	},
-	"homepage": "https://github.com/Bezot-Corp/vscode-extension-ai",
-	"bugs": {
-		"url": "https://github.com/Bezot-Corp/vscode-extension-ai/issues"
-	},
-	"engines": {
-		"vscode": "^1.120.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"keywords": [
-		"ai",
-		"assistant",
-		"coding",
-		"rust",
-		"local",
-		"backend",
-		"self-hosted"
-	],
-	"activationEvents": [
-		"onStartupFinished"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"configuration": {
-			"title": "%config.title%",
-			"properties": {
-				"bezotcorpAi.provider": {
-					"type": "string",
-					"default": "ollama",
-					"enum": [
-						"ollama",
-						"customBackend",
-						"bezotcorp"
-					],
-					"description": "%config.provider.description%"
-				},
-				"bezotcorpAi.providerUrl": {
-					"type": "string",
-					"default": "http://127.0.0.1:11434",
-					"description": "%config.providerUrl.description%"
-				},
-				"bezotcorpAi.model": {
-					"type": "string",
-					"default": "qwen2.5-coder:7b",
-					"description": "%config.model.description%"
-				},
-				"bezotcorpAi.autonomyMode": {
-					"type": "string",
-					"scope": "application",
-					"default": "confirm",
-					"enum": [
-						"readOnly",
-						"confirm",
-						"acceptEdits",
-						"auto"
-					],
-					"enumDescriptions": [
-						"%config.autonomyMode.readOnly%",
-						"%config.autonomyMode.confirm%",
-						"%config.autonomyMode.acceptEdits%",
-						"%config.autonomyMode.auto%"
-					],
-					"description": "%config.autonomyMode.description%"
-				},
-				"bezotcorpAi.permissions": {
-					"type": "object",
-					"scope": "application",
-					"default": {},
-					"markdownDescription": "%config.permissions.markdownDescription%",
-					"additionalProperties": {
-						"type": "string",
-						"enum": [
-							"allow",
-							"ask",
-							"deny"
-						]
-					}
-				},
-				"bezotcorpAi.protectedPaths": {
-					"type": "array",
-					"scope": "application",
-					"default": [],
-					"items": {
-						"type": "string"
-					},
-					"markdownDescription": "%config.protectedPaths.markdownDescription%"
-				},
-				"bezotcorpAi.contextTokens": {
-					"type": "number",
-					"default": 16384,
-					"minimum": 2048,
-					"description": "%config.contextTokens.description%"
-				},
-				"bezotcorpAi.mcpServers": {
-					"type": "object",
-					"scope": "application",
-					"default": {},
-					"description": "%config.mcpServers.description%",
-					"additionalProperties": {
-						"type": "object",
-						"required": [
-							"command"
-						],
-						"properties": {
-							"command": {
-								"type": "string"
-							},
-							"args": {
-								"type": "array",
-								"items": {
-									"type": "string"
-								}
-							},
-							"env": {
-								"type": "object",
-								"additionalProperties": {
-									"type": "string"
-								}
-							},
-							"cwd": {
-								"type": "string"
-							}
-						}
-					}
-				}
-			}
-		},
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "bezotcorp-ai",
-					"title": "%viewsContainer.title%",
-					"icon": "assets/icon.png"
-				}
-			]
-		},
-		"views": {
-			"bezotcorp-ai": [
-				{
-					"id": "bezotcorp-ai-chat",
-					"name": "%view.chat.name%",
-					"type": "webview",
-					"icon": "assets/icon.png"
-				}
-			]
-		},
-		"commands": [
-			{
-				"command": "bezotcorp-ai.openChat",
-				"title": "%command.openChat.title%"
-			},
-			{
-				"command": "bezotcorp-ai.openSettings",
-				"title": "%command.openSettings.title%"
-			},
-			{
-				"command": "bezotcorp-ai.managePermissions",
-				"title": "%command.managePermissions.title%"
-			},
-			{
-				"command": "bezotcorp-ai.revokeAllPermissions",
-				"title": "%command.revokeAllPermissions.title%"
-			},
-			{
-				"command": "bezotcorp-ai.openPermissionRules",
-				"title": "%command.openPermissionRules.title%"
-			}
-		]
-	},
-	"scripts": {
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"format": "biome format --write .",
-		"format:check": "biome format .",
-		"lint": "biome lint .",
-		"check": "biome check . && pnpm compile",
-		"package": "pnpm check && vsce package",
-		"release": "semantic-release"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.6.5",
-		"@semantic-release/changelog": "^7.0.0",
-		"@semantic-release/commit-analyzer": "^13.0.1",
-		"@semantic-release/exec": "^7.1.0",
-		"@semantic-release/git": "^11.0.1",
-		"@semantic-release/github": "^12.0.10",
-		"@semantic-release/release-notes-generator": "^14.1.1",
-		"@types/node": "^26.6.6",
-		"@types/vscode": "^1.145.0",
-		"@vscode/vsce": "^4.1.0",
-		"semantic-release": "^25.0.9",
-		"semantic-release-vsce": "^6.1.8",
-		"typescript": "^7.0.2"
-	}
+  "name": "bezotcorp-ai",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "1.8.0",
+  "publisher": "bezotcorp",
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#0A1025",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Bezot-Corp/vscode-extension-ai.git"
+  },
+  "homepage": "https://github.com/Bezot-Corp/vscode-extension-ai",
+  "bugs": {
+    "url": "https://github.com/Bezot-Corp/vscode-extension-ai/issues"
+  },
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "assistant",
+    "coding",
+    "rust",
+    "local",
+    "backend",
+    "self-hosted"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "%config.title%",
+      "properties": {
+        "bezotcorpAi.provider": {
+          "type": "string",
+          "default": "ollama",
+          "enum": [
+            "ollama",
+            "customBackend",
+            "bezotcorp"
+          ],
+          "description": "%config.provider.description%"
+        },
+        "bezotcorpAi.providerUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434",
+          "description": "%config.providerUrl.description%"
+        },
+        "bezotcorpAi.model": {
+          "type": "string",
+          "default": "qwen2.5-coder:7b",
+          "description": "%config.model.description%"
+        },
+        "bezotcorpAi.autonomyMode": {
+          "type": "string",
+          "scope": "application",
+          "default": "confirm",
+          "enum": [
+            "readOnly",
+            "confirm",
+            "acceptEdits",
+            "auto"
+          ],
+          "enumDescriptions": [
+            "%config.autonomyMode.readOnly%",
+            "%config.autonomyMode.confirm%",
+            "%config.autonomyMode.acceptEdits%",
+            "%config.autonomyMode.auto%"
+          ],
+          "description": "%config.autonomyMode.description%"
+        },
+        "bezotcorpAi.permissions": {
+          "type": "object",
+          "scope": "application",
+          "default": {},
+          "markdownDescription": "%config.permissions.markdownDescription%",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "ask",
+              "deny"
+            ]
+          }
+        },
+        "bezotcorpAi.protectedPaths": {
+          "type": "array",
+          "scope": "application",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "%config.protectedPaths.markdownDescription%"
+        },
+        "bezotcorpAi.contextTokens": {
+          "type": "number",
+          "default": 16384,
+          "minimum": 2048,
+          "description": "%config.contextTokens.description%"
+        },
+        "bezotcorpAi.mcpServers": {
+          "type": "object",
+          "scope": "application",
+          "default": {},
+          "description": "%config.mcpServers.description%",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "command"
+            ],
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "cwd": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bezotcorp-ai",
+          "title": "%viewsContainer.title%",
+          "icon": "assets/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "bezotcorp-ai": [
+        {
+          "id": "bezotcorp-ai-chat",
+          "name": "%view.chat.name%",
+          "type": "webview",
+          "icon": "assets/icon.png"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "bezotcorp-ai.openChat",
+        "title": "%command.openChat.title%"
+      },
+      {
+        "command": "bezotcorp-ai.openSettings",
+        "title": "%command.openSettings.title%"
+      },
+      {
+        "command": "bezotcorp-ai.managePermissions",
+        "title": "%command.managePermissions.title%"
+      },
+      {
+        "command": "bezotcorp-ai.revokeAllPermissions",
+        "title": "%command.revokeAllPermissions.title%"
+      },
+      {
+        "command": "bezotcorp-ai.openPermissionRules",
+        "title": "%command.openPermissionRules.title%"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "check": "biome check . && pnpm compile",
+    "package": "pnpm check && vsce package",
+    "release": "semantic-release",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.5",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
+    "@semantic-release/github": "^12.0.10",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "@types/node": "^26.6.6",
+    "@types/vscode": "^1.145.0",
+    "@vscode/vsce": "^4.1.0",
+    "semantic-release": "^25.0.9",
+    "semantic-release-vsce": "^6.1.8",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
 }

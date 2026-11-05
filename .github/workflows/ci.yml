@@ -13,7 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  ci-control:
+    name: CI control
     runs-on: ubuntu-latest
 
     steps:
@@ -35,5 +36,40 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check
-        run: pnpm check
+      - name: Check formatting and linting
+        run: pnpm exec biome check .
+
+      - name: Compile
+        run: pnpm compile
+
+      - name: Run tests
+        run: pnpm test
+
+  release-control:
+    name: Release control
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    needs:
+      - ci-control
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package extension
+        run: pnpm exec vsce package --no-dependencies
