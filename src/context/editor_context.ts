@@ -1,5 +1,5 @@
-import { ContextFile } from './context_file';
+import { ContextFile } from "./context_file";
 
 export type EditorContext = {
-  activeFile?: ContextFile;
+	activeFile?: ContextFile;
 };

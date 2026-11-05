@@ -1,5 +1,5 @@
 export type ContextFile = {
-  path: string;
-  languageId: string;
-  content: string;
+	path: string;
+	languageId: string;
+	content: string;
 };

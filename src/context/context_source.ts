@@ -1,1 +1,1 @@
-export type ContextSource = 'editor';
+export type ContextSource = "editor";

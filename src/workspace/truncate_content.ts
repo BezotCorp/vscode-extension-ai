@@ -1,25 +1,28 @@
-import { MAX_FILE_CHARS } from './workspace_limits';
+import { MAX_FILE_CHARS } from "./workspace_limits";
 
-export const TRUNCATION_MARKER = '\n\n/* Content truncated by BezotCorp AI */';
+export const TRUNCATION_MARKER = "\n\n/* Content truncated by BezotCorp AI */";
 
 export type TruncatedText = {
-  text: string;
-  truncated: boolean;
-  originalLength: number;
+	text: string;
+	truncated: boolean;
+	originalLength: number;
 };
 
-export function truncateText(content: string, maxChars = MAX_FILE_CHARS): TruncatedText {
-  if (content.length <= maxChars) {
-    return { text: content, truncated: false, originalLength: content.length };
-  }
+export function truncateText(
+	content: string,
+	maxChars = MAX_FILE_CHARS,
+): TruncatedText {
+	if (content.length <= maxChars) {
+		return { text: content, truncated: false, originalLength: content.length };
+	}
 
-  return {
-    text: `${content.slice(0, maxChars)}${TRUNCATION_MARKER}`,
-    truncated: true,
-    originalLength: content.length,
-  };
+	return {
+		text: `${content.slice(0, maxChars)}${TRUNCATION_MARKER}`,
+		truncated: true,
+		originalLength: content.length,
+	};
 }
 
 export function truncateContent(content: string): string {
-  return truncateText(content).text;
+	return truncateText(content).text;
 }

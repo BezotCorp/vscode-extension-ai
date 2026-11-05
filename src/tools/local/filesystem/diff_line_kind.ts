@@ -1,1 +1,1 @@
-export type DiffLineKind = 'unchanged' | 'removed' | 'added';
+export type DiffLineKind = "unchanged" | "removed" | "added";

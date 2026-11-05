@@ -1,420 +1,266 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { t } from '../i18n';
+import { t } from "../i18n";
 import {
-  PermissionLifetime,
-  PermissionPolicy,
-  PermissionStore,
-  ResourcePermissionGrant,
-  ToolPermissionInfo,
-} from '.';
+	PermissionLifetime,
+	PermissionPolicy,
+	PermissionStore,
+	ResourcePermissionGrant,
+	ToolPermissionInfo,
+} from ".";
 
-const LIFETIMES:
-  PermissionLifetime[] = [
-    'currentSession',
-    'allSessions',
-  ];
+const LIFETIMES: PermissionLifetime[] = ["currentSession", "allSessions"];
 
 // Labels are read when the menu opens, in the language VS Code is displayed in.
-function lifetimeLabel(
-  lifetime: PermissionLifetime,
-): string {
-  return t(
-    `lifetime.${lifetime}`,
-  );
+function lifetimeLabel(lifetime: PermissionLifetime): string {
+	return t(`lifetime.${lifetime}`);
 }
 
-function policyLabel(
-  policy: PermissionPolicy,
-): string {
-  return t(
-    `policy.${policy}.label`,
-  );
+function policyLabel(policy: PermissionPolicy): string {
+	return t(`policy.${policy}.label`);
 }
 
 function resetToolItems(): {
-  label: string;
-  lifetime: PermissionLifetime;
+	label: string;
+	lifetime: PermissionLifetime;
 }[] {
-  return [
-    {
-      label:
-        t('manage.resetToolsCurrent'),
+	return [
+		{
+			label: t("manage.resetToolsCurrent"),
 
-      lifetime: 'currentSession',
-    },
-    {
-      label:
-        t('manage.resetToolsAll'),
+			lifetime: "currentSession",
+		},
+		{
+			label: t("manage.resetToolsAll"),
 
-      lifetime: 'allSessions',
-    },
-  ];
+			lifetime: "allSessions",
+		},
+	];
 }
 
-type PermissionItem =
-  vscode.QuickPickItem & {
-    toolId?: string;
-    grant?:
-      ResourcePermissionGrant;
-  };
+type PermissionItem = vscode.QuickPickItem & {
+	toolId?: string;
+	grant?: ResourcePermissionGrant;
+};
 
 export async function managePermissions(
-  store: PermissionStore,
-  listTools:
-    () => Promise<
-      ToolPermissionInfo[]
-    >,
+	store: PermissionStore,
+	listTools: () => Promise<ToolPermissionInfo[]>,
 ): Promise<void> {
-  for (;;) {
-    const tools =
-      await listTools();
+	for (;;) {
+		const tools = await listTools();
 
-    const picked =
-      await vscode.window
-        .showQuickPick(
-          buildItems(
-            store,
-            tools,
-          ),
-          {
-            title:
-              t('manage.title'),
+		const picked = await vscode.window.showQuickPick(buildItems(store, tools), {
+			title: t("manage.title"),
 
-            placeHolder:
-              t('manage.placeholder'),
+			placeHolder: t("manage.placeholder"),
 
-            matchOnDescription:
-              true,
+			matchOnDescription: true,
 
-            matchOnDetail:
-              true,
-          },
-        );
+			matchOnDetail: true,
+		});
 
-    if (!picked) {
-      return;
-    }
+		if (!picked) {
+			return;
+		}
 
-    if (picked.grant) {
-      const action =
-        await vscode.window
-          .showQuickPick(
-            [{
-              label:
-                t('manage.revokeResource'),
-            }],
-            {
-              title:
-                picked.label,
-            },
-          );
+		if (picked.grant) {
+			const action = await vscode.window.showQuickPick(
+				[
+					{
+						label: t("manage.revokeResource"),
+					},
+				],
+				{
+					title: picked.label,
+				},
+			);
 
-      if (!action) {
-        continue;
-      }
+			if (!action) {
+				continue;
+			}
 
-      await store
-        .removeResourcePermission(
-          picked.grant,
-        );
+			await store.removeResourcePermission(picked.grant);
 
-      continue;
-    }
+			continue;
+		}
 
-    if (
-      picked.label ===
-      t('manage.editProtected')
-    ) {
-      await vscode.commands
-        .executeCommand(
-          'workbench.action.openSettings',
-          'bezotcorpAi.protectedPaths',
-        );
+		if (picked.label === t("manage.editProtected")) {
+			await vscode.commands.executeCommand(
+				"workbench.action.openSettings",
+				"bezotcorpAi.protectedPaths",
+			);
 
-      return;
-    }
+			return;
+		}
 
-    if (
-      picked.label ===
-      t('manage.clearResourcesCurrent')
-    ) {
-      await store
-        .clearResourcePermissions(
-          'currentSession',
-        );
+		if (picked.label === t("manage.clearResourcesCurrent")) {
+			await store.clearResourcePermissions("currentSession");
 
-      continue;
-    }
+			continue;
+		}
 
-    if (
-      picked.label ===
-      t('manage.clearResourcesAll')
-    ) {
-      await store
-        .clearResourcePermissions(
-          'allSessions',
-        );
+		if (picked.label === t("manage.clearResourcesAll")) {
+			await store.clearResourcePermissions("allSessions");
 
-      continue;
-    }
+			continue;
+		}
 
-    const reset =
-      resetToolItems().find(
-        (item) =>
-          item.label ===
-          picked.label,
-      );
+		const reset = resetToolItems().find((item) => item.label === picked.label);
 
-    if (reset) {
-      await store
-        .clearToolDecisions(
-          reset.lifetime,
-        );
+		if (reset) {
+			await store.clearToolDecisions(reset.lifetime);
 
-      continue;
-    }
+			continue;
+		}
 
-    const tool =
-      tools.find(
-        (candidate) =>
-          candidate.id ===
-          picked.toolId,
-      );
+		const tool = tools.find((candidate) => candidate.id === picked.toolId);
 
-    if (tool) {
-      await changeTool(
-        store,
-        tool,
-      );
-    }
-  }
+		if (tool) {
+			await changeTool(store, tool);
+		}
+	}
 }
 
 function buildItems(
-  store: PermissionStore,
-  tools:
-    ToolPermissionInfo[],
+	store: PermissionStore,
+	tools: ToolPermissionInfo[],
 ): PermissionItem[] {
-  const items:
-    PermissionItem[] = [];
+	const items: PermissionItem[] = [];
 
-  let group:
-    string | undefined;
+	let group: string | undefined;
 
-  for (const tool of tools) {
-    if (tool.group !== group) {
-      group = tool.group;
+	for (const tool of tools) {
+		if (tool.group !== group) {
+			group = tool.group;
 
-      items.push({
-        label: group,
+			items.push({
+				label: group,
 
-        kind:
-          vscode
-            .QuickPickItemKind
-            .Separator,
-      });
-    }
+				kind: vscode.QuickPickItemKind.Separator,
+			});
+		}
 
-    const resolution =
-      store.resolve(tool.id);
+		const resolution = store.resolve(tool.id);
 
-    items.push({
-      label: tool.name,
+		items.push({
+			label: tool.name,
 
-      description:
-        resolution
-          ? `${
-              t(`policy.${resolution.policy}.short`)
-            } · ${
-              lifetimeLabel(
-                resolution
-                  .lifetime,
-              ).toLowerCase()
-            }`
-          : `${
-              t(`policy.${tool.defaultPolicy}.short`)
-            } · ${
-              t('policy.default.short')
-            }`,
+			description: resolution
+				? `${t(`policy.${resolution.policy}.short`)} · ${lifetimeLabel(resolution.lifetime).toLowerCase()}`
+				: `${t(`policy.${tool.defaultPolicy}.short`)} · ${t("policy.default.short")}`,
 
-      detail:
-        tool.description,
+			detail: tool.description,
 
-      toolId:
-        tool.id,
-    });
-  }
+			toolId: tool.id,
+		});
+	}
 
-  const grants =
-    store
-      .listResourcePermissions();
+	const grants = store.listResourcePermissions();
 
-  items.push({
-    label:
-      t('manage.groupResources'),
+	items.push({
+		label: t("manage.groupResources"),
 
-    kind:
-      vscode
-        .QuickPickItemKind
-        .Separator,
-  });
+		kind: vscode.QuickPickItemKind.Separator,
+	});
 
-  for (const grant of grants) {
-    items.push({
-      label:
-        grant.path,
+	for (const grant of grants) {
+		items.push({
+			label: grant.path,
 
-      description:
-        `${grant.toolId} · ${
-          t(`resourceKind.${grant.kind}`)
-        } · ${
-          lifetimeLabel(
-            grant.lifetime,
-          ).toLowerCase()
-        }`,
+			description: `${grant.toolId} · ${t(`resourceKind.${grant.kind}`)} · ${lifetimeLabel(
+				grant.lifetime,
+			).toLowerCase()}`,
 
-      grant,
-    });
-  }
+			grant,
+		});
+	}
 
-  items.push({
-    label:
-      t('manage.groupMaintenance'),
+	items.push({
+		label: t("manage.groupMaintenance"),
 
-    kind:
-      vscode
-        .QuickPickItemKind
-        .Separator,
-  });
+		kind: vscode.QuickPickItemKind.Separator,
+	});
 
-  items.push(
-    ...resetToolItems().map(
-      (item) => ({
-        label:
-          item.label,
-      }),
-    ),
+	items.push(
+		...resetToolItems().map((item) => ({
+			label: item.label,
+		})),
 
-    {
-      label:
-        t('manage.clearResourcesCurrent'),
-    },
+		{
+			label: t("manage.clearResourcesCurrent"),
+		},
 
-    {
-      label:
-        t('manage.clearResourcesAll'),
-    },
+		{
+			label: t("manage.clearResourcesAll"),
+		},
 
-    {
-      label:
-        t('manage.editProtected'),
-    },
-  );
+		{
+			label: t("manage.editProtected"),
+		},
+	);
 
-  return items;
+	return items;
 }
 
 async function changeTool(
-  store: PermissionStore,
-  tool: ToolPermissionInfo,
+	store: PermissionStore,
+	tool: ToolPermissionInfo,
 ): Promise<void> {
-  const choice =
-    await vscode.window
-      .showQuickPick(
-        [
-          ...(
-            [
-              'allow',
-              'ask',
-              'deny',
-            ] as const
-          ).map(
-            (policy) => ({
-              label:
-                policyLabel(
-                  policy,
-                ),
+	const choice = await vscode.window.showQuickPick(
+		[
+			...(["allow", "ask", "deny"] as const).map((policy) => ({
+				label: policyLabel(policy),
 
-              policy,
-            }),
-          ),
+				policy,
+			})),
 
-          {
-            label:
-              t('policy.useDefault', {
-                policy: t(`policy.${tool.defaultPolicy}.short`),
-              }),
+			{
+				label: t("policy.useDefault", {
+					policy: t(`policy.${tool.defaultPolicy}.short`),
+				}),
 
-            policy:
-              undefined,
-          },
-        ],
-        {
-          title:
-            tool.name,
+				policy: undefined,
+			},
+		],
+		{
+			title: tool.name,
 
-          placeHolder:
-            t('manage.toolPlaceholder'),
-        },
-      );
+			placeHolder: t("manage.toolPlaceholder"),
+		},
+	);
 
-  if (!choice) {
-    return;
-  }
+	if (!choice) {
+		return;
+	}
 
-  const lifetimes =
-    LIFETIMES.filter(
-      (lifetime) =>
-        choice.policy !==
-          undefined ||
-        store.get(
-          tool.id,
-          lifetime,
-        ) !== undefined,
-    );
+	const lifetimes = LIFETIMES.filter(
+		(lifetime) =>
+			choice.policy !== undefined || store.get(tool.id, lifetime) !== undefined,
+	);
 
-  if (
-    lifetimes.length === 0
-  ) {
-    return;
-  }
+	if (lifetimes.length === 0) {
+		return;
+	}
 
-  const pickedLifetime =
-    await vscode.window
-      .showQuickPick(
-        lifetimes.map(
-          (lifetime) => ({
-            label:
-              lifetimeLabel(
-                lifetime,
-              ),
+	const pickedLifetime = await vscode.window.showQuickPick(
+		lifetimes.map((lifetime) => ({
+			label: lifetimeLabel(lifetime),
 
-            lifetime,
-          }),
-        ),
-        {
-          title:
-            choice.policy
-              ? t('manage.keepFor')
-              : t('manage.removeFor'),
-        },
-      );
+			lifetime,
+		})),
+		{
+			title: choice.policy ? t("manage.keepFor") : t("manage.removeFor"),
+		},
+	);
 
-  if (!pickedLifetime) {
-    return;
-  }
+	if (!pickedLifetime) {
+		return;
+	}
 
-  if (choice.policy) {
-    await store.set(
-      tool.id,
-      choice.policy,
-      pickedLifetime.lifetime,
-    );
-  } else {
-    await store.clear(
-      tool.id,
-      pickedLifetime.lifetime,
-    );
-  }
+	if (choice.policy) {
+		await store.set(tool.id, choice.policy, pickedLifetime.lifetime);
+	} else {
+		await store.clear(tool.id, pickedLifetime.lifetime);
+	}
 }

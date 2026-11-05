@@ -1,5 +1,5 @@
 export function getMessageListScript(): string {
-  return `
+	return `
 let currentAssistantMessage = null;
 
 function addMessage(text, role) {

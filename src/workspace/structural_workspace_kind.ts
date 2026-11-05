@@ -1,4 +1,1 @@
-export type StructuralWorkspaceKind =
-  | 'cargo'
-  | 'pnpm'
-  | 'node';
+export type StructuralWorkspaceKind = "cargo" | "pnpm" | "node";

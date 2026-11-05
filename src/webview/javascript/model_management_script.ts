@@ -1,5 +1,5 @@
 export function getModelManagementScript(): string {
-  return `
+	return `
 const providerSelect = document.getElementById('provider-select');
 const providerUrlInput = document.getElementById('provider-url-input');
 const applyProviderSettings = document.getElementById('apply-provider-settings');

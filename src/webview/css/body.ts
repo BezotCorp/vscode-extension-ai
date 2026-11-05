@@ -1,5 +1,5 @@
 export function getBodyStyles(): string {
-  return `
+	return `
 html,
 body {
   width: 100%;
