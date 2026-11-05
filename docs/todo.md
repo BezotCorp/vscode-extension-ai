@@ -39,6 +39,14 @@ This document tracks only work that remains open.
 
 - Add tool support to the custom backend provider.
 
+## Persistence Architecture
+
+- Introduce an explicit persistence domain for durable application state.
+- Separate chat domain logic from chat persistence concerns, including `chat.json`, storage format versioning, migrations, atomic writes and unreadable-data backups.
+- Review permission persistence and separate permission rules from VS Code storage mechanisms where appropriate.
+- Review ownership of persistence policies such as stored tool-result compaction limits.
+- Keep domain models independent from persistence mechanisms where practical.
+
 ## Persistent Memory
 
 Reference: [memory_ai_system.md](memory_ai_system.md).
