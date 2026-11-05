@@ -1,12 +1,8 @@
-export type ToolExecutionResult = {
-  success: boolean;
-  content?: string;
-  error?: string;
-};
+import type { ToolAccessProfile } from '../permissions';
+import type { ToolExecutionContext, ToolExecutionResult, ToolParametersSchema } from '.';
 
-export interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  execute(input: unknown): Promise<ToolExecutionResult>;
+export interface Tool extends ToolAccessProfile {
+	description: string;
+	parameters: ToolParametersSchema;
+	execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult>;
 }

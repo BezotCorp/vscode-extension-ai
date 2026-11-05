@@ -1,37 +1,51 @@
 export function getModelManagementScript(): string {
-  return `
+	return `
 const providerSelect = document.getElementById('provider-select');
 const providerUrlInput = document.getElementById('provider-url-input');
 const applyProviderSettings = document.getElementById('apply-provider-settings');
-const modelSelect = document.getElementById('model-select');
-const modelInput = document.getElementById('model-input');
 const refreshModels = document.getElementById('refresh-models');
-const saveModel = document.getElementById('save-model');
-const activeModel = document.getElementById('active-model');
 const modelError = document.getElementById('model-error');
 
-function renderModelState(state) {
-  providerSelect.value = state.provider;
-  providerUrlInput.value = state.providerUrl;
-  activeModel.textContent =
-    'Provider: ' + state.provider +
-    ' | URL: ' + state.providerUrl +
-    ' | Model: ' + state.activeModel;
+function fillChatModelSelect(models, activeModelId) {
+  chatModelSelect.textContent = '';
 
-  modelInput.value = state.activeModel;
-  modelError.textContent = state.error ? 'Model loading error: ' + state.error : '';
+  if (!Array.isArray(models) || models.length === 0) {
+    const option = document.createElement('option');
 
-  modelSelect.textContent = '';
+    option.value = '';
+    option.textContent = tr('ui.noModel');
+    option.selected = true;
 
-  for (const model of state.models ?? []) {
+    chatModelSelect.appendChild(option);
+    chatModelSelect.disabled = true;
+    chatConfigureAi.hidden = false;
+
+    return;
+  }
+
+  chatModelSelect.disabled = false;
+  chatConfigureAi.hidden = true;
+
+  for (const model of models) {
     const option = document.createElement('option');
 
     option.value = model.id;
     option.textContent = model.name;
-    option.selected = model.id === state.activeModel;
+    option.selected = model.id === activeModelId;
 
-    modelSelect.appendChild(option);
+    chatModelSelect.appendChild(option);
   }
+}
+
+function renderModelState(state) {
+  providerSelect.value = state.provider;
+  providerUrlInput.value = state.providerUrl;
+
+  modelError.textContent = state.error
+    ? tr('ui.modelError', { error: state.error })
+    : '';
+
+  fillChatModelSelect(state.models, state.activeModel);
 }
 
 function changeModel(model) {
@@ -63,15 +77,13 @@ function updateProviderSettings() {
 applyProviderSettings.addEventListener('click', updateProviderSettings);
 
 refreshModels.addEventListener('click', () => {
-  vscode.postMessage({ type: 'refreshModels' });
+  vscode.postMessage({
+    type: 'refreshModels',
+  });
 });
 
-modelSelect.addEventListener('change', () => {
-  changeModel(modelSelect.value);
-});
-
-saveModel.addEventListener('click', () => {
-  changeModel(modelInput.value);
+chatModelSelect.addEventListener('change', () => {
+  changeModel(chatModelSelect.value);
 });
 
 window.addEventListener('message', (event) => {

@@ -1,0 +1,17 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "BezotCorp AI — Test Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"${env:XDG_RUNTIME_DIR}/bezotcorp-ai-test-extension/project"
+			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
+			"preLaunchTask": "BezotCorp AI: Start Test Extension",
+			"postDebugTask": "BezotCorp AI: Clean Test Extension"
+		}
+	]
+}

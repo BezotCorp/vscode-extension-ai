@@ -1,11 +1,30 @@
 export function getMessageListScript(): string {
-  return `
+	return `
 let currentAssistantMessage = null;
 
 function addMessage(text, role) {
   const div = document.createElement('div');
   div.className = 'message ' + role;
-  div.textContent = text;
+  const content = document.createElement('span');
+  content.className = 'message-content';
+  content.textContent = text;
+  div.appendChild(content);
+
+  if (role === 'assistant') {
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'copy-message';
+    copy.textContent = tr('ui.copy');
+    copy.title = tr('ui.copyTitle');
+    copy.addEventListener('click', () => {
+      vscode.postMessage({
+        type: 'copyMessage',
+        text: content.textContent || '',
+      });
+    });
+    div.appendChild(copy);
+  }
+
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
   return div;
@@ -14,10 +33,9 @@ function addMessage(text, role) {
 function clearMessages() {
   messages.textContent = '';
   currentAssistantMessage = null;
-  patchPreviewContainer.textContent = '';
 }
 
-function restoreHistory(restoredMessages) {
+function restoreMessages(restoredMessages) {
   clearMessages();
 
   for (const message of restoredMessages) {
@@ -40,7 +58,10 @@ function appendAssistantChunk(text) {
     startAssistantMessage();
   }
 
-  currentAssistantMessage.textContent += text;
+  const content = currentAssistantMessage.querySelector('.message-content');
+  if (content) {
+    content.textContent += text;
+  }
   messages.scrollTop = messages.scrollHeight;
 }
 

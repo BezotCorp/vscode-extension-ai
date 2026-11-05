@@ -1,31 +1,53 @@
-export function getModelManagementHtml(): string {
-  return `
+import type { MessageKey } from '../../i18n';
+
+export function getModelManagementHtml(ui: (key: MessageKey) => string): string {
+	return `
 <div id="model-card">
-  <strong>AI Backend</strong>
+  <div class="settings-group">
+    <label for="provider-select">${ui('ui.provider')}</label>
 
-  <label for="provider-select">Provider</label>
-  <select id="provider-select">
-    <option value="ollama">Ollama</option>
-    <option value="customBackend">Custom Backend</option>
-    <option value="bezotcorp">BezotCorp</option>
-  </select>
-
-  <label for="provider-url-input">Backend URL</label>
-  <input id="provider-url-input" type="text" placeholder="http://127.0.0.1:11434">
-
-  <div id="provider-actions">
-    <button id="apply-provider-settings">Apply Backend</button>
+    <select id="provider-select">
+      <option value="ollama">Ollama</option>
+      <option value="customBackend">${ui('ui.providerCustom')}</option>
+      <option value="bezotcorp">BezotCorp</option>
+    </select>
   </div>
 
-  <strong>Model</strong>
-  <div id="active-model">Model: loading...</div>
+  <div class="settings-group">
+    <label for="provider-url-input">${ui('ui.backendUrl')}</label>
 
-  <select id="model-select"></select>
-  <input id="model-input" type="text" placeholder="Manual model name">
+    <input
+      id="provider-url-input"
+      type="text"
+      placeholder="http://127.0.0.1:11434"
+    >
+  </div>
 
-  <div id="model-actions">
-    <button id="refresh-models">Refresh Models</button>
-    <button id="save-model">Use Model</button>
+  <div id="provider-actions">
+    <button id="apply-provider-settings" type="button">
+      ${ui('ui.apply')}
+    </button>
+
+    <button id="test-connection" type="button">
+      ${ui('ui.testConnection')}
+    </button>
+  </div>
+
+  <div id="backend-card">
+    <div id="backend-status"></div>
+    <div id="backend-url"></div>
+  </div>
+
+  <div class="settings-divider"></div>
+
+  <div id="provider-actions-secondary">
+    <button id="refresh-models" type="button">
+      ${ui('ui.refreshModels')}
+    </button>
+
+    <button id="settings" type="button">
+      ${ui('ui.advancedSettings')}
+    </button>
   </div>
 
   <div id="model-error"></div>

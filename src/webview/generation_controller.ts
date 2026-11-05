@@ -1,114 +1,311 @@
 import * as vscode from 'vscode';
-
-import { ChatManager } from '../chat/chat_manager';
+import { DEFAULT_HISTORY_CHARACTERS, HISTORY_CONTEXT_SHARE, MAX_HISTORY_MESSAGES } from '../chat/chat_history_limits';
+import type { ChatManager } from '../chat/chat_manager';
+import { closingText, type ChatMessage } from '../chat/chat_message';
+import type { ChatRole } from '../chat/chat_role';
+import { MAX_STORED_RESULT_CHARACTERS } from '../chat/tool_round_storage_limits';
 import { getExtensionConfig } from '../config/extension_config';
-import { buildChatContext } from '../context/context_builder';
-import { PatchPreview } from '../patch/patch_preview';
+import { buildAiContext, estimatedCharacterBudget } from '../context';
+import { t } from '../i18n';
+import type { McpManager } from '../mcp';
+import type { PermissionStore } from '../permissions';
+import type { ChatHistoryMessage } from '../providers/chat_history_message';
 import { createProvider } from '../providers/provider_factory';
-import { ContextOptions } from './context_options';
+import {
+	createDefaultToolRegistry,
+	type FileToolServices,
+	ToolAccessGuard,
+	type ToolRegistry,
+	type ToolRound,
+} from '../tools';
 import { sendChatStore } from './chat_store_presenter';
-import { detectAndSendPatchPreviews } from './patch_preview_controller';
+import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
 
 export class GenerationController {
-  private currentAbortController: AbortController | undefined;
+	private currentAbortController: AbortController | undefined;
+	private currentGeneration: Promise<void> | undefined;
+	private currentGenerationSessionId: string | undefined;
+	private readonly permissionStore: PermissionStore;
 
-  constructor(
-    private readonly chatManager: ChatManager,
-    private readonly patchPreviews: Map<string, PatchPreview>,
-  ) {}
+	constructor(
+		private readonly chatManager: ChatManager,
+		permissionStore: PermissionStore,
+		private readonly mcpManager: McpManager,
+		private readonly files: FileToolServices,
+	) {
+		this.permissionStore = permissionStore;
+	}
 
-  stopGeneration(): void {
-    this.currentAbortController?.abort();
-  }
+	stopGeneration(): void {
+		this.currentAbortController?.abort();
+	}
 
-  async sendChatMessage(webviewView: vscode.WebviewView, text: string, contextOptions: ContextOptions): Promise<void> {
-    const config = getExtensionConfig();
-    const provider = createProvider(config);
-    const abortController = new AbortController();
+	async stopGenerationForSessionAndWait(sessionId: string): Promise<void> {
+		if (this.currentGenerationSessionId !== sessionId) {
+			return;
+		}
 
-    this.currentAbortController?.abort();
-    this.currentAbortController = abortController;
+		const generation = this.currentGeneration;
 
-    let assistantText = '';
+		this.currentAbortController?.abort();
 
-    try {
-      const context = await buildChatContext(config.contextMode, contextOptions);
+		if (generation) {
+			await generation;
+		}
+	}
 
-      webviewView.webview.postMessage({
-        type: 'contextStatus',
-        activeFilePath: context.activeFile?.path,
-      });
+	private async createTools(accessGuard: ToolAccessGuard, signal: AbortSignal): Promise<ToolRegistry> {
+		const registry = createDefaultToolRegistry(accessGuard, this.files);
 
-      await this.chatManager.addMessage('user', text);
-      sendChatStore(webviewView, this.chatManager);
+		if (accessGuard.mode !== 'readOnly') {
+			try {
+				for (const tool of await this.mcpManager.createTools(accessGuard, signal)) {
+					const reason = accessGuard.unavailableReason(tool);
 
-      await provider.streamChat(
-        {
-          message: text,
-          context,
-        },
-        {
-          onStart: () => {
-            webviewView.webview.postMessage({
-              type: 'responseStart',
-            });
-          },
-          onChunk: (chunk: string) => {
-            assistantText += chunk;
+					if (reason) {
+						registry.markUnavailable(tool, reason);
+					} else {
+						registry.register(tool);
+					}
+				}
+			} catch (error) {
+				// A broken MCP server must not take the built-in tools down with it.
+				console.error(`BezotCorp AI: MCP tools unavailable: ${String(error)}`);
+			}
+		}
 
-            webviewView.webview.postMessage({
-              type: 'responseChunk',
-              text: chunk,
-            });
-          },
-          onEnd: () => {
-            webviewView.webview.postMessage({
-              type: 'responseEnd',
-            });
-          },
-        },
-        abortController.signal,
-      );
+		return registry;
+	}
 
-      if (assistantText.trim()) {
-        await this.chatManager.addMessage('assistant', assistantText);
-        sendChatStore(webviewView, this.chatManager);
-        detectAndSendPatchPreviews(webviewView, this.patchPreviews, assistantText);
-      }
-    } catch (error) {
-      if (abortController.signal.aborted) {
-        if (assistantText.trim()) {
-          await this.chatManager.addMessage('assistant', assistantText);
-          sendChatStore(webviewView, this.chatManager);
-          detectAndSendPatchPreviews(webviewView, this.patchPreviews, assistantText);
-        }
+	// The message is kept in memory even when it cannot be written to disk: the answer must not be lost with it.
+	private async remember(
+		sessionId: string,
+		role: ChatRole,
+		content: string,
+		toolRounds?: ToolRound[],
+	): Promise<boolean> {
+		try {
+			return await this.chatManager.addMessageToSession(sessionId, role, content, toolRounds);
+		} catch (error) {
+			// The ChatManager mutates memory before persistence. A storage failure must not
+			// make the generation forget a message that is still present in memory.
+			void vscode.window.showWarningMessage(
+				t('notify.error', {
+					error: error instanceof Error ? error.message : String(error),
+				}),
+			);
+			return true;
+		}
+	}
 
-        webviewView.webview.postMessage({
-          type: 'responseStopped',
-        });
-        return;
-      }
+	async sendChatMessage(webviewView: vscode.WebviewView, text: string): Promise<void> {
+		const session = this.chatManager.getActiveSession();
 
-      const errorText = `Error: ${String(error)}`;
+		if (!session) {
+			return;
+		}
 
-      await this.chatManager.addMessage('assistant', errorText);
-      sendChatStore(webviewView, this.chatManager);
+		const generation = this.runChatMessage(webviewView, text, session.id, session.messages);
 
-      webviewView.webview.postMessage({
-        type: 'response',
-        text: errorText,
-      });
+		this.currentGeneration = generation;
+		this.currentGenerationSessionId = session.id;
 
-      webviewView.webview.postMessage({
-        type: 'backendStatus',
-        status: 'disconnected',
-        backendUrl: config.providerUrl,
-        text: `Disconnected: ${String(error)}`,
-      });
-    } finally {
-      if (this.currentAbortController === abortController) {
-        this.currentAbortController = undefined;
-      }
-    }
-  }
+		try {
+			await generation;
+		} finally {
+			if (this.currentGeneration === generation) {
+				this.currentGeneration = undefined;
+				this.currentGenerationSessionId = undefined;
+			}
+		}
+	}
+
+	private async runChatMessage(
+		webviewView: vscode.WebviewView,
+		text: string,
+		sessionId: string,
+		sessionMessages: ChatMessage[],
+	): Promise<void> {
+		const config = getExtensionConfig();
+		const provider = createProvider(config);
+		const abortController = new AbortController();
+
+		this.currentAbortController?.abort();
+		this.currentAbortController = abortController;
+
+		const accessGuard = new ToolAccessGuard(this.permissionStore, () => getExtensionConfig().autonomyMode);
+		let assistantText = '';
+		const toolRounds: ToolRound[] = [];
+
+		try {
+			const context = await buildAiContext();
+
+			const contextTokens = await provider.resolveContextTokens?.(abortController.signal);
+			const history = selectHistory(
+				sessionMessages,
+				contextTokens ? estimatedCharacterBudget(contextTokens, HISTORY_CONTEXT_SHARE) : DEFAULT_HISTORY_CHARACTERS,
+			);
+
+			const userMessageRemembered = await this.remember(sessionId, 'user', text);
+
+			if (!userMessageRemembered) {
+				webviewView.webview.postMessage({
+					type: 'responseStopped',
+					sessionId,
+				});
+				return;
+			}
+
+			sendChatStore(webviewView, this.chatManager);
+
+			const tools = provider.supportsTools ? await this.createTools(accessGuard, abortController.signal) : undefined;
+
+			await provider.streamChat(
+				{
+					message: text,
+					history,
+					context,
+					tools,
+				},
+				{
+					onStart: () => {
+						webviewView.webview.postMessage({
+							type: 'responseStart',
+							sessionId,
+						});
+					},
+					onChunk: (chunk: string) => {
+						assistantText += chunk;
+
+						webviewView.webview.postMessage({
+							type: 'responseChunk',
+							sessionId,
+							text: chunk,
+						});
+					},
+					onToolCall: (call) => sendToolCall(webviewView, sessionId, call),
+					onToolResult: (_call, result) => sendToolResult(webviewView, sessionId, result),
+					onToolRound: (round) => toolRounds.push(compactRound(round)),
+					onNotice: (text) => sendToolNotice(webviewView, sessionId, text),
+					onEnd: () => {},
+				},
+				abortController.signal,
+			);
+
+			if (assistantText.trim() || toolRounds.length > 0) {
+				await this.remember(sessionId, 'assistant', assistantText, toolRounds);
+				sendChatStore(webviewView, this.chatManager);
+			}
+
+			webviewView.webview.postMessage({
+				type: 'responseEnd',
+				sessionId,
+			});
+		} catch (error) {
+			if (abortController.signal.aborted) {
+				if (assistantText.trim() || toolRounds.length > 0) {
+					await this.remember(sessionId, 'assistant', assistantText, toolRounds);
+					sendChatStore(webviewView, this.chatManager);
+				}
+
+				webviewView.webview.postMessage({
+					type: 'responseStopped',
+					sessionId,
+				});
+				return;
+			}
+
+			const errorText = t('chat.errorPrefix', { error: String(error) });
+
+			await this.remember(sessionId, 'assistant', errorText);
+			sendChatStore(webviewView, this.chatManager);
+
+			webviewView.webview.postMessage({
+				type: 'responseEnd',
+				sessionId,
+			});
+
+			webviewView.webview.postMessage({
+				type: 'backendStatus',
+				status: 'disconnected',
+				backendUrl: config.providerUrl,
+				text: t('status.disconnected', { error: String(error) }),
+			});
+		} finally {
+			if (this.currentAbortController === abortController) {
+				this.currentAbortController = undefined;
+			}
+		}
+	}
+}
+
+// Results are stored cut down: the model only needs enough of them to remember what it did.
+function compactRound(round: ToolRound): ToolRound {
+	return {
+		content: round.content,
+		calls: round.calls.map((call) => ({
+			...call,
+			result:
+				call.result.length > MAX_STORED_RESULT_CHARACTERS
+					? `${call.result.slice(0, MAX_STORED_RESULT_CHARACTERS)}\n/* result cut when stored */`
+					: call.result,
+		})),
+	};
+}
+
+// Keeps the most recent turns that fit the budget, so long conversations do not overflow the model context.
+function selectHistory(messages: ChatMessage[], budget: number): ChatHistoryMessage[] {
+	const selected: ChatHistoryMessage[] = [];
+	let characters = 0;
+
+	for (const message of [...messages].reverse()) {
+		// Errors shown in the chat are display text, not something the model said.
+		if (message.role === 'assistant' && message.content.startsWith('Error: ')) {
+			continue;
+		}
+
+		let entry = toHistoryMessage(message);
+
+		// A turn whose tool results alone exceed the budget is kept as its written text, so recent history is not lost.
+		if (entry.toolRounds && characters + historySize(entry) > budget) {
+			entry = { role: message.role, content: message.content };
+		}
+
+		// The most recent turn is never dropped whole: its end is what the next message most likely refers to.
+		if (selected.length === 0 && historySize(entry) > budget) {
+			entry = { role: message.role, content: entry.content.slice(-budget) };
+		}
+
+		const size = historySize(entry);
+
+		if (selected.length >= MAX_HISTORY_MESSAGES || characters + size > budget) {
+			break;
+		}
+
+		characters += size;
+		selected.unshift(entry);
+	}
+
+	return selected;
+}
+
+function toHistoryMessage(message: ChatMessage): ChatHistoryMessage {
+	if (!message.toolRounds?.length) {
+		return { role: message.role, content: message.content };
+	}
+
+	return {
+		role: message.role,
+		content: closingText(message),
+		toolRounds: message.toolRounds,
+	};
+}
+
+function historySize(message: ChatHistoryMessage): number {
+	const rounds = (message.toolRounds ?? []).reduce(
+		(total, round) => total + round.content.length + round.calls.reduce((sum, call) => sum + call.result.length, 0),
+		0,
+	);
+
+	return message.content.length + rounds;
 }

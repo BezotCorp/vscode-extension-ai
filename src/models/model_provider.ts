@@ -1,5 +1,5 @@
-import { ModelInfo } from './model_info';
+import type { ModelInfo } from './model_info';
 
 export interface ModelProvider {
-  listModels(): Promise<ModelInfo[]>;
+	listModels(): Promise<ModelInfo[]>;
 }

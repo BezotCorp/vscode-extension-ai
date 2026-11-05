@@ -1,0 +1,2 @@
+export const MAX_DESCRIPTION_CHARS = 1_000;
+export const MAX_STRUCTURED_CHARS = 8_000;

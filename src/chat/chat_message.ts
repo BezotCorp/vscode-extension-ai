@@ -1,23 +1,30 @@
-// Define the possible roles for chat messages
-export type ChatRole = 'user' | 'assistant';
+import type { ToolRound } from '../tools/tool_round';
+import type { ChatRole } from './chat_role';
 
-// Define the structure of a chat message
 export type ChatMessage = {
-  role: ChatRole; // The role of the message (either user or assistant)
-  content: string; // The content of the message
-  createdAt: string; // The timestamp when the message was created, formatted as ISO string
+	role: ChatRole;
+	content: string;
+	createdAt: string;
+	toolRounds?: ToolRound[];
 };
 
-// Function to create a new chat message with the current timestamp
-export function createChatMessage(role: ChatRole, content: string): ChatMessage {
-  return {
-    role,
-    content,
-    createdAt: new Date().toISOString(), // Get the current timestamp in ISO format
-  };
+export function createChatMessage(role: ChatRole, content: string, toolRounds?: ToolRound[]): ChatMessage {
+	return {
+		role,
+		content,
+		createdAt: new Date().toISOString(),
+		...(toolRounds && toolRounds.length > 0 && { toolRounds }),
+	};
 }
 
-// Function to clone an existing chat message (shallow copy)
 export function cloneChatMessage(message: ChatMessage): ChatMessage {
-  return { ...message }; // Create a shallow copy of the message object
+	return { ...message };
+}
+
+// A stored assistant message holds the text of every round in order, followed by the closing answer.
+// The tool rounds already carry the earlier text, so this returns only the closing answer.
+export function closingText(message: ChatMessage): string {
+	const earlier = (message.toolRounds ?? []).map((round) => round.content).join('');
+
+	return earlier && message.content.startsWith(earlier) ? message.content.slice(earlier.length) : message.content;
 }

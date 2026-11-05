@@ -1,79 +1,69 @@
-import {
-  AiProviderKind,
-  ExtensionConfig,
-  getExtensionConfig,
-  updateExtensionModel,
-  updateExtensionProviderSettings,
-} from '../config/extension_config';
-import { ModelInfo } from './model_info';
-import { createModelProvider } from './model_registry';
+import type { AiProviderKind } from '../config/ai_provider_kind';
 
-export type ModelState = {
-  provider: ExtensionConfig['provider'];
-  providerUrl: string;
-  activeModel: string;
-  models: ModelInfo[];
-  error?: string;
-};
+import {
+	type ExtensionConfig,
+	getExtensionConfig,
+	updateExtensionModel,
+	updateExtensionProviderSettings,
+} from '../config/extension_config';
+import type { ModelInfo } from './model_info';
+import { createModelProvider } from './model_registry';
+import type { ModelState } from './model_state';
 
 export class ModelManager {
-  async getState(): Promise<ModelState> {
-    const config = getExtensionConfig();
+	async getState(): Promise<ModelState> {
+		const config = getExtensionConfig();
 
-    try {
-      const models = await createModelProvider(config).listModels();
+		try {
+			const models = await createModelProvider(config).listModels();
 
-      return {
-        provider: config.provider,
-        providerUrl: config.providerUrl,
-        activeModel: config.model,
-        models: ensureActiveModelExists(models, config),
-      };
-    } catch (error) {
-      return {
-        provider: config.provider,
-        providerUrl: config.providerUrl,
-        activeModel: config.model,
-        models: [
-          {
-            id: config.model,
-            name: config.model,
-            provider: config.provider,
-            supportsStreaming: true,
-            supportsTools: false,
-          },
-        ],
-        error: String(error),
-      };
-    }
-  }
+			return {
+				provider: config.provider,
+				providerUrl: config.providerUrl,
+				activeModel: config.model,
+				models: ensureActiveModelExists(models, config),
+			};
+		} catch (error) {
+			return {
+				provider: config.provider,
+				providerUrl: config.providerUrl,
+				activeModel: config.model,
+				models: [
+					{
+						id: config.model,
+						name: config.model,
+						provider: config.provider,
+					},
+				],
+				error: String(error),
+			};
+		}
+	}
 
-  async setActiveModel(model: string): Promise<ModelState> {
-    await updateExtensionModel(model);
+	async setActiveModel(model: string): Promise<ModelState> {
+		await updateExtensionModel(model);
 
-    return this.getState();
-  }
+		return this.getState();
+	}
 
-  async updateProviderSettings(provider: AiProviderKind, providerUrl: string): Promise<ModelState> {
-    await updateExtensionProviderSettings(provider, providerUrl);
+	async updateProviderSettings(provider: AiProviderKind, providerUrl: string): Promise<ModelState> {
+		await updateExtensionProviderSettings(provider, providerUrl);
 
-    return this.getState();
-  }
+		return this.getState();
+	}
 }
 
 function ensureActiveModelExists(models: ModelInfo[], config: ExtensionConfig): ModelInfo[] {
-  if (models.some((model) => model.id === config.model)) {
-    return models;
-  }
+	if (models.some((model) => model.id === config.model)) {
+		return models;
+	}
 
-  return [
-    {
-      id: config.model,
-      name: config.model,
-      provider: config.provider,
-      supportsStreaming: true,
-      supportsTools: false,
-    },
-    ...models,
-  ];
+	return [
+		{
+			id: config.model,
+			name: config.model,
+			provider: config.provider,
+		},
+		...models,
+	];
 }

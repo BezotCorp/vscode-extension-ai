@@ -1,3 +1,18 @@
 export function getAllStyles(): string {
-  return `* { box-sizing: border-box; margin: 0; padding: 0; }`;
+	return `
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+`;
 }

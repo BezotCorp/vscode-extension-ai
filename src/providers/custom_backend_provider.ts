@@ -1,66 +1,75 @@
-import { ExtensionConfig } from '../config/extension_config';
-import { AiProvider, ChatRequest, ChatResult, ChatStreamHandler } from './ai_provider';
-import { ProviderStatus } from './provider_status';
-
-type CustomBackendResponse = {
-  content?: string;
-  error?: string;
-};
+import type { ExtensionConfig } from '../config/extension_config';
+import { t } from '../i18n';
+import type { AiProvider } from './ai_provider';
+import type { ChatRequest } from './chat_request';
+import type { ChatResult } from './chat_result';
+import type { ChatStreamHandler } from './chat_stream_handler';
+import type { CustomBackendResponse } from './custom_backend_response';
+import type { ProviderStatus } from './provider_status';
 
 export class CustomBackendProvider implements AiProvider {
-  constructor(private readonly config: ExtensionConfig) {}
+	readonly supportsTools = false;
 
-  async health(): Promise<ProviderStatus> {
-    try {
-      const response = await fetch(`${this.config.providerUrl}/health`, {
-        method: 'GET',
-      });
+	constructor(private readonly config: ExtensionConfig) {}
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+	async health(): Promise<ProviderStatus> {
+		try {
+			const response = await fetch(`${this.config.providerUrl}/health`, {
+				method: 'GET',
+			});
 
-      return {
-        status: 'connected',
-        providerUrl: this.config.providerUrl,
-        text: 'Connected',
-      };
-    } catch (error) {
-      return {
-        status: 'disconnected',
-        providerUrl: this.config.providerUrl,
-        text: `Disconnected: ${String(error)}`,
-      };
-    }
-  }
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}`);
+			}
 
-  async chat(request: ChatRequest): Promise<ChatResult> {
-    const response = await fetch(`${this.config.providerUrl}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    });
+			return {
+				status: 'connected',
+				providerUrl: this.config.providerUrl,
+				text: t('status.connected'),
+			};
+		} catch (error) {
+			return {
+				status: 'disconnected',
+				providerUrl: this.config.providerUrl,
+				text: t('status.disconnected', { error: String(error) }),
+			};
+		}
+	}
 
-    const data = (await response.json()) as CustomBackendResponse;
+	async chat(request: ChatRequest): Promise<ChatResult> {
+		const response = await this.requestChat(request);
 
-    return {
-      text: data.content ?? data.error ?? 'no response',
-    };
-  }
+		return {
+			text: response.content ?? response.error ?? 'no response',
+		};
+	}
 
-  async streamChat(request: ChatRequest, handler: ChatStreamHandler, signal?: AbortSignal): Promise<void> {
-    handler.onStart();
+	async streamChat(request: ChatRequest, handler: ChatStreamHandler, signal?: AbortSignal): Promise<void> {
+		handler.onStart();
 
-    const response = await fetch(`${this.config.providerUrl}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-      signal,
-    });
+		const response = await this.requestChat(request, signal);
 
-    const data = (await response.json()) as CustomBackendResponse;
+		handler.onChunk(response.content ?? response.error ?? 'no response');
 
-    handler.onChunk(data.content ?? data.error ?? 'no response');
-    handler.onEnd();
-  }
+		handler.onEnd();
+	}
+
+	private async requestChat(request: ChatRequest, signal?: AbortSignal): Promise<CustomBackendResponse> {
+		const response = await fetch(`${this.config.providerUrl}/chat`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(request),
+			signal,
+		});
+
+		if (!response.ok) {
+			const detail = await response.text().catch(() => '');
+
+			throw new Error(`HTTP ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ''}`);
+		}
+
+		return (await response.json()) as CustomBackendResponse;
+	}
 }
