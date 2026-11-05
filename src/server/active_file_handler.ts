@@ -14,7 +14,9 @@ export function handleActiveFile(res: http.ServerResponse): void {
 
 	if (isProtectedResource(editor.document.uri.fsPath)) {
 		res.writeHead(403);
-		res.end(JSON.stringify({ error: 'this file is a protected resource' }));
+		res.end(
+			JSON.stringify({ error: 'this file is a protected resource', path: editor.document.uri.fsPath, protected: true }),
+		);
 		return;
 	}
 

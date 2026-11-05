@@ -5,5 +5,7 @@ export type GuardOptions = {
 	access?: AccessRequest;
 	detail?: string;
 	effects?: string[];
+	// A protected resource found below a directory the operation affects as a whole.
+	protectedDescendant?: string;
 	signal?: AbortSignal;
 };

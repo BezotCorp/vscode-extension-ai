@@ -5,6 +5,12 @@
 		"@semantic-release/release-notes-generator",
 		"@semantic-release/changelog",
 		[
+			"@semantic-release/exec",
+			{
+				"prepareCmd": "pnpm exec biome format --write CHANGELOG.md"
+			}
+		],
+		[
 			"semantic-release-vsce",
 			{
 				"packageVsix": true

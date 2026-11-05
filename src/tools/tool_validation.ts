@@ -7,8 +7,13 @@ export function validateToolInput(schema: ToolParametersSchema, input: unknown):
 
 	for (const key of schema.required ?? []) {
 		const value = values[key];
+		const definition = schema.properties[key];
 
-		if (value === undefined || value === null || value === '') {
+		if (
+			value === undefined ||
+			value === null ||
+			(value === '' && definition?.type === 'string' && definition.minLength !== 0)
+		) {
 			problems.push(`missing required argument "${key}"`);
 		}
 	}

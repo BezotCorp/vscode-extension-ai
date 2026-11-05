@@ -5,7 +5,6 @@ export { FileToolServices } from './local';
 export { Tool } from './tool';
 export { ToolAccessGuard } from './tool_access_guard';
 export { ToolCall } from './tool_call';
-export { MAX_SERIALIZED_CHARS } from './tool_result_constants';
 export { ToolDefinition } from './tool_definition';
 export { ToolExecutionContext } from './tool_execution_context';
 export { ToolExecutionResult } from './tool_execution_result';
@@ -22,6 +21,7 @@ export {
 	toolFailure,
 	toolSuccess,
 } from './tool_result';
+export { MAX_SERIALIZED_CHARS } from './tool_result_constants';
 export { ToolRound } from './tool_round';
 export { ToolStatus } from './tool_status';
 export { UnavailableTool } from './unavailable_tool';

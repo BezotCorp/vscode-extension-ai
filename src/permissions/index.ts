@@ -1,11 +1,11 @@
 export { AccessLevel } from './access_level';
 export { AccessRequest } from './access_request';
 export { AutonomyMode } from './autonomy_mode';
+export { DEFAULT_AUTONOMY_MODE } from './default_autonomy_mode';
 export { globMatches } from './glob_matches';
 export { managePermissions } from './manage_permissions';
 export { pathMatches } from './path_matches';
 export { PermissionCapability } from './permission_capability';
-export { DEFAULT_AUTONOMY_MODE } from './default_autonomy_mode';
 export {
 	contentEffect,
 	networkEffect,
@@ -23,7 +23,6 @@ export { PermissionStore } from './permission_store';
 export {
 	getProtectedPatterns,
 	isProtectedResource,
-	protectedPathspecs,
 } from './protected_resources';
 export { ResourceBoundary } from './resource_boundary';
 export { ResourcePermissionGrant } from './resource_permission_grant';

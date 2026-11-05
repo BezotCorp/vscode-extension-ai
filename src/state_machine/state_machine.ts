@@ -37,8 +37,8 @@ export class StateMachine<State extends string> {
 		return row ? this.toRecord(row) : undefined;
 	}
 
-	// Moves to `to` if the definition allows it from the current state. The update only applies if the state is still
-	// the one that was read, so two drivers cannot both take the same step.
+	// Moves to `to` if the definition allows it from the current state. The update only applies if the state and
+	// owner are still the ones that were read, so a driver can never advance an operation it does not own.
 	advance(id: string, to: State, patch: Patch = {}): StateMachineRecord<State> {
 		const current = this.require(id);
 
@@ -49,7 +49,7 @@ export class StateMachine<State extends string> {
 		const payload = patch.payload === undefined ? current.payload : patch.payload;
 		const result = this.database.connection
 			.prepare(
-				'UPDATE state_machine_operations SET state = ?, data = ?, payload = ?, owner = ?, updated_at = ? WHERE id = ? AND kind = ? AND state = ?',
+				'UPDATE state_machine_operations SET state = ?, data = ?, payload = ?, owner = ?, updated_at = ? WHERE id = ? AND kind = ? AND state = ? AND owner = ?',
 			)
 			.run(
 				to,
@@ -60,6 +60,7 @@ export class StateMachine<State extends string> {
 				id,
 				this.kind,
 				current.state,
+				process.pid,
 			);
 
 		if (Number(result.changes) !== 1) {
@@ -73,15 +74,35 @@ export class StateMachine<State extends string> {
 		return this.definition.transitions[state].length === 0;
 	}
 
-	// Operations that did not reach a final state and whose process is gone.
-	interrupted(): StateMachineRecord<State>[] {
+	// Atomically claims operations that did not reach a final state and whose owner process is gone.
+	// Several VS Code windows may observe the same dead owner, but only one can replace that exact
+	// owner/state pair and therefore become the recovery driver.
+	claimInterrupted(): StateMachineRecord<State>[] {
 		const rows = this.database.connection
 			.prepare('SELECT * FROM state_machine_operations WHERE kind = ? ORDER BY updated_at')
 			.all(this.kind) as Row[];
 
-		return rows
-			.map((row) => this.toRecord(row))
-			.filter((record) => !this.isFinal(record.state) && record.owner !== process.pid && !isAlive(record.owner));
+		const claimed: StateMachineRecord<State>[] = [];
+
+		for (const row of rows) {
+			const record = this.toRecord(row);
+
+			if (this.isFinal(record.state) || record.owner === process.pid || isAlive(record.owner)) {
+				continue;
+			}
+
+			const result = this.database.connection
+				.prepare(
+					'UPDATE state_machine_operations SET owner = ?, updated_at = ? WHERE id = ? AND kind = ? AND state = ? AND owner = ?',
+				)
+				.run(process.pid, Date.now(), record.id, this.kind, record.state, record.owner);
+
+			if (Number(result.changes) === 1) {
+				claimed.push(this.require(record.id));
+			}
+		}
+
+		return claimed;
 	}
 
 	private require(id: string): StateMachineRecord<State> {

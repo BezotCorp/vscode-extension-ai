@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -63,14 +64,16 @@ export function describeCriticalPath(resolved: ResolvedPath): string | undefined
 		return undefined;
 	}
 
-	const target = path.resolve(resolved.uri.fsPath);
-	const home = os.homedir();
+	const target = realPathOrSelf(resolved.uri.fsPath);
+	const home = realPathOrSelf(os.homedir());
 
 	if (isInsideOrSame(home, target)) {
 		return 'the home folder or one of its parents';
 	}
 
-	const roots = (vscode.workspace.workspaceFolders ?? []).map((folder) => path.resolve(folder.uri.fsPath));
+	const roots = (vscode.workspace.workspaceFolders ?? [])
+		.filter((folder) => folder.uri.scheme === 'file')
+		.map((folder) => realPathOrSelf(folder.uri.fsPath));
 
 	for (const root of roots) {
 		if (isInsideOrSame(root, target)) {
@@ -82,7 +85,7 @@ export function describeCriticalPath(resolved: ResolvedPath): string | undefined
 		}
 	}
 
-	return systemRoots().some((root) => isInsideOrSame(target, root)) ? 'a system location' : undefined;
+	return systemRoots().some((root) => isInsideOrSame(target, realPathOrSelf(root))) ? 'a system location' : undefined;
 }
 
 // True when `child` is `parent` itself or lies below it.
@@ -93,5 +96,17 @@ function isInsideOrSame(child: string, parent: string): boolean {
 function isStrictlyInside(parent: string, child: string): boolean {
 	const relative = path.relative(path.resolve(parent), path.resolve(child));
 
-	return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+	return relative !== '' && !isParentRelative(relative) && !path.isAbsolute(relative);
+}
+
+function isParentRelative(relative: string): boolean {
+	return relative === '..' || relative.startsWith(`..${path.sep}`);
+}
+
+function realPathOrSelf(target: string): string {
+	try {
+		return fs.realpathSync(target);
+	} catch {
+		return path.resolve(target);
+	}
 }

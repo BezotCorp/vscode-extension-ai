@@ -6,6 +6,7 @@ import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult }
 import { ACCESS_PARAMETER } from '../../access_parameter';
 import { readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
+import { findProtectedTreeEntry } from './protected_tree_entry';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
 
 export class DeleteFileTool implements Tool {
@@ -40,9 +41,15 @@ export class DeleteFileTool implements Tool {
 			return unsavedChangesFailure(this.id, fsPath);
 		}
 
+		const protectedEntry =
+			isDirectory && !this.accessGuard.isProtected(fsPath)
+				? await findProtectedTreeEntry(resolved.uri, (path) => this.accessGuard.isProtected(path), context?.signal)
+				: undefined;
+
 		await this.accessGuard.assertPath(this, 'delete', resolved, isDirectory, {
 			detail: isDirectory ? t('detail.folderToTrash') : undefined,
 			effects: [removalEffect(fsPath)],
+			protectedDescendant: protectedEntry ? resourcePath(protectedEntry.source) : undefined,
 			access: readAccessArg(input),
 			signal: context?.signal,
 		});

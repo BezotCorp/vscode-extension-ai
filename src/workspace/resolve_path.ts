@@ -148,10 +148,18 @@ function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
 	if (parent.scheme === 'file' && child.scheme === 'file') {
 		const relative = path.relative(parent.fsPath, child.fsPath);
 
-		return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+		return relative === '' || (!isNativeParentRelative(relative) && !path.isAbsolute(relative));
 	}
 
 	const relative = path.posix.relative(parent.path, child.path);
 
-	return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
+	return relative === '' || (!isPosixParentRelative(relative) && !path.posix.isAbsolute(relative));
+}
+
+function isNativeParentRelative(relative: string): boolean {
+	return relative === '..' || relative.startsWith(`..${path.sep}`);
+}
+
+function isPosixParentRelative(relative: string): boolean {
+	return relative === '..' || relative.startsWith('../');
 }

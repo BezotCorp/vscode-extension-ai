@@ -1,7 +1,7 @@
 import type * as vscode from 'vscode';
 
 import type { ChatMessage } from '../chat/chat_message';
-import { closingText } from '../chat/message_text';
+import { closingText } from '../chat/chat_message';
 import type { ToolCall, ToolExecutionResult } from '../tools';
 import { MAX_ARGUMENT_CHARS } from './tool_call_presenter_limits';
 

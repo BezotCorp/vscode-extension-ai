@@ -1,8 +1,8 @@
 import type { ExtensionConfig } from '../config/extension_config';
+import { t } from '../i18n';
 import type { AiProvider } from './ai_provider';
 import { CustomBackendProvider } from './custom_backend_provider';
 import { OllamaProvider } from './ollama_provider';
-import { t } from '../i18n';
 
 export function createProvider(config: ExtensionConfig): AiProvider {
 	if (config.provider === 'ollama') {

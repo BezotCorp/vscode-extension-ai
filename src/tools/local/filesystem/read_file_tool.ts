@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import type { ToolAccessProfile } from '../../../permissions';
 import { findOpenDocument, type ResolvedPath, resolvePath, resourcePath, sha256Hex } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readNumberArg, readStringArg } from '../../tool_input';
@@ -7,8 +8,8 @@ import { toolFailure, toolSuccess } from '../../tool_result';
 import { deliverFileContent } from './deliver_file_content';
 import type { FileRead } from './file_read';
 import type { FileVersionTracker } from './file_version_tracker';
-import { READ_MODE_DIRECT } from './read_mode_values';
 import type { ReadMode } from './read_mode';
+import { READ_MODE_COMPOSED, READ_MODE_DIRECT, READ_MODE_RECHECK } from './read_mode_values';
 
 export class ReadFileTool implements Tool {
 	readonly id = 'read_file';
@@ -46,14 +47,10 @@ export class ReadFileTool implements Tool {
 		const resolved = await resolvePath(relativePath);
 		const fsPath = resourcePath(resolved.uri);
 
-		await this.accessGuard.assertReadable(this, resolved, false, {
-			signal: context?.signal,
-		});
-
 		let read: FileRead;
 
 		try {
-			read = await this.read(resolved, READ_MODE_DIRECT);
+			read = await this.read(this, resolved, READ_MODE_DIRECT, context?.signal);
 		} catch (error) {
 			if (isNotFoundError(error)) {
 				return toolFailure('error', this.id, fsPath, {
@@ -134,11 +131,25 @@ export class ReadFileTool implements Tool {
 		return delivered.result;
 	}
 
-	// Reads the file and computes the SHA of the bytes read (see ReadMode). Permissions are the caller's business.
+	// The one way to acquire existing file content, for the AI's own call and for composed tools alike.
+	// Before any bytes are obtained, the current permission state is consulted through ToolAccessGuard.
+	// ToolAccessGuard owns the permission policy and decides whether access is allowed, denied or requires
+	// a user decision. ReadMode only changes read semantics; it never grants access and never bypasses
+	// authorization. `requester` is the tool the user is dealing with, so permission decisions and dialogs
+	// are attributed to that tool.
+	// Computes the SHA of the bytes read (see ReadMode).
 	// A file open with unsaved changes is read from the editor, as the AI must see what the user sees; that
 	// version is not on the filesystem, so nothing is remembered for it. What the AI receives is remembered by execute.
-	async read(resolved: ResolvedPath, mode: ReadMode): Promise<FileRead> {
-		const document = mode === READ_MODE_DIRECT ? findOpenDocument(resolved.uri) : undefined;
+	async read(
+		requester: ToolAccessProfile,
+		resolved: ResolvedPath,
+		mode: ReadMode,
+		signal?: AbortSignal,
+	): Promise<FileRead> {
+		await this.accessGuard.assertReadable(requester, resolved, false, { signal });
+
+		const document =
+			mode === READ_MODE_COMPOSED || mode === READ_MODE_RECHECK ? undefined : findOpenDocument(resolved.uri);
 		const dirtyDocument = document?.isDirty ? document : undefined;
 		const buffered = dirtyDocument !== undefined;
 		const bytes = dirtyDocument

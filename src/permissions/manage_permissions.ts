@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 
 import { t } from '../i18n';
 import type { PermissionLifetime, PermissionPolicy, PermissionStore, ToolPermissionInfo } from '.';
-import { PERMISSION_LIFETIMES } from './permission_lifetimes';
 import type { PermissionItem } from './permission_item';
+import { PERMISSION_LIFETIMES } from './permission_lifetimes';
 
 // Labels are read when the menu opens, in the language VS Code is displayed in.
 function lifetimeLabel(lifetime: PermissionLifetime): string {

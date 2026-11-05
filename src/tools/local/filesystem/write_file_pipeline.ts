@@ -49,7 +49,7 @@ export class WriteFilePipeline {
 	async recover(): Promise<StateMachineRecord<WriteFileState>[]> {
 		const finished: StateMachineRecord<WriteFileState>[] = [];
 
-		for (const record of this.machine.interrupted()) {
+		for (const record of this.machine.claimInterrupted()) {
 			finished.push(await this.drive(record.id));
 		}
 

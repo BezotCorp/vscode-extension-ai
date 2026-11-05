@@ -121,6 +121,7 @@ export const fr: Record<MessageKey, string> = {
 	'action.web.request': 'envoyer une requête {method} à {host}',
 
 	'detail.destination': 'Destination : {path}',
+	'detail.protectedInside': 'Contient une ressource protégée : {path}',
 	'detail.folderToTrash': 'Dossier : tout son contenu est mis à la corbeille.',
 	'detail.content': '{chars} caractères, {lines} lignes. Commence par : {start}',
 	'detail.body': 'Corps : {content}',

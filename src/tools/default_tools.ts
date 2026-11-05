@@ -26,8 +26,8 @@ import {
 	UpdateFilesTool,
 	UpdateFileTool,
 } from './local';
-import { WebFetchTool } from './remote';
 import { FileVersionTracker } from './local/filesystem/file_version_tracker';
+import { WebFetchTool } from './remote';
 import type { Tool } from './tool';
 import type { ToolAccessGuard } from './tool_access_guard';
 import { ToolRegistry } from './tool_registry';
@@ -52,7 +52,7 @@ export function createBuiltInTools(
 		readFile,
 		new ReadFilesTool(readFile),
 		new ListFilesTool(accessGuard),
-		new SearchTextTool(accessGuard),
+		new SearchTextTool(accessGuard, readFile),
 		createFile,
 		new CreateFilesTool(createFile),
 		updateFile,

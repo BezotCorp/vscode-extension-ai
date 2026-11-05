@@ -16,4 +16,4 @@ export {
 	truncateText,
 } from './truncate_content';
 export { TRUNCATION_MARKER } from './truncate_content_constants';
-export { MAX_FILE_CHARS, WORKSPACE_EXCLUDE_GLOB } from './workspace_limits';
+export { IGNORED_DIRECTORIES, MAX_FILE_CHARS, WORKSPACE_EXCLUDE_GLOB } from './workspace_limits';

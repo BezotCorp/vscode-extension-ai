@@ -1,4 +1,3 @@
-import { protectedPathspecs } from '../../../permissions';
 import type { ToolExecutionResult } from '../..';
 import { readRepositoryPaths, readRevision } from './git_arguments';
 import { FOLDER_PARAMETER } from './git_folder_parameter';
@@ -11,7 +10,7 @@ export class GitShowTool extends GitTool {
 	readonly readOnlyCompatible = true;
 	readonly permissionDefault = 'allow' as const;
 	readonly description =
-		'Shows one commit: message, changed files and diff. Protected files such as .env are left out of the diff.';
+		'Shows one commit: message, changed files and diff. Git output is not filtered by protectedPaths: if a sensitive file is versioned, it remains part of the repository state shown by Git.';
 	readonly parameters = {
 		type: 'object' as const,
 		properties: {
@@ -52,7 +51,6 @@ export class GitShowTool extends GitTool {
 				revision,
 				'--',
 				...(paths.pathspecs.length > 0 ? paths.pathspecs : ['.']),
-				...protectedPathspecs(),
 			],
 			paths: paths.absolute,
 		};

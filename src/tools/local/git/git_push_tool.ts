@@ -2,8 +2,8 @@ import { t } from '../../../i18n';
 import type { ToolExecutionResult } from '../..';
 import { readBoolean, readBranchName, readRemote } from './git_arguments';
 import { FOLDER_PARAMETER } from './git_folder_parameter';
-import { NETWORK_TIMEOUT_MS } from './git_timeouts';
 import type { GitPlan } from './git_plan';
+import { NETWORK_TIMEOUT_MS } from './git_timeouts';
 import { GitTool } from './git_tool';
 
 export class GitPushTool extends GitTool {

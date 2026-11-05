@@ -130,6 +130,7 @@ export const en = {
 
 	// Details shown in the permission dialog
 	'detail.destination': 'Destination: {path}',
+	'detail.protectedInside': 'Contains a protected resource: {path}',
 	'detail.folderToTrash': 'Folder: everything inside it is moved to the trash.',
 	'detail.content': '{chars} characters, {lines} lines. Starts with: {start}',
 	'detail.body': 'Body: {content}',

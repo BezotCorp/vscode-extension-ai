@@ -133,5 +133,9 @@ function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
 
 	const relative = path.posix.relative(parent.path, child.path);
 
-	return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
+	return relative === '' || (!isParentRelative(relative) && !path.posix.isAbsolute(relative));
+}
+
+function isParentRelative(relative: string): boolean {
+	return relative === '..' || relative.startsWith('../');
 }

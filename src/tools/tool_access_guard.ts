@@ -71,7 +71,8 @@ export class ToolAccessGuard {
 
 				resources: [this.permissionResource(resolved, isDirectory)],
 
-				detail: options.detail,
+				detail: this.withProtectedInside(options.detail, options.protectedDescendant),
+				protectedDescendant: options.protectedDescendant,
 				effects: options.effects,
 
 				access: this.accessFor(capability, [resolved], options.access),
@@ -104,16 +105,28 @@ export class ToolAccessGuard {
 						path: sanitizeForPrompt(resourcePath(destination.uri)),
 					}),
 					options.detail,
+					options.protectedDescendant
+						? t('detail.protectedInside', { path: sanitizeForPrompt(options.protectedDescendant) })
+						: undefined,
 				]
 					.filter(Boolean)
 					.join('\n'),
 
+				protectedDescendant: options.protectedDescendant,
 				effects: options.effects,
 
 				access: this.accessFor('move', [source, destination], options.access),
 			},
 			options.signal,
 		);
+	}
+
+	private withProtectedInside(detail: string | undefined, descendant: string | undefined): string | undefined {
+		if (descendant === undefined) {
+			return detail;
+		}
+
+		return [detail, t('detail.protectedInside', { path: sanitizeForPrompt(descendant) })].filter(Boolean).join('\n');
 	}
 
 	private permissionResource(resolved: ResolvedPath, isDirectory: boolean): PermissionRequest['resources'][number] {
@@ -250,8 +263,8 @@ export class ToolAccessGuard {
 			return;
 		}
 
-		const protection = request.resources
-			.map((resource) => isProtectedResource(resource.path))
+		const protection = [...request.resources.map((resource) => resource.path), request.protectedDescendant]
+			.map((candidate) => (candidate === undefined ? undefined : isProtectedResource(candidate)))
 			.find((pattern) => pattern !== undefined);
 
 		if (protection !== undefined) {

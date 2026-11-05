@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 
 import type { ChatManager } from '../chat/chat_manager';
+import { t } from '../i18n';
 import type { ModelManager } from '../models/model_manager';
-import type { GenerationController } from './generation_controller';
 import type { WebviewMessage } from '.';
 import { sendChatStore } from './chat_store_presenter';
+import type { GenerationController } from './generation_controller';
 import { sendModelState, testConnection } from './model_state_presenter';
-import { t } from '../i18n';
 
 export class WebviewMessageRouter {
 	constructor(

@@ -1,7 +1,7 @@
 import type { ToolAccessProfile } from '../permissions';
-import type { Tool, ToolDefinition, UnavailableTool, ToolExecutionContext, ToolExecutionResult } from '.';
-import { toolFailure } from './tool_result';
+import type { Tool, ToolDefinition, ToolExecutionContext, ToolExecutionResult, UnavailableTool } from '.';
 import { toolFailureFromException } from './tool_failure_from_exception';
+import { toolFailure } from './tool_result';
 import { validateToolInput } from './tool_validation';
 
 export class ToolRegistry {

@@ -105,7 +105,7 @@ export async function readRepositoryPaths(
 
 		const relative = path.relative(repository, resolved.uri.fsPath);
 
-		if (relative.startsWith('..') || path.isAbsolute(relative)) {
+		if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
 			return new Error(`"${item}" is outside the repository.`);
 		}
 

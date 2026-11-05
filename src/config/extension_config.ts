@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-import type { AiProviderKind } from './ai_provider_kind';
 import type { McpServerConfig } from '../mcp';
 import { type AutonomyMode, DEFAULT_AUTONOMY_MODE } from '../permissions';
+import type { AiProviderKind } from './ai_provider_kind';
 import {
+	DEFAULT_CONTEXT_TOKENS,
+	DEFAULT_MODEL,
 	DEFAULT_PROVIDER,
 	DEFAULT_PROVIDER_URL,
-	DEFAULT_MODEL,
-	DEFAULT_CONTEXT_TOKENS,
 	MIN_CONTEXT_TOKENS,
 } from './config_provider';
 

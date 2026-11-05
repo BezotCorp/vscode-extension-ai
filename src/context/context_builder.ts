@@ -19,7 +19,10 @@ function getActiveFile(): ContextFile | undefined {
 		return undefined;
 	}
 
-	return isHidden(editor.document.uri.fsPath) ? undefined : documentToContextFile(editor.document);
+	// A protected file is still the active file: its path is visible, its content needs the user's authorization.
+	return isProtected(editor.document.uri.fsPath)
+		? { path: editor.document.uri.fsPath, languageId: editor.document.languageId, withheld: 'protected' }
+		: documentToContextFile(editor.document);
 }
 
 function documentToContextFile(document: vscode.TextDocument): ContextFile {
@@ -30,6 +33,6 @@ function documentToContextFile(document: vscode.TextDocument): ContextFile {
 	};
 }
 
-function isHidden(fsPath: string): boolean {
+function isProtected(fsPath: string): boolean {
 	return isProtectedResource(fsPath) !== undefined;
 }

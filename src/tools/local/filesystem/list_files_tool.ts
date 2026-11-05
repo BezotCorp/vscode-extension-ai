@@ -1,13 +1,13 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { getWorkspaceRoots, resolvePath, resourcePath } from '../../../workspace';
+import { getWorkspaceRoots, IGNORED_DIRECTORIES, resolvePath, resourcePath } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readStringArrayArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import type { FileEntry } from './file_entry';
 import type { FileSection } from './file_section';
-import { IGNORED_DIRECTORIES, MAX_ENTRIES } from './list_files_constants';
+import { MAX_ENTRIES } from './list_files_constants';
 
 export class ListFilesTool implements Tool {
 	readonly id = 'list_files';
@@ -15,7 +15,7 @@ export class ListFilesTool implements Tool {
 	readonly readOnlyCompatible = true;
 	readonly permissionDefault = 'allow' as const;
 	readonly description =
-		'Lists the useful file structure for discovery. Use {"all":true} to list the whole current window, or {"paths":["src","docs"]} to list one or more specific directories. Use this before read_file when the exact file path is unknown. Generated directories such as target and node_modules are omitted.';
+		'Lists the useful file structure for discovery. Use {"all":true} to list the whole current window, or {"paths":["src","docs"]} to list one or more specific directories. Use this before read_file when the exact file path is unknown. Sensitive files such as .env may be listed too: seeing a path is not reading its content, and any later content read goes through the current permission system. Generated directories such as target and node_modules are omitted unless you pass {"includeIgnored":true}.';
 
 	readonly parameters = {
 		type: 'object' as const,
@@ -30,6 +30,11 @@ export class ListFilesTool implements Tool {
 				items: { type: 'string' },
 				description:
 					'One or more directories to list. Paths may be relative to the current window or absolute. Cannot be combined with all.',
+			},
+			includeIgnored: {
+				type: 'boolean',
+				description:
+					'Set to true to also list the generated or vendored directories omitted by default (node_modules, target, dist, out, build, .git...). Only when you need to look inside them.',
 			},
 		},
 	};
@@ -71,6 +76,7 @@ export class ListFilesTool implements Tool {
 			});
 		}
 
+		const includeIgnored = values.includeIgnored === true;
 		const requested = all ? getWorkspaceRoots().map((uri) => uri.toString()) : unique(paths ?? []);
 
 		if (requested.length === 0) {
@@ -131,7 +137,7 @@ export class ListFilesTool implements Tool {
 
 			const entries: FileEntry[] = [];
 
-			const result = await walkDirectory(resolved.uri, 1, entries, remaining, this.accessGuard, context?.signal);
+			const result = await walkDirectory(resolved.uri, 1, entries, remaining, includeIgnored, context?.signal);
 
 			if (result.cancelled) {
 				return toolFailure('cancelled', this.id, resourcePath(resolved.uri), {
@@ -165,7 +171,8 @@ export class ListFilesTool implements Tool {
 				requested,
 				entries: MAX_ENTRIES - remaining,
 				truncated,
-				ignoredDirectories: [...IGNORED_DIRECTORIES].sort(),
+				includeIgnored,
+				ignoredDirectories: includeIgnored ? [] : [...IGNORED_DIRECTORIES].sort(),
 			},
 		});
 	}
@@ -176,7 +183,7 @@ async function walkDirectory(
 	depth: number,
 	output: FileEntry[],
 	remaining: number,
-	accessGuard: ToolAccessGuard,
+	includeIgnored: boolean,
 	signal?: AbortSignal,
 ): Promise<{ used: number; truncated: boolean; cancelled: boolean }> {
 	if (signal?.aborted) {
@@ -190,7 +197,7 @@ async function walkDirectory(
 	const rawEntries = await vscode.workspace.fs.readDirectory(uri);
 
 	const entries = rawEntries
-		.filter(([name]) => !IGNORED_DIRECTORIES.has(name))
+		.filter(([name]) => includeIgnored || !IGNORED_DIRECTORIES.has(name))
 		.sort(([leftName, leftType], [rightName, rightType]) => {
 			const leftDirectory = Boolean(leftType & vscode.FileType.Directory);
 			const rightDirectory = Boolean(rightType & vscode.FileType.Directory);
@@ -217,10 +224,6 @@ async function walkDirectory(
 
 		const child = vscode.Uri.joinPath(uri, name);
 
-		if (accessGuard.isProtected(resourcePath(child))) {
-			continue;
-		}
-
 		const directory = Boolean(type & vscode.FileType.Directory);
 
 		output.push({
@@ -234,7 +237,7 @@ async function walkDirectory(
 		const symbolicLink = Boolean(type & vscode.FileType.SymbolicLink);
 
 		if (directory && !symbolicLink) {
-			const nested = await walkDirectory(child, depth + 1, output, remaining - used, accessGuard, signal);
+			const nested = await walkDirectory(child, depth + 1, output, remaining - used, includeIgnored, signal);
 
 			used += nested.used;
 			truncated ||= nested.truncated;

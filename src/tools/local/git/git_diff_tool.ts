@@ -1,4 +1,3 @@
-import { protectedPathspecs } from '../../../permissions';
 import type { ToolExecutionResult } from '../..';
 import { readBoolean, readRepositoryPaths, readRevision } from './git_arguments';
 import { FOLDER_PARAMETER } from './git_folder_parameter';
@@ -11,7 +10,7 @@ export class GitDiffTool extends GitTool {
 	readonly readOnlyCompatible = true;
 	readonly permissionDefault = 'allow' as const;
 	readonly description =
-		'Shows changes as a diff: the working tree against the index (default), the staged changes (staged), or against a revision. Protected files such as .env are left out.';
+		'Shows changes as a diff: the working tree against the index (default), the staged changes (staged), or against a revision. Git output is not filtered by protectedPaths: if a sensitive file is versioned, it remains part of the repository state shown by Git.';
 	readonly parameters = {
 		type: 'object' as const,
 		properties: {
@@ -59,7 +58,6 @@ export class GitDiffTool extends GitTool {
 				...(revision ? [revision] : []),
 				'--',
 				...(paths.pathspecs.length > 0 ? paths.pathspecs : ['.']),
-				...protectedPathspecs(),
 			],
 			paths: paths.absolute,
 		};

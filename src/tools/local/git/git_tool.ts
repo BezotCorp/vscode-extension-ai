@@ -4,8 +4,8 @@ import { getWorkspaceRoots, truncateText } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult, ToolParametersSchema } from '../..';
 import { readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
-import { DEFAULT_TIMEOUT_MS } from './git_timeouts';
 import type { GitPlan } from './git_plan';
+import { DEFAULT_TIMEOUT_MS } from './git_timeouts';
 import { runGit } from './run_git';
 
 // Common part of the git tools. A tool states its command and validates its parameters in plan(); this class

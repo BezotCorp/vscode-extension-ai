@@ -5,10 +5,10 @@ import { ChatStorage } from '../chat/chat_storage';
 import type { McpManager } from '../mcp';
 import { ModelManager } from '../models/model_manager';
 import type { PermissionStore } from '../permissions';
-import { getChatHtml } from './html/chat_html';
-import type { WebviewMessage } from '.';
 import type { FileToolServices } from '../tools';
+import type { WebviewMessage } from '.';
 import { GenerationController } from './generation_controller';
+import { getChatHtml } from './html/chat_html';
 import { WebviewMessageRouter } from './webview_message_router';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {

@@ -41,7 +41,7 @@ export async function runToolLoop<TMessage>(options: ToolLoopOptions<TMessage>):
 		const allowTools = tools !== undefined && round < maxRounds && !contextFull;
 		const { content, toolCalls } = await options.runRound(messages, allowTools);
 
-		if (!tools || toolCalls.length === 0) {
+		if (!tools || toolCalls.length === 0 || !allowTools) {
 			return;
 		}
 

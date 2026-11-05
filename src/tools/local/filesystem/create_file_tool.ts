@@ -25,7 +25,11 @@ export class CreateFileTool implements Tool {
 				type: 'string',
 				description: 'File path, relative to the workspace root or absolute.',
 			},
-			content: { type: 'string', description: 'Content of the new file.' },
+			content: {
+				type: 'string',
+				minLength: 0,
+				description: 'Content of the new file.',
+			},
 			access: ACCESS_PARAMETER,
 		},
 		required: ['path', 'content'],

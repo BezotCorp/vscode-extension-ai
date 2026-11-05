@@ -21,8 +21,12 @@ export function findDirtyDocuments(uri: vscode.Uri): vscode.TextDocument[] {
 
 		const relative = path.relative(target, realPathOrSelf(document.uri.fsPath));
 
-		return !relative.startsWith('..') && !path.isAbsolute(relative);
+		return !isParentRelative(relative) && !path.isAbsolute(relative);
 	});
+}
+
+function isParentRelative(relative: string): boolean {
+	return relative === '..' || relative.startsWith(`..${path.sep}`);
 }
 
 function realPathOrSelf(target: string): string {

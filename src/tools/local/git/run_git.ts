@@ -2,9 +2,9 @@ import { spawn } from 'node:child_process';
 import { KILL_GRACE_MS } from '../../../process_limits';
 import { baseEnvironment } from '../../base_environment';
 import { BoundedText } from './bounded_text';
-import { SAFETY_OPTIONS } from './git_safety_options';
 import type { GitRunOptions } from './git_run_options';
 import type { GitRunResult } from './git_run_result';
+import { SAFETY_OPTIONS } from './git_safety_options';
 
 // The only program the extension starts for git tools is git itself, without a shell, with arguments the tools
 // built from validated parameters. There is no way to pass a program name or a raw command line.

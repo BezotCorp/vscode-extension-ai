@@ -11,8 +11,8 @@ import {
 } from '../tools';
 import { truncateText } from '../workspace';
 import type { McpClient, McpToolInfo } from '.';
-import { MAX_DESCRIPTION_CHARS, MAX_STRUCTURED_CHARS } from './mcp_tool_limits';
 import { McpRequestError } from './mcp_request_error';
+import { MAX_DESCRIPTION_CHARS, MAX_STRUCTURED_CHARS } from './mcp_tool_limits';
 
 export function mcpToolId(serverName: string, toolName: string): string {
 	return `mcp__${serverName}__${toolName}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);

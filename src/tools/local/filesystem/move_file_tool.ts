@@ -6,6 +6,7 @@ import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult }
 import { ACCESS_PARAMETER } from '../../access_parameter';
 import { readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
+import { findProtectedTreeEntry } from './protected_tree_entry';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
 
 export class MoveFileTool implements Tool {
@@ -50,8 +51,21 @@ export class MoveFileTool implements Tool {
 			return unsavedChangesFailure(this.id, resource);
 		}
 
+		const protectedEntry =
+			isDirectory && !this.accessGuard.isProtected(sourcePath) && !this.accessGuard.isProtected(destinationPath)
+				? await findProtectedTreeEntry(
+						source.uri,
+						(path) => this.accessGuard.isProtected(path),
+						context?.signal,
+						destination.uri,
+					)
+				: undefined;
+
 		await this.accessGuard.assertMove(this, source, destination, isDirectory, {
 			effects: [removalEffect(sourcePath), contentEffect(destinationPath)],
+			protectedDescendant: protectedEntry
+				? resourcePath(protectedEntry.destination ?? protectedEntry.source)
+				: undefined,
 			access: readAccessArg(input),
 			signal: context?.signal,
 		});

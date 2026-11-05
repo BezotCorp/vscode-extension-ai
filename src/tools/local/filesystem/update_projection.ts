@@ -1,8 +1,8 @@
-import { buildDiffLines } from './diff_builder';
-import { sha256Hex } from '../../../workspace';
-import type { UpdateRequest } from './update_request';
-import { findUniqueMatch } from './unique_match';
 import { t } from '../../../i18n';
+import { sha256Hex } from '../../../workspace';
+import { buildDiffLines } from './diff_builder';
+import { findUniqueMatch } from './unique_match';
+import type { UpdateRequest } from './update_request';
 
 // The result of applying a request in memory, before anything touches the file: the exact bytes the file has to
 // contain afterwards, the text for the permission dialog and, for a local edit, where the change applies.

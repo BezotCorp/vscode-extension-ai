@@ -18,6 +18,10 @@ export type PermissionRequest = {
 	// Keys of effects produced by this operation.
 	effects?: string[];
 
+	// A protected resource below a directory resource: the operation applies to the directory, but it also reaches
+	// this resource, so it gets the protected-resource confirmation.
+	protectedDescendant?: string;
+
 	warning?: string;
 
 	access?: {

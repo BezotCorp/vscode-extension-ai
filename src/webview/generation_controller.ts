@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { DEFAULT_HISTORY_CHARACTERS, HISTORY_CONTEXT_SHARE, MAX_HISTORY_MESSAGES } from '../chat/chat_history_limits';
 import type { ChatManager } from '../chat/chat_manager';
-import type { ChatMessage } from '../chat/chat_message';
+import { closingText, type ChatMessage } from '../chat/chat_message';
 import type { ChatRole } from '../chat/chat_role';
-import { closingText } from '../chat/message_text';
+import { MAX_STORED_RESULT_CHARACTERS } from '../chat/tool_round_storage_limits';
 import { getExtensionConfig } from '../config/extension_config';
 import { buildAiContext, estimatedCharacterBudget } from '../context';
 import { t } from '../i18n';
@@ -20,7 +20,6 @@ import {
 } from '../tools';
 import { sendChatStore } from './chat_store_presenter';
 import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
-import { MAX_STORED_RESULT_CHARACTERS } from '../chat/tool_round_storage_limits';
 
 export class GenerationController {
 	private currentAbortController: AbortController | undefined;

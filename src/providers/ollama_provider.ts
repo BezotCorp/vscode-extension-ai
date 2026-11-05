@@ -354,14 +354,14 @@ function buildSystemPrompt(context: AiContext, filter: ContextFilter, guide: str
 		return full;
 	}
 
-	const room = Math.max(limit - (full.length - activeFile.content.length), 0);
+	const room = Math.max(limit - (full.length - (activeFile.content ?? '').length), 0);
 	const shrunk: AiContext = {
 		...context,
 		editor: {
 			...context.editor,
 			activeFile: {
 				...activeFile,
-				content: cut(activeFile.content, room),
+				content: cut(activeFile.content ?? '', room),
 			},
 		},
 	};
@@ -407,6 +407,12 @@ function buildGuide(request: ChatRequest, withTools: boolean): string {
 }
 
 function formatFile(label: string, file: ContextFile): string {
+	if (file.withheld === 'protected') {
+		return `${label}: ${file.path}
+Language: ${file.languageId}
+Content withheld: this is a protected resource. Use read_file if you need it; the user will be asked.`;
+	}
+
 	return `${label}: ${file.path}
 Language: ${file.languageId}
 

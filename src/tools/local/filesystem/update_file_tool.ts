@@ -15,11 +15,12 @@ import { toolErrorFromException, toolFailure, toolSuccess } from '../../tool_res
 import { deliverFileContent } from './deliver_file_content';
 import type { FileRead } from './file_read';
 import type { FileVersionTracker } from './file_version_tracker';
-import { READ_MODE_COMPOSED } from './read_mode_values';
-import { MAX_RETRY } from './update_file_limits';
 import type { PreparedUpdate } from './prepared_update';
 import type { ReadFileTool } from './read_file_tool';
+import type { ReadMode } from './read_mode';
+import { READ_MODE_COMPOSED, READ_MODE_RECHECK } from './read_mode_values';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
+import { MAX_RETRY } from './update_file_limits';
 import { projectUpdate } from './update_projection';
 import type { UpdateRequest } from './update_request';
 import type { WriteFileData } from './write_file_data';
@@ -84,11 +85,6 @@ export class UpdateFileTool implements Tool {
 			return unsavedChangesFailure(this.id, fsPath);
 		}
 
-		// A conflict hands the current content back to the AI, which is a way of reading the file.
-		await this.accessGuard.assertReadable(this, resolved, false, {
-			signal: context?.signal,
-		});
-
 		try {
 			const stat = await vscode.workspace.fs.stat(resolved.uri);
 
@@ -101,7 +97,7 @@ export class UpdateFileTool implements Tool {
 				});
 			}
 
-			const first = await this.prepare(resolved, request, context?.maxResultChars);
+			const first = await this.prepare(resolved, request, context?.maxResultChars, context?.signal);
 
 			if ('status' in first) {
 				return first;
@@ -120,7 +116,7 @@ export class UpdateFileTool implements Tool {
 				return unsavedChangesFailure(this.id, fsPath);
 			}
 
-			const second = await this.prepare(resolved, request, context?.maxResultChars);
+			const second = await this.prepare(resolved, request, context?.maxResultChars, context?.signal, READ_MODE_RECHECK);
 
 			if ('status' in second) {
 				return second;
@@ -240,9 +236,11 @@ export class UpdateFileTool implements Tool {
 		resolved: ResolvedPath,
 		request: UpdateRequest,
 		maxResultChars?: number,
+		signal?: AbortSignal,
+		mode: ReadMode = READ_MODE_COMPOSED,
 	): Promise<PreparedUpdate | ToolExecutionResult> {
 		const fsPath = resolved.uri.fsPath;
-		const read = await this.reader.read(resolved, READ_MODE_COMPOSED);
+		const read = await this.reader.read(this, resolved, mode, signal);
 
 		if (read.binary) {
 			return toolFailure('error', this.id, fsPath, {
@@ -318,7 +316,7 @@ export class UpdateFileTool implements Tool {
 		pipelineState: WriteFileState,
 		maxResultChars?: number,
 	): Promise<ToolExecutionResult> {
-		const read = await this.reader.read(resolved, READ_MODE_COMPOSED);
+		const read = await this.reader.read(this, resolved, READ_MODE_RECHECK);
 
 		return this.conflict(resolved.uri.fsPath, read, request, true, maxResultChars, pipelineState);
 	}
