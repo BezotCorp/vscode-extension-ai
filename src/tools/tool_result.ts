@@ -1,4 +1,4 @@
-import type { ToolExecutionResult, ToolStatus } from ".";
+import type { ToolExecutionResult, ToolStatus } from '.';
 
 export const MAX_SERIALIZED_CHARS = 48_000;
 
@@ -11,7 +11,7 @@ type SuccessFields = {
 type FailureFields = {
 	reason: string;
 	message: string;
-	executed: boolean | "unknown";
+	executed: boolean | 'unknown';
 	retryable: boolean;
 	content?: string;
 	details?: Record<string, unknown>;
@@ -23,7 +23,7 @@ export function toolSuccess(
 	fields: SuccessFields = {},
 ): ToolExecutionResult {
 	return {
-		status: "success",
+		status: 'success',
 		operation,
 		resource,
 		executed: true,
@@ -33,7 +33,7 @@ export function toolSuccess(
 }
 
 export function toolFailure(
-	status: Exclude<ToolStatus, "success">,
+	status: Exclude<ToolStatus, 'success'>,
 	operation: string,
 	resource: string | undefined,
 	fields: FailureFields,
@@ -42,44 +42,44 @@ export function toolFailure(
 }
 
 const ERROR_CODES: Record<string, { reason: string; message: string }> = {
-	ENOENT: { reason: "not_found", message: "The path does not exist." },
-	FileNotFound: { reason: "not_found", message: "The path does not exist." },
+	ENOENT: { reason: 'not_found', message: 'The path does not exist.' },
+	FileNotFound: { reason: 'not_found', message: 'The path does not exist.' },
 	EEXIST: {
-		reason: "already_exists",
-		message: "The destination already exists.",
+		reason: 'already_exists',
+		message: 'The destination already exists.',
 	},
 	FileExists: {
-		reason: "already_exists",
-		message: "The destination already exists.",
+		reason: 'already_exists',
+		message: 'The destination already exists.',
 	},
 	EACCES: {
-		reason: "os_permission_denied",
-		message: "The operating system denied access.",
+		reason: 'os_permission_denied',
+		message: 'The operating system denied access.',
 	},
 	EPERM: {
-		reason: "os_permission_denied",
-		message: "The operating system denied access.",
+		reason: 'os_permission_denied',
+		message: 'The operating system denied access.',
 	},
 	NoPermissions: {
-		reason: "os_permission_denied",
-		message: "The operating system denied access.",
+		reason: 'os_permission_denied',
+		message: 'The operating system denied access.',
 	},
-	EISDIR: { reason: "is_a_directory", message: "The path is a directory." },
+	EISDIR: { reason: 'is_a_directory', message: 'The path is a directory.' },
 	FileIsADirectory: {
-		reason: "is_a_directory",
-		message: "The path is a directory.",
+		reason: 'is_a_directory',
+		message: 'The path is a directory.',
 	},
 	ENOTDIR: {
-		reason: "not_a_directory",
-		message: "A path segment is not a directory.",
+		reason: 'not_a_directory',
+		message: 'A path segment is not a directory.',
 	},
 	FileNotADirectory: {
-		reason: "not_a_directory",
-		message: "A path segment is not a directory.",
+		reason: 'not_a_directory',
+		message: 'A path segment is not a directory.',
 	},
 	NoWorkspace: {
-		reason: "no_workspace",
-		message: "No workspace folder is open.",
+		reason: 'no_workspace',
+		message: 'No workspace folder is open.',
 	},
 };
 
@@ -91,11 +91,11 @@ export function toolErrorFromException(
 	sideEffects: boolean,
 ): ToolExecutionResult {
 	const code = (error as { code?: unknown } | null)?.code;
-	const known = typeof code === "string" ? ERROR_CODES[code] : undefined;
+	const known = typeof code === 'string' ? ERROR_CODES[code] : undefined;
 	const detail = error instanceof Error ? error.message : String(error);
 
 	if (known) {
-		return toolFailure("error", operation, resource, {
+		return toolFailure('error', operation, resource, {
 			reason: known.reason,
 			message: `${known.message} (${detail})`,
 			executed: false,
@@ -104,15 +104,15 @@ export function toolErrorFromException(
 		});
 	}
 
-	return toolFailure("error", operation, resource, {
-		reason: "exception",
+	return toolFailure('error', operation, resource, {
+		reason: 'exception',
 		message: detail,
-		executed: sideEffects ? "unknown" : false,
+		executed: sideEffects ? 'unknown' : false,
 		retryable: false,
 	});
 }
 
-const CUT_MARKER = "\n/* content cut to fit the model context */";
+const CUT_MARKER = '\n/* content cut to fit the model context */';
 
 // The result as the model will receive it. When the serialized result is too long, only its content is cut, and cut so
 // that the serialization fits `maxChars` exactly (the marker and the flag that tell about the cut are counted).
@@ -142,9 +142,6 @@ export function fitToolResult(
 }
 
 // What the model receives: one compact JSON object, only the fields that carry information.
-export function serializeToolResult(
-	result: ToolExecutionResult,
-	maxChars = MAX_SERIALIZED_CHARS,
-): string {
+export function serializeToolResult(result: ToolExecutionResult, maxChars = MAX_SERIALIZED_CHARS): string {
 	return JSON.stringify(fitToolResult(result, maxChars).result);
 }

@@ -1,39 +1,34 @@
-import type * as vscode from "vscode";
+import type * as vscode from 'vscode';
 
-import { getExtensionConfig } from "../config/extension_config";
-import type { ModelManager } from "../models/model_manager";
-import { createProvider } from "../providers/provider_factory";
-import { t } from "../i18n";
+import { getExtensionConfig } from '../config/extension_config';
+import type { ModelManager } from '../models/model_manager';
+import { createProvider } from '../providers/provider_factory';
+import { t } from '../i18n';
 
-export async function sendModelState(
-	webviewView: vscode.WebviewView,
-	modelManager: ModelManager,
-): Promise<void> {
+export async function sendModelState(webviewView: vscode.WebviewView, modelManager: ModelManager): Promise<void> {
 	const state = await modelManager.getState();
 
 	webviewView.webview.postMessage({
-		type: "modelState",
+		type: 'modelState',
 		...state,
 	});
 }
 
-export async function testConnection(
-	webviewView: vscode.WebviewView,
-): Promise<void> {
+export async function testConnection(webviewView: vscode.WebviewView): Promise<void> {
 	const config = getExtensionConfig();
 
 	webviewView.webview.postMessage({
-		type: "backendStatus",
-		status: "connecting",
+		type: 'backendStatus',
+		status: 'connecting',
 		backendUrl: config.providerUrl,
-		text: t("status.connecting", { provider: config.provider }),
+		text: t('status.connecting', { provider: config.provider }),
 	});
 
 	const provider = createProvider(config);
 	const status = await provider.health();
 
 	webviewView.webview.postMessage({
-		type: "backendStatus",
+		type: 'backendStatus',
 		status: status.status,
 		backendUrl: status.providerUrl,
 		text: status.text,

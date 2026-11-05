@@ -1,15 +1,15 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
-import { t } from "../i18n";
+import { t } from '../i18n';
 import type {
 	PermissionLifetime,
 	PermissionPolicy,
 	PermissionStore,
 	ResourcePermissionGrant,
 	ToolPermissionInfo,
-} from ".";
+} from '.';
 
-const LIFETIMES: PermissionLifetime[] = ["currentSession", "allSessions"];
+const LIFETIMES: PermissionLifetime[] = ['currentSession', 'allSessions'];
 
 // Labels are read when the menu opens, in the language VS Code is displayed in.
 function lifetimeLabel(lifetime: PermissionLifetime): string {
@@ -26,14 +26,14 @@ function resetToolItems(): {
 }[] {
 	return [
 		{
-			label: t("manage.resetToolsCurrent"),
+			label: t('manage.resetToolsCurrent'),
 
-			lifetime: "currentSession",
+			lifetime: 'currentSession',
 		},
 		{
-			label: t("manage.resetToolsAll"),
+			label: t('manage.resetToolsAll'),
 
-			lifetime: "allSessions",
+			lifetime: 'allSessions',
 		},
 	];
 }
@@ -51,9 +51,9 @@ export async function managePermissions(
 		const tools = await listTools();
 
 		const picked = await vscode.window.showQuickPick(buildItems(store, tools), {
-			title: t("manage.title"),
+			title: t('manage.title'),
 
-			placeHolder: t("manage.placeholder"),
+			placeHolder: t('manage.placeholder'),
 
 			matchOnDescription: true,
 
@@ -68,7 +68,7 @@ export async function managePermissions(
 			const action = await vscode.window.showQuickPick(
 				[
 					{
-						label: t("manage.revokeResource"),
+						label: t('manage.revokeResource'),
 					},
 				],
 				{
@@ -85,23 +85,20 @@ export async function managePermissions(
 			continue;
 		}
 
-		if (picked.label === t("manage.editProtected")) {
-			await vscode.commands.executeCommand(
-				"workbench.action.openSettings",
-				"bezotcorpAi.protectedPaths",
-			);
+		if (picked.label === t('manage.editProtected')) {
+			await vscode.commands.executeCommand('workbench.action.openSettings', 'bezotcorpAi.protectedPaths');
 
 			return;
 		}
 
-		if (picked.label === t("manage.clearResourcesCurrent")) {
-			await store.clearResourcePermissions("currentSession");
+		if (picked.label === t('manage.clearResourcesCurrent')) {
+			await store.clearResourcePermissions('currentSession');
 
 			continue;
 		}
 
-		if (picked.label === t("manage.clearResourcesAll")) {
-			await store.clearResourcePermissions("allSessions");
+		if (picked.label === t('manage.clearResourcesAll')) {
+			await store.clearResourcePermissions('allSessions');
 
 			continue;
 		}
@@ -122,10 +119,7 @@ export async function managePermissions(
 	}
 }
 
-function buildItems(
-	store: PermissionStore,
-	tools: ToolPermissionInfo[],
-): PermissionItem[] {
+function buildItems(store: PermissionStore, tools: ToolPermissionInfo[]): PermissionItem[] {
 	const items: PermissionItem[] = [];
 
 	let group: string | undefined;
@@ -148,7 +142,7 @@ function buildItems(
 
 			description: resolution
 				? `${t(`policy.${resolution.policy}.short`)} · ${lifetimeLabel(resolution.lifetime).toLowerCase()}`
-				: `${t(`policy.${tool.defaultPolicy}.short`)} · ${t("policy.default.short")}`,
+				: `${t(`policy.${tool.defaultPolicy}.short`)} · ${t('policy.default.short')}`,
 
 			detail: tool.description,
 
@@ -159,7 +153,7 @@ function buildItems(
 	const grants = store.listResourcePermissions();
 
 	items.push({
-		label: t("manage.groupResources"),
+		label: t('manage.groupResources'),
 
 		kind: vscode.QuickPickItemKind.Separator,
 	});
@@ -177,7 +171,7 @@ function buildItems(
 	}
 
 	items.push({
-		label: t("manage.groupMaintenance"),
+		label: t('manage.groupMaintenance'),
 
 		kind: vscode.QuickPickItemKind.Separator,
 	});
@@ -188,35 +182,32 @@ function buildItems(
 		})),
 
 		{
-			label: t("manage.clearResourcesCurrent"),
+			label: t('manage.clearResourcesCurrent'),
 		},
 
 		{
-			label: t("manage.clearResourcesAll"),
+			label: t('manage.clearResourcesAll'),
 		},
 
 		{
-			label: t("manage.editProtected"),
+			label: t('manage.editProtected'),
 		},
 	);
 
 	return items;
 }
 
-async function changeTool(
-	store: PermissionStore,
-	tool: ToolPermissionInfo,
-): Promise<void> {
+async function changeTool(store: PermissionStore, tool: ToolPermissionInfo): Promise<void> {
 	const choice = await vscode.window.showQuickPick(
 		[
-			...(["allow", "ask", "deny"] as const).map((policy) => ({
+			...(['allow', 'ask', 'deny'] as const).map((policy) => ({
 				label: policyLabel(policy),
 
 				policy,
 			})),
 
 			{
-				label: t("policy.useDefault", {
+				label: t('policy.useDefault', {
 					policy: t(`policy.${tool.defaultPolicy}.short`),
 				}),
 
@@ -226,7 +217,7 @@ async function changeTool(
 		{
 			title: tool.name,
 
-			placeHolder: t("manage.toolPlaceholder"),
+			placeHolder: t('manage.toolPlaceholder'),
 		},
 	);
 
@@ -235,8 +226,7 @@ async function changeTool(
 	}
 
 	const lifetimes = LIFETIMES.filter(
-		(lifetime) =>
-			choice.policy !== undefined || store.get(tool.id, lifetime) !== undefined,
+		(lifetime) => choice.policy !== undefined || store.get(tool.id, lifetime) !== undefined,
 	);
 
 	if (lifetimes.length === 0) {
@@ -250,7 +240,7 @@ async function changeTool(
 			lifetime,
 		})),
 		{
-			title: choice.policy ? t("manage.keepFor") : t("manage.removeFor"),
+			title: choice.policy ? t('manage.keepFor') : t('manage.removeFor'),
 		},
 	);
 

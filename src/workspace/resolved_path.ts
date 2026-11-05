@@ -1,6 +1,6 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
-import type { StructuralWorkspace } from "./structural_workspace";
+import type { StructuralWorkspace } from './structural_workspace';
 
 export type ResolvedPath = {
 	uri: vscode.Uri;
@@ -10,7 +10,7 @@ export type ResolvedPath = {
 };
 
 export function resourcePath(uri: vscode.Uri): string {
-	return uri.scheme === "file" ? uri.fsPath : uri.toString();
+	return uri.scheme === 'file' ? uri.fsPath : uri.toString();
 }
 
 export function parseResourceUri(value: string): vscode.Uri | undefined {

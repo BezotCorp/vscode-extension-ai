@@ -25,12 +25,12 @@ import {
 	SearchTextTool,
 	UpdateFilesTool,
 	UpdateFileTool,
-} from "./local";
-import { WebFetchTool } from "./remote";
-import { FileVersionTracker } from "./local/filesystem/file_version_tracker";
-import type { Tool } from "./tool";
-import type { ToolAccessGuard } from "./tool_access_guard";
-import { ToolRegistry } from "./tool_registry";
+} from './local';
+import { WebFetchTool } from './remote';
+import { FileVersionTracker } from './local/filesystem/file_version_tracker';
+import type { Tool } from './tool';
+import type { ToolAccessGuard } from './tool_access_guard';
+import { ToolRegistry } from './tool_registry';
 
 // Every tool the extension itself provides. There is no tool that runs an arbitrary program or shell command:
 // what the AI can do is exactly this list plus the MCP tools the user configured.
@@ -44,12 +44,7 @@ export function createBuiltInTools(
 	// one to its singular tool and shares its permission.
 	const readFile = new ReadFileTool(accessGuard, versions);
 	const createFile = new CreateFileTool(accessGuard, versions);
-	const updateFile = new UpdateFileTool(
-		accessGuard,
-		readFile,
-		versions,
-		files.writes,
-	);
+	const updateFile = new UpdateFileTool(accessGuard, readFile, versions, files.writes);
 	const deleteFile = new DeleteFileTool(accessGuard);
 	const moveFile = new MoveFileTool(accessGuard);
 
@@ -86,10 +81,7 @@ export function createBuiltInTools(
 // The tools offered to the model. A tool that cannot be used now (read-only mode, denied, untrusted workspace) is
 // left out and recorded with its reason, so the model knows it cannot do that and can say so. Whether an operation
 // may run, and whether the user is asked first, is decided later by the access guard.
-export function createDefaultToolRegistry(
-	accessGuard: ToolAccessGuard,
-	files: FileToolServices,
-): ToolRegistry {
+export function createDefaultToolRegistry(accessGuard: ToolAccessGuard, files: FileToolServices): ToolRegistry {
 	const registry = new ToolRegistry();
 
 	for (const tool of createBuiltInTools(accessGuard, files)) {

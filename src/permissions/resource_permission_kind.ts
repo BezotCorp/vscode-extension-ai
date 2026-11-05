@@ -1,4 +1,1 @@
-export type ResourcePermissionKind =
-	| "exact"
-	| "directory"
-	| "structuralWorkspace";
+export type ResourcePermissionKind = 'exact' | 'directory' | 'structuralWorkspace';

@@ -21,10 +21,7 @@
 		{
 			"label": "BezotCorp AI: Start Test Extension",
 			"dependsOrder": "sequence",
-			"dependsOn": [
-				"BezotCorp AI: Prepare Test Extension",
-				"BezotCorp AI: Compile"
-			],
+			"dependsOn": ["BezotCorp AI: Prepare Test Extension", "BezotCorp AI: Compile"],
 			"problemMatcher": []
 		},
 		{

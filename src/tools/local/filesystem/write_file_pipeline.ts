@@ -1,17 +1,13 @@
-import { randomUUID } from "node:crypto";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import * as vscode from "vscode";
+import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as vscode from 'vscode';
 
-import {
-	StateMachine,
-	StateMachineDatabase,
-	type StateMachineRecord,
-} from "../../../state_machine";
-import { sha256Hex } from "../../../workspace";
-import { WRITE_FILE_KIND, WRITE_FILE_MACHINE } from "./write_file_machine";
-import type { WriteFileData } from "./write_file_data";
-import type { WriteFileState } from "./write_file_state";
+import { StateMachine, StateMachineDatabase, type StateMachineRecord } from '../../../state_machine';
+import { sha256Hex } from '../../../workspace';
+import { WRITE_FILE_KIND, WRITE_FILE_MACHINE } from './write_file_machine';
+import type { WriteFileData } from './write_file_data';
+import type { WriteFileState } from './write_file_state';
 
 // The persistent part of update_file.
 //
@@ -27,24 +23,14 @@ export class WriteFilePipeline {
 	private readonly backupDirectory: string;
 
 	constructor(storagePath: string) {
-		this.database = new StateMachineDatabase(
-			path.join(storagePath, "file-operations.sqlite"),
-		);
+		this.database = new StateMachineDatabase(path.join(storagePath, 'file-operations.sqlite'));
 
-		this.machine = new StateMachine(
-			this.database,
-			WRITE_FILE_KIND,
-			WRITE_FILE_MACHINE,
-		);
+		this.machine = new StateMachine(this.database, WRITE_FILE_KIND, WRITE_FILE_MACHINE);
 
-		this.backupDirectory = path.join(storagePath, "write-backups");
+		this.backupDirectory = path.join(storagePath, 'write-backups');
 	}
 
-	async run(
-		target: vscode.Uri,
-		content: Uint8Array,
-		originalSha: string,
-	): Promise<StateMachineRecord<WriteFileState>> {
+	async run(target: vscode.Uri, content: Uint8Array, originalSha: string): Promise<StateMachineRecord<WriteFileState>> {
 		const id = randomUUID();
 
 		const data: WriteFileData = {
@@ -78,39 +64,39 @@ export class WriteFilePipeline {
 			const record = this.require(id);
 
 			switch (record.state) {
-				case "ready_to_copy":
-					this.machine.advance(id, "copy_pending");
+				case 'ready_to_copy':
+					this.machine.advance(id, 'copy_pending');
 					break;
 
-				case "copy_pending":
+				case 'copy_pending':
 					await this.copy(record);
 					break;
 
-				case "copy_done":
-					this.machine.advance(id, "pending_update");
+				case 'copy_done':
+					this.machine.advance(id, 'pending_update');
 					break;
 
-				case "pending_update":
+				case 'pending_update':
 					await this.prepareUpdate(record);
 					break;
 
-				case "write_pending":
+				case 'write_pending':
 					await this.write(record);
 					break;
 
-				case "update_done":
-					this.machine.advance(id, "check_integrity");
+				case 'update_done':
+					this.machine.advance(id, 'check_integrity');
 					break;
 
-				case "check_integrity":
+				case 'check_integrity':
 					await this.checkIntegrity(record);
 					break;
 
-				case "integrity_false":
-					this.machine.advance(id, "restore_file");
+				case 'integrity_false':
+					this.machine.advance(id, 'restore_file');
 					break;
 
-				case "restore_file":
+				case 'restore_file':
 					await this.restore(record);
 					break;
 
@@ -131,9 +117,7 @@ export class WriteFilePipeline {
 		return record;
 	}
 
-	private async copy(
-		record: StateMachineRecord<WriteFileState>,
-	): Promise<void> {
+	private async copy(record: StateMachineRecord<WriteFileState>): Promise<void> {
 		const data = record.data as WriteFileData;
 		const target = targetUri(data);
 
@@ -143,9 +127,9 @@ export class WriteFilePipeline {
 			// The backup must correspond exactly to the version that was checked
 			// before the pipeline started.
 			if (sha256Hex(original) !== data.originalSha) {
-				this.machine.advance(record.id, "copy_conflict", {
+				this.machine.advance(record.id, 'copy_conflict', {
 					data: {
-						reason: "file_changed_during_copy",
+						reason: 'file_changed_during_copy',
 					},
 					payload: null,
 				});
@@ -164,9 +148,9 @@ export class WriteFilePipeline {
 			const backup = await fs.promises.readFile(data.backupPath);
 
 			if (sha256Hex(backup) !== data.originalSha) {
-				this.machine.advance(record.id, "copy_failed", {
+				this.machine.advance(record.id, 'copy_failed', {
 					data: {
-						reason: "backup_validation_failed",
+						reason: 'backup_validation_failed',
 					},
 					payload: null,
 				});
@@ -174,11 +158,11 @@ export class WriteFilePipeline {
 				return;
 			}
 
-			this.machine.advance(record.id, "copy_done");
+			this.machine.advance(record.id, 'copy_done');
 		} catch (error) {
-			this.machine.advance(record.id, "copy_failed", {
+			this.machine.advance(record.id, 'copy_failed', {
 				data: {
-					reason: "backup_error",
+					reason: 'backup_error',
 					error: describe(error),
 				},
 				payload: null,
@@ -186,9 +170,7 @@ export class WriteFilePipeline {
 		}
 	}
 
-	private async prepareUpdate(
-		record: StateMachineRecord<WriteFileState>,
-	): Promise<void> {
+	private async prepareUpdate(record: StateMachineRecord<WriteFileState>): Promise<void> {
 		const data = record.data as WriteFileData;
 		const target = targetUri(data);
 
@@ -196,15 +178,15 @@ export class WriteFilePipeline {
 			const current = sha256Hex(await vscode.workspace.fs.readFile(target));
 
 			if (current === data.expectedSha) {
-				this.machine.advance(record.id, "update_done");
+				this.machine.advance(record.id, 'update_done');
 
 				return;
 			}
 
 			if (current !== data.originalSha) {
-				this.machine.advance(record.id, "update_conflict", {
+				this.machine.advance(record.id, 'update_conflict', {
 					data: {
-						reason: "file_changed_before_update",
+						reason: 'file_changed_before_update',
 					},
 					payload: null,
 				});
@@ -213,9 +195,9 @@ export class WriteFilePipeline {
 			}
 
 			if (!record.payload) {
-				this.machine.advance(record.id, "update_failed", {
+				this.machine.advance(record.id, 'update_failed', {
 					data: {
-						reason: "content_missing",
+						reason: 'content_missing',
 					},
 					payload: null,
 				});
@@ -224,11 +206,11 @@ export class WriteFilePipeline {
 			}
 
 			// Persisted before the physical write.
-			this.machine.advance(record.id, "write_pending");
+			this.machine.advance(record.id, 'write_pending');
 		} catch (error) {
-			this.machine.advance(record.id, "update_failed", {
+			this.machine.advance(record.id, 'update_failed', {
 				data: {
-					reason: "read_error",
+					reason: 'read_error',
 					error: describe(error),
 				},
 				payload: null,
@@ -236,9 +218,7 @@ export class WriteFilePipeline {
 		}
 	}
 
-	private async write(
-		record: StateMachineRecord<WriteFileState>,
-	): Promise<void> {
+	private async write(record: StateMachineRecord<WriteFileState>): Promise<void> {
 		const data = record.data as WriteFileData;
 		const target = targetUri(data);
 
@@ -248,15 +228,15 @@ export class WriteFilePipeline {
 			if (current === data.expectedSha) {
 				// The write completed before an interruption prevented the state
 				// transition from being persisted.
-				this.machine.advance(record.id, "update_done");
+				this.machine.advance(record.id, 'update_done');
 
 				return;
 			}
 
 			if (current !== data.originalSha) {
-				this.machine.advance(record.id, "update_conflict", {
+				this.machine.advance(record.id, 'update_conflict', {
 					data: {
-						reason: "file_changed_before_physical_write",
+						reason: 'file_changed_before_physical_write',
 					},
 					payload: null,
 				});
@@ -265,9 +245,9 @@ export class WriteFilePipeline {
 			}
 
 			if (!record.payload) {
-				this.machine.advance(record.id, "update_failed", {
+				this.machine.advance(record.id, 'update_failed', {
 					data: {
-						reason: "content_missing",
+						reason: 'content_missing',
 					},
 					payload: null,
 				});
@@ -278,20 +258,20 @@ export class WriteFilePipeline {
 			try {
 				await vscode.workspace.fs.writeFile(target, record.payload);
 
-				this.machine.advance(record.id, "update_done");
+				this.machine.advance(record.id, 'update_done');
 			} catch (error) {
-				this.machine.advance(record.id, "restore_file", {
+				this.machine.advance(record.id, 'restore_file', {
 					data: {
-						reason: "write_error",
+						reason: 'write_error',
 						error: describe(error),
 					},
 					payload: null,
 				});
 			}
 		} catch (error) {
-			this.machine.advance(record.id, "restore_file", {
+			this.machine.advance(record.id, 'restore_file', {
 				data: {
-					reason: "write_state_read_error",
+					reason: 'write_state_read_error',
 					error: describe(error),
 				},
 				payload: null,
@@ -299,9 +279,7 @@ export class WriteFilePipeline {
 		}
 	}
 
-	private async checkIntegrity(
-		record: StateMachineRecord<WriteFileState>,
-	): Promise<void> {
+	private async checkIntegrity(record: StateMachineRecord<WriteFileState>): Promise<void> {
 		const data = record.data as WriteFileData;
 		const target = targetUri(data);
 
@@ -309,7 +287,7 @@ export class WriteFilePipeline {
 			const actual = sha256Hex(await vscode.workspace.fs.readFile(target));
 
 			if (actual === data.expectedSha) {
-				this.machine.advance(record.id, "integrity_true", { payload: null });
+				this.machine.advance(record.id, 'integrity_true', { payload: null });
 
 				return;
 			}
@@ -317,12 +295,10 @@ export class WriteFilePipeline {
 			// An unreadable resource cannot contain the projected content.
 		}
 
-		this.machine.advance(record.id, "integrity_false", { payload: null });
+		this.machine.advance(record.id, 'integrity_false', { payload: null });
 	}
 
-	private async restore(
-		record: StateMachineRecord<WriteFileState>,
-	): Promise<void> {
+	private async restore(record: StateMachineRecord<WriteFileState>): Promise<void> {
 		const data = record.data as WriteFileData;
 		const target = targetUri(data);
 
@@ -335,43 +311,37 @@ export class WriteFilePipeline {
 				const restored = await vscode.workspace.fs.readFile(target);
 
 				if (sha256Hex(restored) === data.originalSha) {
-					this.machine.advance(record.id, "restore_done");
+					this.machine.advance(record.id, 'restore_done');
 
 					return;
 				}
 			}
 
-			this.machine.advance(record.id, "restore_failed", {
+			this.machine.advance(record.id, 'restore_failed', {
 				data: {
-					reason: "restore_mismatch",
+					reason: 'restore_mismatch',
 				},
 			});
 		} catch (error) {
-			this.machine.advance(record.id, "restore_failed", {
+			this.machine.advance(record.id, 'restore_failed', {
 				data: {
-					reason: "restore_error",
+					reason: 'restore_error',
 					error: describe(error),
 				},
 			});
 		}
 	}
 
-	private async cleanUp(
-		record: StateMachineRecord<WriteFileState>,
-	): Promise<void> {
-		if (record.state === "restore_failed") {
+	private async cleanUp(record: StateMachineRecord<WriteFileState>): Promise<void> {
+		if (record.state === 'restore_failed') {
 			return;
 		}
 
 		const data = record.data as WriteFileData;
 
-		await fs.promises
-			.rm(data.backupPath, { force: true })
-			.catch(() => undefined);
+		await fs.promises.rm(data.backupPath, { force: true }).catch(() => undefined);
 
-		await fs.promises
-			.rm(`${data.backupPath}.tmp`, { force: true })
-			.catch(() => undefined);
+		await fs.promises.rm(`${data.backupPath}.tmp`, { force: true }).catch(() => undefined);
 	}
 }
 

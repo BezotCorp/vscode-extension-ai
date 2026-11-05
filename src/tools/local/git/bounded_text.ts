@@ -3,8 +3,8 @@ const TAIL_CHARS = 36_000;
 
 // Keeps the beginning and the end of a stream, which is where programs print what matters.
 export class BoundedText {
-	private head = "";
-	private tail = "";
+	private head = '';
+	private tail = '';
 	private omitted = 0;
 
 	append(chunk: string): void {

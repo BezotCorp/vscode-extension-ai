@@ -1,5 +1,5 @@
-import type { McpClient } from "./mcp_client";
-import type { McpToolInfo } from ".";
+import type { McpClient } from './mcp_client';
+import type { McpToolInfo } from '.';
 
 export type McpServerEntry = {
 	configKey: string;

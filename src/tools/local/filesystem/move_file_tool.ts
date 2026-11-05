@@ -1,59 +1,42 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
-import { contentEffect, removalEffect } from "../../../permissions";
-import {
-	findDirtyDocuments,
-	resolvePath,
-	resourcePath,
-} from "../../../workspace";
-import type {
-	Tool,
-	ToolAccessGuard,
-	ToolExecutionContext,
-	ToolExecutionResult,
-} from "../..";
-import {
-	ACCESS_PARAMETER,
-	readAccessArg,
-	readStringArg,
-} from "../../tool_input";
-import { toolSuccess } from "../../tool_result";
-import { unsavedChangesFailure } from "./unsaved_changes_failure";
+import { contentEffect, removalEffect } from '../../../permissions';
+import { findDirtyDocuments, resolvePath, resourcePath } from '../../../workspace';
+import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
+import { toolSuccess } from '../../tool_result';
+import { unsavedChangesFailure } from './unsaved_changes_failure';
 
 export class MoveFileTool implements Tool {
-	readonly id = "move_file";
-	readonly name = "Move File";
+	readonly id = 'move_file';
+	readonly name = 'Move File';
 	readonly readOnlyCompatible = false;
-	readonly permissionDefault = "ask" as const;
+	readonly permissionDefault = 'ask' as const;
 	readonly editsFiles = true;
 	readonly description =
-		"Moves or renames a file or folder. Fails if the destination already exists or the source has unsaved changes in the editor. Outside the current window the user is asked unless that resource has already been explicitly authorized; for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.";
+		'Moves or renames a file or folder. Fails if the destination already exists or the source has unsaved changes in the editor. Outside the current window the user is asked unless that resource has already been explicitly authorized; for a critical location (home folder or its parents, a folder of the current window or its parents, .git, system folders) give access critical with a reason.';
 	readonly parameters = {
-		type: "object" as const,
+		type: 'object' as const,
 		properties: {
 			from: {
-				type: "string",
-				description: "Source path, relative to the workspace root or absolute.",
+				type: 'string',
+				description: 'Source path, relative to the workspace root or absolute.',
 			},
 			to: {
-				type: "string",
-				description:
-					"Destination path, relative to the workspace root or absolute.",
+				type: 'string',
+				description: 'Destination path, relative to the workspace root or absolute.',
 			},
 			access: ACCESS_PARAMETER,
 		},
-		required: ["from", "to"],
+		required: ['from', 'to'],
 	};
 
 	constructor(private readonly accessGuard: ToolAccessGuard) {}
 
-	async execute(
-		input: unknown,
-		context?: ToolExecutionContext,
-	): Promise<ToolExecutionResult> {
+	async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
 		const [source, destination] = await Promise.all([
-			resolvePath(readStringArg(input, "from") ?? ""),
-			resolvePath(readStringArg(input, "to") ?? ""),
+			resolvePath(readStringArg(input, 'from') ?? ''),
+			resolvePath(readStringArg(input, 'to') ?? ''),
 		]);
 
 		const sourcePath = resourcePath(source.uri);
@@ -76,7 +59,7 @@ export class MoveFileTool implements Tool {
 		});
 
 		return toolSuccess(this.id, resource, {
-			message: "Moved.",
+			message: 'Moved.',
 			details: { wasDirectory: isDirectory },
 		});
 	}

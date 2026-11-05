@@ -1,13 +1,13 @@
-import { webviewStrings } from "../../i18n";
-import { getMessageListScript } from "./message_list_script";
-import { getModelManagementScript } from "./model_management_script";
+import { webviewStrings } from '../../i18n';
+import { getMessageListScript } from './message_list_script';
+import { getModelManagementScript } from './model_management_script';
 
 // The strings are put in the page as data (never spliced into code), with `<` escaped so they cannot close the script.
 function serialize(value: unknown): string {
 	return JSON.stringify(value)
-		.replace(/</g, "\\u003c")
-		.replace(/\u2028/g, "\\u2028")
-		.replace(/\u2029/g, "\\u2029");
+		.replace(/</g, '\\u003c')
+		.replace(/\u2028/g, '\\u2028')
+		.replace(/\u2029/g, '\\u2029');
 }
 
 export function getChatScript(): string {

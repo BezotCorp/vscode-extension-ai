@@ -1,36 +1,27 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
-import type { ChatManager } from "../chat/chat_manager";
-import type { ChatMessage } from "../chat/chat_message";
-import type { ChatRole } from "../chat/chat_role";
-import { closingText } from "../chat/message_text";
-import { getExtensionConfig } from "../config/extension_config";
-import { buildAiContext } from "../context";
-import type { ChatHistoryMessage } from "../providers/ai_provider";
-import { createProvider } from "../providers/provider_factory";
-import type { McpManager } from "../mcp";
-import type { PermissionStore } from "../permissions";
+import type { ChatManager } from '../chat/chat_manager';
+import type { ChatMessage } from '../chat/chat_message';
+import type { ChatRole } from '../chat/chat_role';
+import { DEFAULT_HISTORY_CHARACTERS, HISTORY_CONTEXT_SHARE, MAX_HISTORY_MESSAGES } from '../chat/chat_history_limits';
+import { closingText } from '../chat/message_text';
+import { getExtensionConfig } from '../config/extension_config';
+import { buildAiContext, estimatedCharacterBudget } from '../context';
+import type { ChatHistoryMessage } from '../providers/ai_provider';
+import { createProvider } from '../providers/provider_factory';
+import type { McpManager } from '../mcp';
+import type { PermissionStore } from '../permissions';
 import {
 	createDefaultToolRegistry,
 	type FileToolServices,
 	ToolAccessGuard,
 	type ToolRegistry,
 	type ToolRound,
-} from "../tools";
-import { sendChatStore } from "./chat_store_presenter";
-import {
-	sendToolCall,
-	sendToolNotice,
-	sendToolResult,
-} from "./tool_call_presenter";
-import { t } from "../i18n";
+} from '../tools';
+import { sendChatStore } from './chat_store_presenter';
+import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
+import { t } from '../i18n';
 
-const MAX_HISTORY_MESSAGES = 40;
-// Used when the provider cannot say how large its context window is.
-const DEFAULT_HISTORY_CHARACTERS = 24_000;
-// Share of the context window earlier turns may take, and characters per token assumed (see OllamaProvider).
-const HISTORY_CONTEXT_SHARE = 0.4;
-const CHARS_PER_TOKEN = 3;
 const MAX_STORED_RESULT_CHARACTERS = 4_000;
 
 export class GenerationController {
@@ -66,18 +57,12 @@ export class GenerationController {
 		}
 	}
 
-	private async createTools(
-		accessGuard: ToolAccessGuard,
-		signal: AbortSignal,
-	): Promise<ToolRegistry> {
+	private async createTools(accessGuard: ToolAccessGuard, signal: AbortSignal): Promise<ToolRegistry> {
 		const registry = createDefaultToolRegistry(accessGuard, this.files);
 
-		if (accessGuard.mode !== "readOnly") {
+		if (accessGuard.mode !== 'readOnly') {
 			try {
-				for (const tool of await this.mcpManager.createTools(
-					accessGuard,
-					signal,
-				)) {
+				for (const tool of await this.mcpManager.createTools(accessGuard, signal)) {
 					const reason = accessGuard.unavailableReason(tool);
 
 					if (reason) {
@@ -103,17 +88,12 @@ export class GenerationController {
 		toolRounds?: ToolRound[],
 	): Promise<boolean> {
 		try {
-			return await this.chatManager.addMessageToSession(
-				sessionId,
-				role,
-				content,
-				toolRounds,
-			);
+			return await this.chatManager.addMessageToSession(sessionId, role, content, toolRounds);
 		} catch (error) {
 			// The ChatManager mutates memory before persistence. A storage failure must not
 			// make the generation forget a message that is still present in memory.
 			void vscode.window.showWarningMessage(
-				t("notify.error", {
+				t('notify.error', {
 					error: error instanceof Error ? error.message : String(error),
 				}),
 			);
@@ -121,22 +101,14 @@ export class GenerationController {
 		}
 	}
 
-	async sendChatMessage(
-		webviewView: vscode.WebviewView,
-		text: string,
-	): Promise<void> {
+	async sendChatMessage(webviewView: vscode.WebviewView, text: string): Promise<void> {
 		const session = this.chatManager.getActiveSession();
 
 		if (!session) {
 			return;
 		}
 
-		const generation = this.runChatMessage(
-			webviewView,
-			text,
-			session.id,
-			session.messages,
-		);
+		const generation = this.runChatMessage(webviewView, text, session.id, session.messages);
 
 		this.currentGeneration = generation;
 		this.currentGenerationSessionId = session.id;
@@ -164,35 +136,24 @@ export class GenerationController {
 		this.currentAbortController?.abort();
 		this.currentAbortController = abortController;
 
-		const accessGuard = new ToolAccessGuard(
-			this.permissionStore,
-			() => getExtensionConfig().autonomyMode,
-		);
-		let assistantText = "";
+		const accessGuard = new ToolAccessGuard(this.permissionStore, () => getExtensionConfig().autonomyMode);
+		let assistantText = '';
 		const toolRounds: ToolRound[] = [];
 
 		try {
 			const context = await buildAiContext();
 
-			const contextTokens = await provider.resolveContextTokens?.(
-				abortController.signal,
-			);
+			const contextTokens = await provider.resolveContextTokens?.(abortController.signal);
 			const history = selectHistory(
 				sessionMessages,
-				contextTokens
-					? Math.floor(contextTokens * CHARS_PER_TOKEN * HISTORY_CONTEXT_SHARE)
-					: DEFAULT_HISTORY_CHARACTERS,
+				contextTokens ? estimatedCharacterBudget(contextTokens, HISTORY_CONTEXT_SHARE) : DEFAULT_HISTORY_CHARACTERS,
 			);
 
-			const userMessageRemembered = await this.remember(
-				sessionId,
-				"user",
-				text,
-			);
+			const userMessageRemembered = await this.remember(sessionId, 'user', text);
 
 			if (!userMessageRemembered) {
 				webviewView.webview.postMessage({
-					type: "responseStopped",
+					type: 'responseStopped',
 					sessionId,
 				});
 				return;
@@ -200,9 +161,7 @@ export class GenerationController {
 
 			sendChatStore(webviewView, this.chatManager);
 
-			const tools = provider.supportsTools
-				? await this.createTools(accessGuard, abortController.signal)
-				: undefined;
+			const tools = provider.supportsTools ? await this.createTools(accessGuard, abortController.signal) : undefined;
 
 			await provider.streamChat(
 				{
@@ -214,7 +173,7 @@ export class GenerationController {
 				{
 					onStart: () => {
 						webviewView.webview.postMessage({
-							type: "responseStart",
+							type: 'responseStart',
 							sessionId,
 						});
 					},
@@ -222,14 +181,13 @@ export class GenerationController {
 						assistantText += chunk;
 
 						webviewView.webview.postMessage({
-							type: "responseChunk",
+							type: 'responseChunk',
 							sessionId,
 							text: chunk,
 						});
 					},
 					onToolCall: (call) => sendToolCall(webviewView, sessionId, call),
-					onToolResult: (_call, result) =>
-						sendToolResult(webviewView, sessionId, result),
+					onToolResult: (_call, result) => sendToolResult(webviewView, sessionId, result),
 					onToolRound: (round) => toolRounds.push(compactRound(round)),
 					onNotice: (text) => sendToolNotice(webviewView, sessionId, text),
 					onEnd: () => {},
@@ -238,48 +196,43 @@ export class GenerationController {
 			);
 
 			if (assistantText.trim() || toolRounds.length > 0) {
-				await this.remember(sessionId, "assistant", assistantText, toolRounds);
+				await this.remember(sessionId, 'assistant', assistantText, toolRounds);
 				sendChatStore(webviewView, this.chatManager);
 			}
 
 			webviewView.webview.postMessage({
-				type: "responseEnd",
+				type: 'responseEnd',
 				sessionId,
 			});
 		} catch (error) {
 			if (abortController.signal.aborted) {
 				if (assistantText.trim() || toolRounds.length > 0) {
-					await this.remember(
-						sessionId,
-						"assistant",
-						assistantText,
-						toolRounds,
-					);
+					await this.remember(sessionId, 'assistant', assistantText, toolRounds);
 					sendChatStore(webviewView, this.chatManager);
 				}
 
 				webviewView.webview.postMessage({
-					type: "responseStopped",
+					type: 'responseStopped',
 					sessionId,
 				});
 				return;
 			}
 
-			const errorText = t("chat.errorPrefix", { error: String(error) });
+			const errorText = t('chat.errorPrefix', { error: String(error) });
 
-			await this.remember(sessionId, "assistant", errorText);
+			await this.remember(sessionId, 'assistant', errorText);
 			sendChatStore(webviewView, this.chatManager);
 
 			webviewView.webview.postMessage({
-				type: "responseEnd",
+				type: 'responseEnd',
 				sessionId,
 			});
 
 			webviewView.webview.postMessage({
-				type: "backendStatus",
-				status: "disconnected",
+				type: 'backendStatus',
+				status: 'disconnected',
 				backendUrl: config.providerUrl,
-				text: t("status.disconnected", { error: String(error) }),
+				text: t('status.disconnected', { error: String(error) }),
 			});
 		} finally {
 			if (this.currentAbortController === abortController) {
@@ -304,16 +257,13 @@ function compactRound(round: ToolRound): ToolRound {
 }
 
 // Keeps the most recent turns that fit the budget, so long conversations do not overflow the model context.
-function selectHistory(
-	messages: ChatMessage[],
-	budget: number,
-): ChatHistoryMessage[] {
+function selectHistory(messages: ChatMessage[], budget: number): ChatHistoryMessage[] {
 	const selected: ChatHistoryMessage[] = [];
 	let characters = 0;
 
 	for (const message of [...messages].reverse()) {
 		// Errors shown in the chat are display text, not something the model said.
-		if (message.role === "assistant" && message.content.startsWith("Error: ")) {
+		if (message.role === 'assistant' && message.content.startsWith('Error: ')) {
 			continue;
 		}
 
@@ -356,10 +306,7 @@ function toHistoryMessage(message: ChatMessage): ChatHistoryMessage {
 
 function historySize(message: ChatHistoryMessage): number {
 	const rounds = (message.toolRounds ?? []).reduce(
-		(total, round) =>
-			total +
-			round.content.length +
-			round.calls.reduce((sum, call) => sum + call.result.length, 0),
+		(total, round) => total + round.content.length + round.calls.reduce((sum, call) => sum + call.result.length, 0),
 		0,
 	);
 

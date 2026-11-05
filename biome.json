@@ -1,5 +1,16 @@
 {
 	"files": {
 		"includes": ["**", "!!out"]
+	},
+	"formatter": {
+		"indentStyle": "tab",
+		"lineWidth": 120
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"semicolons": "always",
+			"trailingCommas": "all"
+		}
 	}
 }

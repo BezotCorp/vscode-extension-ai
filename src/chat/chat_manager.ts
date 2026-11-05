@@ -1,10 +1,6 @@
-import type { ToolRound } from "../tools/tool_round";
-import type { ChatRole } from "./chat_role";
-import {
-	addMessageToChatSession,
-	type ChatSession,
-	cloneChatSession,
-} from "./chat_session";
+import type { ToolRound } from '../tools/tool_round';
+import type { ChatRole } from './chat_role';
+import { addMessageToChatSession, type ChatSession, cloneChatSession } from './chat_session';
 import {
 	type ChatStore,
 	activateMostRecentNonEmptyChatSession,
@@ -23,8 +19,8 @@ import {
 	setActiveChatSession,
 	trashArchivedChatSessions,
 	trashChatSessionById,
-} from "./chat_store";
-import type { ChatStorage } from "./chat_storage";
+} from './chat_store';
+import type { ChatStorage } from './chat_storage';
 
 export class ChatManager {
 	private store: ChatStore = createChatStore();
@@ -115,9 +111,7 @@ export class ChatManager {
 		content: string,
 		toolRounds?: ToolRound[],
 	): Promise<boolean> {
-		const session = this.store.sessions.find(
-			(candidate) => candidate.id === sessionId,
-		);
+		const session = this.store.sessions.find((candidate) => candidate.id === sessionId);
 
 		if (!session) {
 			return false;

@@ -1,4 +1,4 @@
-import type { PermissionPolicy } from ".";
+import type { PermissionPolicy } from '.';
 
 // A tool as the permission manager lists it.
 export type ToolPermissionInfo = {
@@ -7,5 +7,5 @@ export type ToolPermissionInfo = {
 	name: string;
 	description: string;
 	group: string;
-	defaultPolicy: Exclude<PermissionPolicy, "deny">;
+	defaultPolicy: Exclude<PermissionPolicy, 'deny'>;
 };

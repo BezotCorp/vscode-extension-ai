@@ -1,5 +1,5 @@
-import type { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from ".";
-import { serializeToolResult, toolFailure } from "./tool_result";
+import type { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from '.';
+import { serializeToolResult, toolFailure } from './tool_result';
 
 const MAX_CALLS_PER_ROUND = 8;
 
@@ -8,10 +8,7 @@ export type ToolLoopOptions<TMessage> = {
 	tools?: ToolRegistry;
 	maxRounds: number;
 	signal?: AbortSignal;
-	runRound(
-		messages: TMessage[],
-		allowTools: boolean,
-	): Promise<{ content: string; toolCalls: ToolCall[] }>;
+	runRound(messages: TMessage[], allowTools: boolean): Promise<{ content: string; toolCalls: ToolCall[] }>;
 	assistantMessage(content: string, toolCalls: ToolCall[]): TMessage;
 	toolMessage(call: ToolCall, content: string): TMessage;
 	onToolCall?(call: ToolCall): void;
@@ -25,21 +22,18 @@ export type ToolLoopOptions<TMessage> = {
 	onRound?(round: ToolRound): void;
 };
 
-export async function runToolLoop<TMessage>(
-	options: ToolLoopOptions<TMessage>,
-): Promise<void> {
+export async function runToolLoop<TMessage>(options: ToolLoopOptions<TMessage>): Promise<void> {
 	const { messages, tools, maxRounds } = options;
 	// Calls with side effects whose outcome is uncertain: not repeated until the state has been inspected.
 	const uncertain = new Set<string>();
 
 	for (let round = 0; round <= maxRounds; round++) {
 		if (options.signal?.aborted) {
-			throw new Error("Generation aborted");
+			throw new Error('Generation aborted');
 		}
 
 		const contextFull =
-			options.contextBudgetChars !== undefined &&
-			JSON.stringify(messages).length > options.contextBudgetChars;
+			options.contextBudgetChars !== undefined && JSON.stringify(messages).length > options.contextBudgetChars;
 
 		if (contextFull && tools !== undefined && round < maxRounds && round > 0) {
 			options.onContextFull?.();
@@ -68,17 +62,17 @@ export async function runToolLoop<TMessage>(
 				const key = `${call.name}:${JSON.stringify(call.arguments)}`;
 				const result =
 					index >= MAX_CALLS_PER_ROUND
-						? toolFailure("error", call.name, undefined, {
-								reason: "too_many_calls",
+						? toolFailure('error', call.name, undefined, {
+								reason: 'too_many_calls',
 								message: `Only ${MAX_CALLS_PER_ROUND} tool calls are run per response. This one was not executed.`,
 								executed: false,
 								retryable: true,
 							})
 						: uncertain.has(key)
-							? toolFailure("unknown", call.name, undefined, {
-									reason: "repeat_blocked",
+							? toolFailure('unknown', call.name, undefined, {
+									reason: 'repeat_blocked',
 									message:
-										"An identical call ended with an uncertain outcome. Automatic repetition remains blocked for this generation, even after read-only calls. Ask the user before attempting the operation again in a new turn.",
+										'An identical call ended with an uncertain outcome. Automatic repetition remains blocked for this generation, even after read-only calls. Ask the user before attempting the operation again in a new turn.',
 									executed: false,
 									retryable: false,
 								})
@@ -88,11 +82,7 @@ export async function runToolLoop<TMessage>(
 								});
 
 				if (!tools.get(call.name)?.readOnlyCompatible) {
-					if (
-						result.status === "unknown" ||
-						result.status === "interrupted" ||
-						result.executed === "unknown"
-					) {
+					if (result.status === 'unknown' || result.status === 'interrupted' || result.executed === 'unknown') {
 						uncertain.add(key);
 					}
 				}
@@ -114,7 +104,7 @@ export async function runToolLoop<TMessage>(
 		}
 
 		if (options.signal?.aborted) {
-			throw new Error("Generation aborted");
+			throw new Error('Generation aborted');
 		}
 	}
 }

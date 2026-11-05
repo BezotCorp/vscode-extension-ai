@@ -1,12 +1,12 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
-import type { ChatManager } from "../chat/chat_manager";
-import type { ModelManager } from "../models/model_manager";
-import type { GenerationController } from "./generation_controller";
-import type { WebviewMessage } from ".";
-import { sendChatStore } from "./chat_store_presenter";
-import { sendModelState, testConnection } from "./model_state_presenter";
-import { t } from "../i18n";
+import type { ChatManager } from '../chat/chat_manager';
+import type { ModelManager } from '../models/model_manager';
+import type { GenerationController } from './generation_controller';
+import type { WebviewMessage } from '.';
+import { sendChatStore } from './chat_store_presenter';
+import { sendModelState, testConnection } from './model_state_presenter';
+import { t } from '../i18n';
 
 export class WebviewMessageRouter {
 	constructor(
@@ -15,15 +15,12 @@ export class WebviewMessageRouter {
 		private readonly generationController: GenerationController,
 	) {}
 
-	async handle(
-		webviewView: vscode.WebviewView,
-		message: WebviewMessage,
-	): Promise<void> {
+	async handle(webviewView: vscode.WebviewView, message: WebviewMessage): Promise<void> {
 		try {
 			await this.dispatch(webviewView, message);
 		} catch (error) {
 			void vscode.window.showErrorMessage(
-				t("notify.error", {
+				t('notify.error', {
 					error: error instanceof Error ? error.message : String(error),
 				}),
 			);
@@ -32,46 +29,37 @@ export class WebviewMessageRouter {
 		}
 	}
 
-	private async dispatch(
-		webviewView: vscode.WebviewView,
-		message: WebviewMessage,
-	): Promise<void> {
-		if (message.type === "webviewReady") {
+	private async dispatch(webviewView: vscode.WebviewView, message: WebviewMessage): Promise<void> {
+		if (message.type === 'webviewReady') {
 			sendChatStore(webviewView, this.chatManager);
 			await testConnection(webviewView);
 			await sendModelState(webviewView, this.modelManager);
 			return;
 		}
 
-		if (message.type === "copyMessage") {
+		if (message.type === 'copyMessage') {
 			await vscode.env.clipboard.writeText(message.text);
 			return;
 		}
 
-		if (message.type === "openSettings") {
-			await vscode.commands.executeCommand(
-				"workbench.action.openSettings",
-				"@ext:bezotcorp.bezotcorp-ai",
-			);
+		if (message.type === 'openSettings') {
+			await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:bezotcorp.bezotcorp-ai');
 			return;
 		}
 
-		if (message.type === "testConnection") {
+		if (message.type === 'testConnection') {
 			await testConnection(webviewView);
 			await sendModelState(webviewView, this.modelManager);
 			return;
 		}
 
-		if (message.type === "refreshModels") {
+		if (message.type === 'refreshModels') {
 			await sendModelState(webviewView, this.modelManager);
 			return;
 		}
 
-		if (message.type === "updateProviderSettings") {
-			await this.modelManager.updateProviderSettings(
-				message.provider,
-				message.providerUrl,
-			);
+		if (message.type === 'updateProviderSettings') {
+			await this.modelManager.updateProviderSettings(message.provider, message.providerUrl);
 
 			await testConnection(webviewView);
 
@@ -79,72 +67,72 @@ export class WebviewMessageRouter {
 			return;
 		}
 
-		if (message.type === "changeModel") {
+		if (message.type === 'changeModel') {
 			await this.modelManager.setActiveModel(message.model);
 
 			await sendModelState(webviewView, this.modelManager);
 			return;
 		}
 
-		if (message.type === "newChat") {
+		if (message.type === 'newChat') {
 			await this.chatManager.createSession();
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "switchChatSession") {
+		if (message.type === 'switchChatSession') {
 			await this.chatManager.setActiveSession(message.sessionId);
 
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "renameChatSession") {
+		if (message.type === 'renameChatSession') {
 			await this.chatManager.renameSession(message.sessionId, message.title);
 
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "archiveChatSession") {
+		if (message.type === 'archiveChatSession') {
 			await this.chatManager.archiveSession(message.sessionId);
 
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "restoreChatSession") {
+		if (message.type === 'restoreChatSession') {
 			await this.chatManager.restoreArchivedSession(message.sessionId);
 
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "trashChatSession") {
+		if (message.type === 'trashChatSession') {
 			await this.chatManager.trashSession(message.sessionId);
 
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "restoreTrashedChatSession") {
+		if (message.type === 'restoreTrashedChatSession') {
 			await this.chatManager.restoreTrashedSession(message.sessionId);
 
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "deleteChatSession") {
+		if (message.type === 'deleteChatSession') {
 			const confirmation = await vscode.window.showWarningMessage(
-				t("chat.confirm.delete.title"),
+				t('chat.confirm.delete.title'),
 				{
 					modal: true,
-					detail: t("chat.confirm.delete.detail"),
+					detail: t('chat.confirm.delete.detail'),
 				},
-				t("chat.confirm.delete.button"),
+				t('chat.confirm.delete.button'),
 			);
 
-			if (confirmation !== t("chat.confirm.delete.button")) {
+			if (confirmation !== t('chat.confirm.delete.button')) {
 				return;
 			}
 
@@ -154,26 +142,24 @@ export class WebviewMessageRouter {
 			return;
 		}
 
-		if (message.type === "clearCurrentSession") {
+		if (message.type === 'clearCurrentSession') {
 			const confirmation = await vscode.window.showWarningMessage(
-				t("chat.confirm.clear.title"),
+				t('chat.confirm.clear.title'),
 				{
 					modal: true,
-					detail: t("chat.confirm.clear.detail"),
+					detail: t('chat.confirm.clear.detail'),
 				},
-				t("chat.confirm.clear.button"),
+				t('chat.confirm.clear.button'),
 			);
 
-			if (confirmation !== t("chat.confirm.clear.button")) {
+			if (confirmation !== t('chat.confirm.clear.button')) {
 				return;
 			}
 
 			const activeSessionId = this.chatManager.getActiveSession()?.id;
 
 			if (activeSessionId) {
-				await this.generationController.stopGenerationForSessionAndWait(
-					activeSessionId,
-				);
+				await this.generationController.stopGenerationForSessionAndWait(activeSessionId);
 			}
 
 			await this.chatManager.clearActiveSession();
@@ -181,23 +167,23 @@ export class WebviewMessageRouter {
 			return;
 		}
 
-		if (message.type === "trashArchivedSessions") {
+		if (message.type === 'trashArchivedSessions') {
 			await this.chatManager.trashArchivedSessions();
 			sendChatStore(webviewView, this.chatManager);
 			return;
 		}
 
-		if (message.type === "emptyTrash") {
+		if (message.type === 'emptyTrash') {
 			const confirmation = await vscode.window.showWarningMessage(
-				t("chat.confirm.emptyTrash.title"),
+				t('chat.confirm.emptyTrash.title'),
 				{
 					modal: true,
-					detail: t("chat.confirm.emptyTrash.detail"),
+					detail: t('chat.confirm.emptyTrash.detail'),
 				},
-				t("chat.confirm.emptyTrash.button"),
+				t('chat.confirm.emptyTrash.button'),
 			);
 
-			if (confirmation !== t("chat.confirm.emptyTrash.button")) {
+			if (confirmation !== t('chat.confirm.emptyTrash.button')) {
 				return;
 			}
 
@@ -206,16 +192,13 @@ export class WebviewMessageRouter {
 			return;
 		}
 
-		if (message.type === "stopGeneration") {
+		if (message.type === 'stopGeneration') {
 			this.generationController.stopGeneration();
 			return;
 		}
 
-		if (message.type === "chat") {
-			await this.generationController.sendChatMessage(
-				webviewView,
-				message.text,
-			);
+		if (message.type === 'chat') {
+			await this.generationController.sendChatMessage(webviewView, message.text);
 		}
 	}
 }

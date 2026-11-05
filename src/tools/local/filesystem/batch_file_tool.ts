@@ -1,11 +1,7 @@
-import type { Tool, ToolExecutionContext, ToolExecutionResult } from "../..";
-import { toolFailureFromException } from "../../tool_failure_from_exception";
-import {
-	MAX_SERIALIZED_CHARS,
-	toolFailure,
-	toolSuccess,
-} from "../../tool_result";
-import { validateToolInput } from "../../tool_validation";
+import type { Tool, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { toolFailureFromException } from '../../tool_failure_from_exception';
+import { MAX_SERIALIZED_CHARS, toolFailure, toolSuccess } from '../../tool_result';
+import { validateToolInput } from '../../tool_validation';
 
 const MAX_FILES_PER_CALL = 20;
 
@@ -16,7 +12,7 @@ const MAX_FILES_PER_CALL = 20;
 // others, and the result lists the outcome of every item.
 export abstract class BatchFileTool implements Tool {
 	readonly readOnlyCompatible: boolean;
-	readonly permissionDefault: "allow" | "ask";
+	readonly permissionDefault: 'allow' | 'ask';
 	readonly editsFiles?: boolean;
 	readonly requiresTrust?: boolean;
 	readonly permissionKey: string;
@@ -34,35 +30,28 @@ export abstract class BatchFileTool implements Tool {
 		this.requiresTrust = single.requiresTrust;
 		this.permissionKey = single.permissionKey ?? single.id;
 		this.parameters = {
-			type: "object" as const,
+			type: 'object' as const,
 			properties: {
 				files: {
-					type: "array",
+					type: 'array',
 					description: `The files to process, one object per file, with the arguments of ${single.id}. At most ${MAX_FILES_PER_CALL}.`,
 					items: {
-						type: "object",
+						type: 'object',
 						properties: single.parameters.properties,
 						required: single.parameters.required,
 					},
 				},
 			},
-			required: ["files"],
+			required: ['files'],
 		};
 	}
 
-	async execute(
-		input: unknown,
-		context?: ToolExecutionContext,
-	): Promise<ToolExecutionResult> {
+	async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
 		const items = parseItems((input as { files?: unknown } | null)?.files);
 
-		if (
-			items === undefined ||
-			items.length === 0 ||
-			items.length > MAX_FILES_PER_CALL
-		) {
-			return toolFailure("error", this.id, undefined, {
-				reason: "invalid_arguments",
+		if (items === undefined || items.length === 0 || items.length > MAX_FILES_PER_CALL) {
+			return toolFailure('error', this.id, undefined, {
+				reason: 'invalid_arguments',
 				message: `Argument "files" must be a list of 1 to ${MAX_FILES_PER_CALL} objects, one per file. Nothing was executed.`,
 				executed: false,
 				retryable: true,
@@ -72,16 +61,11 @@ export abstract class BatchFileTool implements Tool {
 		// The results of all the files reach the model as one result: each item may take an equal share of what is left of
 		// the limit once the wrapper around the list is counted, so the whole fits and nothing is cut after the tools have
 		// remembered what they handed over.
-		const share = this.shareOfLimit(
-			items.length,
-			context?.maxResultChars ?? MAX_SERIALIZED_CHARS,
-		);
+		const share = this.shareOfLimit(items.length, context?.maxResultChars ?? MAX_SERIALIZED_CHARS);
 		const results: ToolExecutionResult[] = [];
 
 		for (const item of items) {
-			results.push(
-				await this.runOne(item, { ...context, maxResultChars: share }),
-			);
+			results.push(await this.runOne(item, { ...context, maxResultChars: share }));
 		}
 
 		return this.aggregate(results);
@@ -90,11 +74,11 @@ export abstract class BatchFileTool implements Tool {
 	// The longest the wrapper around the results can be for this many files, then an equal share of the rest.
 	private shareOfLimit(count: number, limit: number): number {
 		const wrapper = JSON.stringify({
-			status: "unknown",
+			status: 'unknown',
 			operation: this.id,
-			executed: "unknown",
+			executed: 'unknown',
 			retryable: true,
-			reason: "partial_failure",
+			reason: 'partial_failure',
 			message: `${count} of ${count} succeeded. Read "details.results": each file has its own outcome, in the order sent.`,
 			details: { total: count, succeeded: count, failed: count, results: [] },
 		});
@@ -103,15 +87,11 @@ export abstract class BatchFileTool implements Tool {
 		return Math.max(Math.floor((limit - wrapper.length - count) / count), 0);
 	}
 
-	private async runOne(
-		item: unknown,
-		context: ToolExecutionContext,
-	): Promise<ToolExecutionResult> {
+	private async runOne(item: unknown, context: ToolExecutionContext): Promise<ToolExecutionResult> {
 		if (context.signal?.aborted) {
-			return toolFailure("cancelled", this.single.id, undefined, {
-				reason: "cancelled_by_user",
-				message:
-					"The request was cancelled before this file was processed. Nothing was executed for it.",
+			return toolFailure('cancelled', this.single.id, undefined, {
+				reason: 'cancelled_by_user',
+				message: 'The request was cancelled before this file was processed. Nothing was executed for it.',
 				executed: false,
 				retryable: true,
 			});
@@ -120,8 +100,8 @@ export abstract class BatchFileTool implements Tool {
 		const problem = validateToolInput(this.single.parameters, item);
 
 		if (problem) {
-			return toolFailure("error", this.single.id, undefined, {
-				reason: "invalid_arguments",
+			return toolFailure('error', this.single.id, undefined, {
+				reason: 'invalid_arguments',
 				message: `Invalid arguments: ${problem}.`,
 				executed: false,
 				retryable: true,
@@ -136,9 +116,7 @@ export abstract class BatchFileTool implements Tool {
 	}
 
 	private aggregate(results: ToolExecutionResult[]): ToolExecutionResult {
-		const succeeded = results.filter(
-			(result) => result.status === "success",
-		).length;
+		const succeeded = results.filter((result) => result.status === 'success').length;
 		const failed = results.length - succeeded;
 		const details = { total: results.length, succeeded, failed, results };
 
@@ -151,22 +129,15 @@ export abstract class BatchFileTool implements Tool {
 
 		// One uncertain item makes the whole call uncertain: the loop must not repeat it before the state is inspected.
 		const uncertain = results.some(
-			(result) =>
-				result.status === "unknown" ||
-				result.status === "interrupted" ||
-				result.executed === "unknown",
+			(result) => result.status === 'unknown' || result.status === 'interrupted' || result.executed === 'unknown',
 		);
 
 		return {
-			status: uncertain ? "unknown" : "error",
+			status: uncertain ? 'unknown' : 'error',
 			operation: this.id,
-			executed: uncertain
-				? "unknown"
-				: results.some((result) => result.executed === true),
-			retryable: results.some(
-				(result) => result.status !== "success" && result.retryable,
-			),
-			reason: succeeded > 0 ? "partial_failure" : "all_failed",
+			executed: uncertain ? 'unknown' : results.some((result) => result.executed === true),
+			retryable: results.some((result) => result.status !== 'success' && result.retryable),
+			reason: succeeded > 0 ? 'partial_failure' : 'all_failed',
 			message: `${succeeded} of ${results.length} succeeded. Read "details.results": each file has its own outcome, in the order sent.`,
 			details,
 		};
@@ -174,7 +145,7 @@ export abstract class BatchFileTool implements Tool {
 }
 
 function parseItems(value: unknown): unknown[] | undefined {
-	if (typeof value === "string") {
+	if (typeof value === 'string') {
 		try {
 			return parseItems(JSON.parse(value));
 		} catch {

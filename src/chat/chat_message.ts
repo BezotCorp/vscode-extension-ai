@@ -1,5 +1,5 @@
-import type { ToolRound } from "../tools/tool_round";
-import type { ChatRole } from "./chat_role";
+import type { ToolRound } from '../tools/tool_round';
+import type { ChatRole } from './chat_role';
 
 export type ChatMessage = {
 	role: ChatRole;
@@ -8,11 +8,7 @@ export type ChatMessage = {
 	toolRounds?: ToolRound[];
 };
 
-export function createChatMessage(
-	role: ChatRole,
-	content: string,
-	toolRounds?: ToolRound[],
-): ChatMessage {
+export function createChatMessage(role: ChatRole, content: string, toolRounds?: ToolRound[]): ChatMessage {
 	return {
 		role,
 		content,

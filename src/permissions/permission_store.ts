@@ -1,7 +1,7 @@
-import * as path from "node:path";
-import * as vscode from "vscode";
+import * as path from 'node:path';
+import * as vscode from 'vscode';
 
-import { parseResourceUri } from "../workspace";
+import { parseResourceUri } from '../workspace';
 
 import type {
 	PermissionEntry,
@@ -10,12 +10,12 @@ import type {
 	PermissionResolution,
 	ResourcePermissionGrant,
 	ResourcePermissionKind,
-} from ".";
+} from '.';
 
-const TOOL_SETTING = "permissions";
-const RESOURCE_KEY = "bezotcorpAi.resourcePermissions.v2";
+const TOOL_SETTING = 'permissions';
+const RESOURCE_KEY = 'bezotcorpAi.resourcePermissions.v2';
 
-const LIFETIMES: PermissionLifetime[] = ["currentSession", "allSessions"];
+const LIFETIMES: PermissionLifetime[] = ['currentSession', 'allSessions'];
 
 export class PermissionStore {
 	private readonly sessionTools = new Map<string, PermissionPolicy>();
@@ -24,10 +24,7 @@ export class PermissionStore {
 
 	constructor(private readonly globalState: vscode.Memento) {}
 
-	get(
-		toolId: string,
-		lifetime: PermissionLifetime,
-	): PermissionPolicy | undefined {
+	get(toolId: string, lifetime: PermissionLifetime): PermissionPolicy | undefined {
 		return this.readToolDecisions(lifetime).get(toolId);
 	}
 
@@ -45,16 +42,10 @@ export class PermissionStore {
 				: [];
 		});
 
-		return (
-			decisions.find((decision) => decision.policy === "deny") ?? decisions[0]
-		);
+		return decisions.find((decision) => decision.policy === 'deny') ?? decisions[0];
 	}
 
-	async set(
-		toolId: string,
-		policy: PermissionPolicy,
-		lifetime: PermissionLifetime,
-	): Promise<void> {
+	async set(toolId: string, policy: PermissionPolicy, lifetime: PermissionLifetime): Promise<void> {
 		const decisions = this.readToolDecisions(lifetime);
 
 		decisions.set(toolId, policy);
@@ -78,13 +69,11 @@ export class PermissionStore {
 
 	list(): PermissionEntry[] {
 		return LIFETIMES.flatMap((lifetime) =>
-			[...this.readToolDecisions(lifetime).entries()].map(
-				([toolId, policy]) => ({
-					toolId,
-					policy,
-					lifetime,
-				}),
-			),
+			[...this.readToolDecisions(lifetime).entries()].map(([toolId, policy]) => ({
+				toolId,
+				policy,
+				lifetime,
+			})),
 		);
 	}
 
@@ -92,17 +81,12 @@ export class PermissionStore {
 		return [...this.sessionResources, ...this.readAllSessionsResources()];
 	}
 
-	isResourceAllowed(
-		toolId: string,
-		target: string,
-	): ResourcePermissionGrant | undefined {
+	isResourceAllowed(toolId: string, target: string): ResourcePermissionGrant | undefined {
 		const normalized = normalizeResource(target);
 
 		const session = [...this.sessionResources]
 			.reverse()
-			.find(
-				(grant) => grant.toolId === toolId && grantCovers(grant, normalized),
-			);
+			.find((grant) => grant.toolId === toolId && grantCovers(grant, normalized));
 
 		if (session) {
 			return session;
@@ -110,9 +94,7 @@ export class PermissionStore {
 
 		return this.readAllSessionsResources()
 			.reverse()
-			.find(
-				(grant) => grant.toolId === toolId && grantCovers(grant, normalized),
-			);
+			.find((grant) => grant.toolId === toolId && grantCovers(grant, normalized));
 	}
 
 	async allowResource(
@@ -128,18 +110,11 @@ export class PermissionStore {
 			lifetime,
 		};
 
-		const grants =
-			lifetime === "currentSession"
-				? [...this.sessionResources]
-				: this.readAllSessionsResources();
+		const grants = lifetime === 'currentSession' ? [...this.sessionResources] : this.readAllSessionsResources();
 
 		const filtered = grants.filter(
 			(candidate) =>
-				!(
-					candidate.toolId === grant.toolId &&
-					candidate.path === grant.path &&
-					candidate.kind === grant.kind
-				),
+				!(candidate.toolId === grant.toolId && candidate.path === grant.path && candidate.kind === grant.kind),
 		);
 
 		filtered.push(grant);
@@ -147,13 +122,8 @@ export class PermissionStore {
 		await this.writeResources(lifetime, filtered);
 	}
 
-	async removeResourcePermission(
-		grant: ResourcePermissionGrant,
-	): Promise<void> {
-		const grants =
-			grant.lifetime === "currentSession"
-				? [...this.sessionResources]
-				: this.readAllSessionsResources();
+	async removeResourcePermission(grant: ResourcePermissionGrant): Promise<void> {
+		const grants = grant.lifetime === 'currentSession' ? [...this.sessionResources] : this.readAllSessionsResources();
 
 		await this.writeResources(
 			grant.lifetime,
@@ -171,19 +141,13 @@ export class PermissionStore {
 		await this.clearResourcePermissions(lifetime);
 	}
 
-	private readToolDecisions(
-		lifetime: PermissionLifetime,
-	): Map<string, PermissionPolicy> {
+	private readToolDecisions(lifetime: PermissionLifetime): Map<string, PermissionPolicy> {
 		switch (lifetime) {
-			case "currentSession":
+			case 'currentSession':
 				return new Map(this.sessionTools);
 
-			case "allSessions":
-				return toToolMap(
-					vscode.workspace
-						.getConfiguration("bezotcorpAi")
-						.inspect<unknown>(TOOL_SETTING)?.globalValue,
-				);
+			case 'allSessions':
+				return toToolMap(vscode.workspace.getConfiguration('bezotcorpAi').inspect<unknown>(TOOL_SETTING)?.globalValue);
 		}
 	}
 
@@ -191,7 +155,7 @@ export class PermissionStore {
 		lifetime: PermissionLifetime,
 		decisions: Map<string, PermissionPolicy>,
 	): Promise<void> {
-		if (lifetime === "currentSession") {
+		if (lifetime === 'currentSession') {
 			this.sessionTools.clear();
 
 			for (const [toolId, policy] of decisions) {
@@ -202,12 +166,8 @@ export class PermissionStore {
 		}
 
 		await vscode.workspace
-			.getConfiguration("bezotcorpAi")
-			.update(
-				TOOL_SETTING,
-				Object.fromEntries(decisions),
-				vscode.ConfigurationTarget.Global,
-			);
+			.getConfiguration('bezotcorpAi')
+			.update(TOOL_SETTING, Object.fromEntries(decisions), vscode.ConfigurationTarget.Global);
 	}
 
 	private readAllSessionsResources(): ResourcePermissionGrant[] {
@@ -217,14 +177,11 @@ export class PermissionStore {
 			return [];
 		}
 
-		return value.flatMap((entry) => parseResourceGrant(entry, "allSessions"));
+		return value.flatMap((entry) => parseResourceGrant(entry, 'allSessions'));
 	}
 
-	private async writeResources(
-		lifetime: PermissionLifetime,
-		grants: ResourcePermissionGrant[],
-	): Promise<void> {
-		if (lifetime === "currentSession") {
+	private async writeResources(lifetime: PermissionLifetime, grants: ResourcePermissionGrant[]): Promise<void> {
+		if (lifetime === 'currentSession') {
 			this.sessionResources.splice(0, this.sessionResources.length, ...grants);
 
 			return;
@@ -244,12 +201,12 @@ export class PermissionStore {
 function toToolMap(value: unknown): Map<string, PermissionPolicy> {
 	const result = new Map<string, PermissionPolicy>();
 
-	if (typeof value !== "object" || value === null) {
+	if (typeof value !== 'object' || value === null) {
 		return result;
 	}
 
 	for (const [toolId, policy] of Object.entries(value)) {
-		if (policy === "allow" || policy === "ask" || policy === "deny") {
+		if (policy === 'allow' || policy === 'ask' || policy === 'deny') {
 			result.set(toolId, policy);
 		}
 	}
@@ -257,21 +214,14 @@ function toToolMap(value: unknown): Map<string, PermissionPolicy> {
 	return result;
 }
 
-function parseResourceGrant(
-	value: unknown,
-	lifetime: PermissionLifetime,
-): ResourcePermissionGrant[] {
-	if (typeof value !== "object" || value === null) {
+function parseResourceGrant(value: unknown, lifetime: PermissionLifetime): ResourcePermissionGrant[] {
+	if (typeof value !== 'object' || value === null) {
 		return [];
 	}
 
 	const candidate = value as Record<string, unknown>;
 
-	if (
-		typeof candidate.toolId !== "string" ||
-		typeof candidate.path !== "string" ||
-		!isResourceKind(candidate.kind)
-	) {
+	if (typeof candidate.toolId !== 'string' || typeof candidate.path !== 'string' || !isResourceKind(candidate.kind)) {
 		return [];
 	}
 
@@ -289,17 +239,13 @@ function parseResourceGrant(
 }
 
 function isResourceKind(value: unknown): value is ResourcePermissionKind {
-	return (
-		value === "exact" ||
-		value === "directory" ||
-		value === "structuralWorkspace"
-	);
+	return value === 'exact' || value === 'directory' || value === 'structuralWorkspace';
 }
 
 function grantCovers(grant: ResourcePermissionGrant, target: string): boolean {
 	const parent = normalizeResource(grant.path);
 
-	if (grant.kind === "exact") {
+	if (grant.kind === 'exact') {
 		return parent === target;
 	}
 
@@ -319,18 +265,12 @@ function grantCovers(grant: ResourcePermissionGrant, target: string): boolean {
 
 		const relative = path.posix.relative(parentUri.path, targetUri.path);
 
-		return (
-			relative === "" ||
-			(!relative.startsWith("..") && !path.posix.isAbsolute(relative))
-		);
+		return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
 	}
 
 	const relative = path.relative(parent, target);
 
-	return (
-		relative === "" ||
-		(!relative.startsWith("..") && !path.isAbsolute(relative))
-	);
+	return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function normalizeResource(value: string): string {
@@ -342,16 +282,13 @@ function normalizeResource(value: string): string {
 
 	return uri
 		.with({
-			query: "",
-			fragment: "",
+			query: '',
+			fragment: '',
 		})
 		.toString();
 }
 
-function sameGrant(
-	left: ResourcePermissionGrant,
-	right: ResourcePermissionGrant,
-): boolean {
+function sameGrant(left: ResourcePermissionGrant, right: ResourcePermissionGrant): boolean {
 	return (
 		left.toolId === right.toolId &&
 		left.path === right.path &&

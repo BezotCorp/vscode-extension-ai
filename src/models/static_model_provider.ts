@@ -1,6 +1,6 @@
-import type { AiProviderKind } from "../config/extension_config";
-import type { ModelInfo } from "./model_info";
-import type { ModelProvider } from "./model_provider";
+import type { AiProviderKind } from '../config/ai_provider_kind';
+import type { ModelInfo } from './model_info';
+import type { ModelProvider } from './model_provider';
 
 export class StaticModelProvider implements ModelProvider {
 	constructor(

@@ -1,14 +1,8 @@
-import type { ToolAccessProfile } from "../permissions";
-import type {
-	Tool,
-	ToolDefinition,
-	UnavailableTool,
-	ToolExecutionContext,
-	ToolExecutionResult,
-} from ".";
-import { toolFailure } from "./tool_result";
-import { toolFailureFromException } from "./tool_failure_from_exception";
-import { validateToolInput } from "./tool_validation";
+import type { ToolAccessProfile } from '../permissions';
+import type { Tool, ToolDefinition, UnavailableTool, ToolExecutionContext, ToolExecutionResult } from '.';
+import { toolFailure } from './tool_result';
+import { toolFailureFromException } from './tool_failure_from_exception';
+import { validateToolInput } from './tool_validation';
 
 export class ToolRegistry {
 	private readonly tools = new Map<string, Tool>();
@@ -49,19 +43,15 @@ export class ToolRegistry {
 		}));
 	}
 
-	async execute(
-		toolId: string,
-		input: unknown,
-		context?: ToolExecutionContext,
-	): Promise<ToolExecutionResult> {
+	async execute(toolId: string, input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
 		const tool = this.tools.get(toolId);
 
 		if (!tool) {
-			return toolFailure("error", toolId, undefined, {
-				reason: "unknown_tool",
+			return toolFailure('error', toolId, undefined, {
+				reason: 'unknown_tool',
 				message: `Unknown tool "${toolId}". Available tools: ${this.list()
 					.map((candidate) => candidate.id)
-					.join(", ")}.`,
+					.join(', ')}.`,
 				executed: false,
 				retryable: true,
 			});
@@ -70,8 +60,8 @@ export class ToolRegistry {
 		const parsed = parseToolInput(input);
 
 		if (parsed.error) {
-			return toolFailure("error", toolId, undefined, {
-				reason: "invalid_arguments",
+			return toolFailure('error', toolId, undefined, {
+				reason: 'invalid_arguments',
 				message: parsed.error,
 				executed: false,
 				retryable: true,
@@ -81,8 +71,8 @@ export class ToolRegistry {
 		const problem = validateToolInput(tool.parameters, parsed.value);
 
 		if (problem) {
-			return toolFailure("error", toolId, undefined, {
-				reason: "invalid_arguments",
+			return toolFailure('error', toolId, undefined, {
+				reason: 'invalid_arguments',
 				message: `Invalid arguments: ${problem}.`,
 				executed: false,
 				retryable: true,
@@ -90,10 +80,9 @@ export class ToolRegistry {
 		}
 
 		if (context?.signal?.aborted) {
-			return toolFailure("cancelled", toolId, undefined, {
-				reason: "cancelled_by_user",
-				message:
-					"The request was cancelled before the tool started. Nothing was executed.",
+			return toolFailure('cancelled', toolId, undefined, {
+				reason: 'cancelled_by_user',
+				message: 'The request was cancelled before the tool started. Nothing was executed.',
 				executed: false,
 				retryable: true,
 			});
@@ -108,7 +97,7 @@ export class ToolRegistry {
 }
 
 function parseToolInput(input: unknown): { value?: unknown; error?: string } {
-	if (typeof input !== "string") {
+	if (typeof input !== 'string') {
 		return { value: input ?? {} };
 	}
 

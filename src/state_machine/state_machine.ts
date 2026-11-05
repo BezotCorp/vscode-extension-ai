@@ -1,6 +1,6 @@
-import type { StateMachineDatabase } from "./state_machine_database";
-import type { StateMachineDefinition } from "./state_machine_definition";
-import type { StateMachineRecord } from "./state_machine_record";
+import type { StateMachineDatabase } from './state_machine_database';
+import type { StateMachineDefinition } from './state_machine_definition';
+import type { StateMachineRecord } from './state_machine_record';
 
 type Row = {
 	id: string;
@@ -36,27 +36,16 @@ export class StateMachine<State extends string> {
 	): StateMachineRecord<State> {
 		this.database.connection
 			.prepare(
-				"INSERT INTO state_machine_operations (id, kind, subject, state, data, payload, owner, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+				'INSERT INTO state_machine_operations (id, kind, subject, state, data, payload, owner, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
 			)
-			.run(
-				id,
-				this.kind,
-				subject,
-				this.definition.initial,
-				JSON.stringify(data),
-				payload,
-				process.pid,
-				Date.now(),
-			);
+			.run(id, this.kind, subject, this.definition.initial, JSON.stringify(data), payload, process.pid, Date.now());
 
 		return this.require(id);
 	}
 
 	get(id: string): StateMachineRecord<State> | undefined {
 		const row = this.database.connection
-			.prepare(
-				"SELECT * FROM state_machine_operations WHERE id = ? AND kind = ?",
-			)
+			.prepare('SELECT * FROM state_machine_operations WHERE id = ? AND kind = ?')
 			.get(id, this.kind) as Row | undefined;
 
 		return row ? this.toRecord(row) : undefined;
@@ -68,16 +57,13 @@ export class StateMachine<State extends string> {
 		const current = this.require(id);
 
 		if (!this.definition.transitions[current.state].includes(to)) {
-			throw new Error(
-				`Transition ${current.state} -> ${to} is not allowed for ${this.kind}.`,
-			);
+			throw new Error(`Transition ${current.state} -> ${to} is not allowed for ${this.kind}.`);
 		}
 
-		const payload =
-			patch.payload === undefined ? current.payload : patch.payload;
+		const payload = patch.payload === undefined ? current.payload : patch.payload;
 		const result = this.database.connection
 			.prepare(
-				"UPDATE state_machine_operations SET state = ?, data = ?, payload = ?, owner = ?, updated_at = ? WHERE id = ? AND kind = ? AND state = ?",
+				'UPDATE state_machine_operations SET state = ?, data = ?, payload = ?, owner = ?, updated_at = ? WHERE id = ? AND kind = ? AND state = ?',
 			)
 			.run(
 				to,
@@ -91,9 +77,7 @@ export class StateMachine<State extends string> {
 			);
 
 		if (Number(result.changes) !== 1) {
-			throw new Error(
-				`Operation ${id} changed state while moving from ${current.state} to ${to}.`,
-			);
+			throw new Error(`Operation ${id} changed state while moving from ${current.state} to ${to}.`);
 		}
 
 		return this.require(id);
@@ -106,19 +90,12 @@ export class StateMachine<State extends string> {
 	// Operations that did not reach a final state and whose process is gone.
 	interrupted(): StateMachineRecord<State>[] {
 		const rows = this.database.connection
-			.prepare(
-				"SELECT * FROM state_machine_operations WHERE kind = ? ORDER BY updated_at",
-			)
+			.prepare('SELECT * FROM state_machine_operations WHERE kind = ? ORDER BY updated_at')
 			.all(this.kind) as Row[];
 
 		return rows
 			.map((row) => this.toRecord(row))
-			.filter(
-				(record) =>
-					!this.isFinal(record.state) &&
-					record.owner !== process.pid &&
-					!isAlive(record.owner),
-			);
+			.filter((record) => !this.isFinal(record.state) && record.owner !== process.pid && !isAlive(record.owner));
 	}
 
 	private require(id: string): StateMachineRecord<State> {
@@ -150,6 +127,6 @@ function isAlive(pid: number): boolean {
 		process.kill(pid, 0);
 		return true;
 	} catch (error) {
-		return (error as { code?: string }).code === "EPERM";
+		return (error as { code?: string }).code === 'EPERM';
 	}
 }

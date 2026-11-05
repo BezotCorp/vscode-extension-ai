@@ -1,14 +1,9 @@
-import type { AiContext, ContextFilter } from "../context";
-import type {
-	ToolCall,
-	ToolExecutionResult,
-	ToolRegistry,
-	ToolRound,
-} from "../tools";
-import type { ProviderStatus } from "./provider_status";
+import type { AiContext, ContextFilter } from '../context';
+import type { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from '../tools';
+import type { ProviderStatus } from './provider_status';
 
 export type ChatHistoryMessage = {
-	role: "user" | "assistant";
+	role: 'user' | 'assistant';
 	content: string;
 	// Tool calls made before this answer, so the model keeps what it read and did in earlier turns.
 	toolRounds?: ToolRound[];
@@ -44,9 +39,5 @@ export interface AiProvider {
 	resolveContextTokens?(signal?: AbortSignal): Promise<number>;
 	health(): Promise<ProviderStatus>;
 	chat(request: ChatRequest, signal?: AbortSignal): Promise<ChatResult>;
-	streamChat(
-		request: ChatRequest,
-		handler: ChatStreamHandler,
-		signal?: AbortSignal,
-	): Promise<void>;
+	streamChat(request: ChatRequest, handler: ChatStreamHandler, signal?: AbortSignal): Promise<void>;
 }

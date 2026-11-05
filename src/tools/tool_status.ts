@@ -4,10 +4,4 @@
 // cancelled: stopped on request, or never started because nobody decided.
 // interrupted: started, then stopped by something other than the user (timeout, crash, lost connection).
 // unknown: the final outcome cannot be determined.
-export type ToolStatus =
-	| "success"
-	| "error"
-	| "denied"
-	| "cancelled"
-	| "interrupted"
-	| "unknown";
+export type ToolStatus = 'success' | 'error' | 'denied' | 'cancelled' | 'interrupted' | 'unknown';

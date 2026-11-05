@@ -4,6 +4,6 @@ export type FileRead = {
 	bytes: Uint8Array;
 	sha: string;
 	binary: boolean;
-	source: "disk" | "editor_buffer";
+	source: 'disk' | 'editor_buffer';
 	unsavedChanges: boolean;
 };

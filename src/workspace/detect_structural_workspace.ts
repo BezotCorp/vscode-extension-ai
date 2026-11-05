@@ -1,7 +1,7 @@
-import * as path from "node:path";
-import * as vscode from "vscode";
+import * as path from 'node:path';
+import * as vscode from 'vscode';
 
-import type { StructuralWorkspace } from "./structural_workspace";
+import type { StructuralWorkspace } from './structural_workspace';
 
 const MAX_MANIFEST_BYTES = 1_000_000;
 
@@ -15,52 +15,41 @@ export async function detectStructuralWorkspace(
 		for (const parent of parents(root)) {
 			const detected = await detectAt(parent);
 
-			if (
-				detected &&
-				isInside(detected.root, root) &&
-				isInside(detected.root, target)
-			) {
+			if (detected && isInside(detected.root, root) && isInside(detected.root, target)) {
 				candidates.set(detected.root.toString(), detected);
 			}
 		}
 	}
 
-	return [...candidates.values()].sort(
-		(left, right) => right.root.path.length - left.root.path.length,
-	)[0];
+	return [...candidates.values()].sort((left, right) => right.root.path.length - left.root.path.length)[0];
 }
 
-async function detectAt(
-	root: vscode.Uri,
-): Promise<StructuralWorkspace | undefined> {
-	const cargo = vscode.Uri.joinPath(root, "Cargo.toml");
+async function detectAt(root: vscode.Uri): Promise<StructuralWorkspace | undefined> {
+	const cargo = vscode.Uri.joinPath(root, 'Cargo.toml');
 
 	if ((await isFile(cargo)) && (await cargoContainsWorkspace(cargo))) {
 		return {
-			kind: "cargo",
+			kind: 'cargo',
 			root,
 			marker: cargo,
 		};
 	}
 
-	const pnpm = vscode.Uri.joinPath(root, "pnpm-workspace.yaml");
+	const pnpm = vscode.Uri.joinPath(root, 'pnpm-workspace.yaml');
 
 	if (await isFile(pnpm)) {
 		return {
-			kind: "pnpm",
+			kind: 'pnpm',
 			root,
 			marker: pnpm,
 		};
 	}
 
-	const packageJson = vscode.Uri.joinPath(root, "package.json");
+	const packageJson = vscode.Uri.joinPath(root, 'package.json');
 
-	if (
-		(await isFile(packageJson)) &&
-		(await packageContainsWorkspaces(packageJson))
-	) {
+	if ((await isFile(packageJson)) && (await packageContainsWorkspaces(packageJson))) {
 		return {
-			kind: "node",
+			kind: 'node',
 			root,
 			marker: packageJson,
 		};
@@ -87,10 +76,7 @@ async function packageContainsWorkspaces(uri: vscode.Uri): Promise<boolean> {
 			workspaces?: unknown;
 		};
 
-		return (
-			Array.isArray(value.workspaces) ||
-			(typeof value.workspaces === "object" && value.workspaces !== null)
-		);
+		return Array.isArray(value.workspaces) || (typeof value.workspaces === 'object' && value.workspaces !== null);
 	} catch {
 		return false;
 	}
@@ -135,8 +121,8 @@ function parents(start: vscode.Uri): vscode.Uri[] {
 
 		current = current.with({
 			path: parentPath,
-			query: "",
-			fragment: "",
+			query: '',
+			fragment: '',
 		});
 	}
 }
@@ -148,8 +134,5 @@ function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
 
 	const relative = path.posix.relative(parent.path, child.path);
 
-	return (
-		relative === "" ||
-		(!relative.startsWith("..") && !path.posix.isAbsolute(relative))
-	);
+	return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
 }

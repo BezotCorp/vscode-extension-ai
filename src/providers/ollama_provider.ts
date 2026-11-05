@@ -1,24 +1,13 @@
-import type { ExtensionConfig } from "../config/extension_config";
-import type {
-	AiContext,
-	ContextFile,
-	ContextFilter,
-	ContextSource,
-} from "../context";
-import { runToolLoop, type ToolDefinition, type ToolRegistry } from "../tools";
-import type {
-	AiProvider,
-	ChatHistoryMessage,
-	ChatRequest,
-	ChatResult,
-	ChatStreamHandler,
-} from "./ai_provider";
-import type { ProviderStatus } from "./provider_status";
-import { t } from "../i18n";
+import type { ExtensionConfig } from '../config/extension_config';
+import type { AiContext, ContextFile, ContextFilter, ContextSource } from '../context';
+import { runToolLoop, type ToolDefinition, type ToolRegistry } from '../tools';
+import type { AiProvider, ChatHistoryMessage, ChatRequest, ChatResult, ChatStreamHandler } from './ai_provider';
+import type { ProviderStatus } from './provider_status';
+import { t } from '../i18n';
+import { estimatedCharacterBudget } from '../context';
 
 const MAX_TOOL_ROUNDS = 8;
 // Characters per token assumed when sizing prompts: code tokenizes densely, so this errs on the safe side.
-const CHARS_PER_TOKEN = 3;
 // Share of the context window injected context may take, and the share tool traffic may fill.
 const SYSTEM_PROMPT_SHARE = 0.4;
 const TOOL_CONTEXT_SHARE = 0.9;
@@ -39,7 +28,7 @@ type OllamaToolCall = {
 };
 
 type OllamaMessage = {
-	role: "system" | "user" | "assistant" | "tool";
+	role: 'system' | 'user' | 'assistant' | 'tool';
 	content: string;
 	tool_calls?: OllamaToolCall[];
 	tool_name?: string;
@@ -56,7 +45,7 @@ type OllamaStreamResponse = {
 
 class ToolsUnsupportedError extends Error {
 	constructor() {
-		super("The model does not support tools.");
+		super('The model does not support tools.');
 	}
 }
 
@@ -73,7 +62,7 @@ export class OllamaProvider implements AiProvider {
 	async health(): Promise<ProviderStatus> {
 		try {
 			const response = await fetch(`${this.config.providerUrl}/api/tags`, {
-				method: "GET",
+				method: 'GET',
 			});
 
 			if (!response.ok) {
@@ -81,15 +70,15 @@ export class OllamaProvider implements AiProvider {
 			}
 
 			return {
-				status: "connected",
+				status: 'connected',
 				providerUrl: this.config.providerUrl,
-				text: t("status.connectedOllama"),
+				text: t('status.connectedOllama'),
 			};
 		} catch (error) {
 			return {
-				status: "disconnected",
+				status: 'disconnected',
 				providerUrl: this.config.providerUrl,
-				text: t("status.disconnected", { error: String(error) }),
+				text: t('status.disconnected', { error: String(error) }),
 			};
 		}
 	}
@@ -104,38 +93,26 @@ export class OllamaProvider implements AiProvider {
 
 		const limit = modelContextLimits.get(key);
 
-		return limit === undefined
-			? this.config.contextTokens
-			: Math.min(this.config.contextTokens, limit);
+		return limit === undefined ? this.config.contextTokens : Math.min(this.config.contextTokens, limit);
 	}
 
-	private async readModelContextLimit(
-		signal?: AbortSignal,
-	): Promise<number | undefined> {
+	private async readModelContextLimit(signal?: AbortSignal): Promise<number | undefined> {
 		try {
 			const response = await fetch(`${this.config.providerUrl}/api/show`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ model: this.config.model }),
-				signal: signal
-					? AbortSignal.any([signal, AbortSignal.timeout(5_000)])
-					: AbortSignal.timeout(5_000),
+				signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000),
 			});
 
 			if (!response.ok) {
 				return undefined;
 			}
 
-			const info =
-				((await response.json()) as { model_info?: Record<string, unknown> })
-					.model_info ?? {};
-			const entry = Object.entries(info).find(([name]) =>
-				name.endsWith(".context_length"),
-			);
+			const info = ((await response.json()) as { model_info?: Record<string, unknown> }).model_info ?? {};
+			const entry = Object.entries(info).find(([name]) => name.endsWith('.context_length'));
 
-			return typeof entry?.[1] === "number" && entry[1] > 0
-				? entry[1]
-				: undefined;
+			return typeof entry?.[1] === 'number' && entry[1] > 0 ? entry[1] : undefined;
 		} catch {
 			return undefined;
 		}
@@ -144,8 +121,8 @@ export class OllamaProvider implements AiProvider {
 	async chat(request: ChatRequest, signal?: AbortSignal): Promise<ChatResult> {
 		const numCtx = await this.resolveContextTokens(signal);
 		const response = await fetch(`${this.config.providerUrl}/api/chat`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
 			signal,
 			body: JSON.stringify({
 				model: this.config.model,
@@ -158,20 +135,13 @@ export class OllamaProvider implements AiProvider {
 		const data = (await response.json()) as OllamaResponse;
 
 		return {
-			text: data.message?.content ?? data.error ?? "no response",
+			text: data.message?.content ?? data.error ?? 'no response',
 		};
 	}
 
-	async streamChat(
-		request: ChatRequest,
-		handler: ChatStreamHandler,
-		signal?: AbortSignal,
-	): Promise<void> {
+	async streamChat(request: ChatRequest, handler: ChatStreamHandler, signal?: AbortSignal): Promise<void> {
 		const toolsKey = `${this.config.providerUrl}|${this.config.model}`;
-		const tools =
-			request.tools && !modelsWithoutTools.has(toolsKey)
-				? request.tools
-				: undefined;
+		const tools = request.tools && !modelsWithoutTools.has(toolsKey) ? request.tools : undefined;
 
 		handler.onStart();
 
@@ -184,9 +154,7 @@ export class OllamaProvider implements AiProvider {
 			}
 
 			modelsWithoutTools.add(toolsKey);
-			handler.onNotice?.(
-				`${t("chat.notice.noTools", { model: this.config.model })}\n\n`,
-			);
+			handler.onNotice?.(`${t('chat.notice.noTools', { model: this.config.model })}\n\n`);
 			await this.runConversation(request, undefined, handler, signal);
 		}
 
@@ -203,20 +171,13 @@ export class OllamaProvider implements AiProvider {
 		const numCtx = await this.resolveContextTokens(signal);
 
 		await runToolLoop<OllamaMessage>({
-			messages: buildMessages(
-				request,
-				tools !== undefined,
-				systemPromptLimit(numCtx),
-			),
+			messages: buildMessages(request, tools !== undefined, systemPromptLimit(numCtx)),
 			tools,
 			maxRounds: MAX_TOOL_ROUNDS,
 			signal,
-			maxResultChars: Math.floor(numCtx * CHARS_PER_TOKEN * TOOL_RESULT_SHARE),
-			contextBudgetChars: Math.floor(
-				numCtx * CHARS_PER_TOKEN * TOOL_CONTEXT_SHARE,
-			),
-			onContextFull: () =>
-				handler.onNotice?.(`${t("chat.notice.contextFull")}\n\n`),
+			maxResultChars: estimatedCharacterBudget(numCtx, TOOL_RESULT_SHARE),
+			contextBudgetChars: estimatedCharacterBudget(numCtx, TOOL_CONTEXT_SHARE),
+			onContextFull: () => handler.onNotice?.(`${t('chat.notice.contextFull')}\n\n`),
 			runRound: async (messages, allowTools) => {
 				const { content, toolCalls } = await this.streamRound(
 					messages,
@@ -235,14 +196,14 @@ export class OllamaProvider implements AiProvider {
 				};
 			},
 			assistantMessage: (content, toolCalls) => ({
-				role: "assistant",
+				role: 'assistant',
 				content,
 				tool_calls: toolCalls.map((call) => ({
 					function: { name: call.name, arguments: call.arguments },
 				})),
 			}),
 			toolMessage: (call, content) => ({
-				role: "tool",
+				role: 'tool',
 				tool_name: call.name,
 				content,
 			}),
@@ -260,8 +221,8 @@ export class OllamaProvider implements AiProvider {
 		signal?: AbortSignal,
 	): Promise<{ content: string; toolCalls: OllamaToolCall[] }> {
 		const response = await fetch(`${this.config.providerUrl}/api/chat`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
 			signal,
 			body: JSON.stringify({
 				model: this.config.model,
@@ -269,41 +230,35 @@ export class OllamaProvider implements AiProvider {
 				options: { num_ctx: numCtx },
 				messages,
 				...(tools.length > 0 && {
-					tools: tools.map((tool) => ({ type: "function", function: tool })),
+					tools: tools.map((tool) => ({ type: 'function', function: tool })),
 				}),
 			}),
 		});
 
 		if (!response.ok) {
-			const errorText = await response.text().catch(() => "");
+			const errorText = await response.text().catch(() => '');
 
-			if (
-				tools.length > 0 &&
-				response.status === 400 &&
-				/does not support tools/i.test(errorText)
-			) {
+			if (tools.length > 0 && response.status === 400 && /does not support tools/i.test(errorText)) {
 				throw new ToolsUnsupportedError();
 			}
 
-			throw new Error(
-				`HTTP ${response.status}${errorText ? `: ${errorText.slice(0, 300)}` : ""}`,
-			);
+			throw new Error(`HTTP ${response.status}${errorText ? `: ${errorText.slice(0, 300)}` : ''}`);
 		}
 
 		if (!response.body) {
-			throw new Error("Streaming response body is empty");
+			throw new Error('Streaming response body is empty');
 		}
 
 		const reader = response.body.getReader();
 		const decoder = new TextDecoder();
 		const toolCalls: OllamaToolCall[] = [];
 
-		let content = "";
-		let buffer = "";
+		let content = '';
+		let buffer = '';
 
 		while (true) {
 			if (signal?.aborted) {
-				throw new Error("Generation aborted");
+				throw new Error('Generation aborted');
 			}
 
 			const { done, value } = await reader.read();
@@ -314,8 +269,8 @@ export class OllamaProvider implements AiProvider {
 
 			buffer += decoder.decode(value, { stream: true });
 
-			const lines = buffer.split("\n");
-			buffer = lines.pop() ?? "";
+			const lines = buffer.split('\n');
+			buffer = lines.pop() ?? '';
 
 			for (const line of lines) {
 				const trimmedLine = line.trim();
@@ -353,7 +308,7 @@ export class OllamaProvider implements AiProvider {
 
 // Ollama expects tool call arguments as an object; some models produce a JSON string instead.
 function normalizeArguments(args: unknown): unknown {
-	if (typeof args !== "string") {
+	if (typeof args !== 'string') {
 		return args ?? {};
 	}
 
@@ -365,42 +320,31 @@ function normalizeArguments(args: unknown): unknown {
 }
 
 function systemPromptLimit(numCtx: number): number {
-	return Math.floor(numCtx * CHARS_PER_TOKEN * SYSTEM_PROMPT_SHARE);
+	return estimatedCharacterBudget(numCtx, SYSTEM_PROMPT_SHARE);
 }
 
-function buildMessages(
-	request: ChatRequest,
-	withTools: boolean,
-	systemLimit: number,
-): OllamaMessage[] {
+function buildMessages(request: ChatRequest, withTools: boolean, systemLimit: number): OllamaMessage[] {
 	return [
 		{
-			role: "system",
+			role: 'system',
 			content: buildSystemPrompt(
 				request.context,
-				request.contextFilter ?? "all",
+				request.contextFilter ?? 'all',
 				buildGuide(request, withTools),
 				systemLimit,
 			),
 		},
-		...(request.history ?? []).flatMap((message) =>
-			historyMessages(message, withTools),
-		),
+		...(request.history ?? []).flatMap((message) => historyMessages(message, withTools)),
 		{
-			role: "user",
+			role: 'user',
 			content: request.message,
 		},
 	];
 }
 
-function historyMessages(
-	message: ChatHistoryMessage,
-	withTools: boolean,
-): OllamaMessage[] {
-	const hasText = message.content.trim() !== "";
-	const closing: OllamaMessage[] = hasText
-		? [{ role: message.role, content: message.content }]
-		: [];
+function historyMessages(message: ChatHistoryMessage, withTools: boolean): OllamaMessage[] {
+	const hasText = message.content.trim() !== '';
+	const closing: OllamaMessage[] = hasText ? [{ role: message.role, content: message.content }] : [];
 
 	// Without tools in this request, earlier tool traffic would be unexplained noise (or rejected by the model).
 	if (!withTools || !message.toolRounds?.length) {
@@ -409,7 +353,7 @@ function historyMessages(
 
 	const rounds = message.toolRounds.flatMap((round): OllamaMessage[] => [
 		{
-			role: "assistant",
+			role: 'assistant',
 			content: round.content,
 			tool_calls: round.calls.map((call) => ({
 				function: { name: call.name, arguments: call.arguments },
@@ -417,7 +361,7 @@ function historyMessages(
 		},
 		...round.calls.map(
 			(call): OllamaMessage => ({
-				role: "tool",
+				role: 'tool',
 				tool_name: call.name,
 				content: call.result,
 			}),
@@ -429,12 +373,7 @@ function historyMessages(
 
 // Context sources are filtered independently from context collection. Today every available source is injected
 // by default. A future symbolic or automatic selector can provide a narrower ContextFilter without changing AiContext.
-function buildSystemPrompt(
-	context: AiContext,
-	filter: ContextFilter,
-	guide: string,
-	limit: number,
-): string {
+function buildSystemPrompt(context: AiContext, filter: ContextFilter, guide: string, limit: number): string {
 	const full = composeSystemPrompt(context, filter, guide);
 
 	if (full.length <= limit) {
@@ -443,7 +382,7 @@ function buildSystemPrompt(
 
 	const activeFile = context.editor.activeFile;
 
-	if (!includesContextSource(filter, "editor") || !activeFile) {
+	if (!includesContextSource(filter, 'editor') || !activeFile) {
 		return full;
 	}
 
@@ -463,35 +402,26 @@ function buildSystemPrompt(
 }
 
 function cut(text: string, maxChars: number): string {
-	return text.length <= maxChars
-		? text
-		: `${text.slice(0, maxChars)}\n/* cut to fit the model context */`;
+	return text.length <= maxChars ? text : `${text.slice(0, maxChars)}\n/* cut to fit the model context */`;
 }
 
-function composeSystemPrompt(
-	context: AiContext,
-	filter: ContextFilter,
-	guide: string,
-): string {
+function composeSystemPrompt(context: AiContext, filter: ContextFilter, guide: string): string {
 	const parts = [
-		"You are BezotCorp AI, a coding assistant inside VS Code.",
-		"Answer clearly and focus on practical code help.",
+		'You are BezotCorp AI, a coding assistant inside VS Code.',
+		'Answer clearly and focus on practical code help.',
 	];
 
 	parts.push(guide);
 
-	if (includesContextSource(filter, "editor") && context.editor.activeFile) {
-		parts.push(formatFile("Active file", context.editor.activeFile));
+	if (includesContextSource(filter, 'editor') && context.editor.activeFile) {
+		parts.push(formatFile('Active file', context.editor.activeFile));
 	}
 
-	return parts.join("\n\n");
+	return parts.join('\n\n');
 }
 
-function includesContextSource(
-	filter: ContextFilter,
-	source: ContextSource,
-): boolean {
-	return filter === "all" || filter.includes(source);
+function includesContextSource(filter: ContextFilter, source: ContextSource): boolean {
+	return filter === 'all' || filter.includes(source);
 }
 
 // What the model can and cannot do, stated up front so it never pretends or improvises around a missing tool.
@@ -507,8 +437,8 @@ function buildGuide(request: ChatRequest, withTools: boolean): string {
 	const unavailable = request.tools?.unavailableTools() ?? [];
 	const notOffered =
 		unavailable.length > 0
-			? `\nNot available right now: ${unavailable.map((tool) => `${tool.id} (${tool.reason})`).join("; ")}.`
-			: "";
+			? `\nNot available right now: ${unavailable.map((tool) => `${tool.id} (${tool.reason})`).join('; ')}.`
+			: '';
 
 	return `${CAPABILITY_GUIDE}${notOffered}\n${TOOL_RESULT_GUIDE}`;
 }

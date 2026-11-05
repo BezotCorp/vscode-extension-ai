@@ -1,52 +1,52 @@
-import type { AiProviderKind } from "../../config/extension_config";
+import type { AiProviderKind } from '../../config/ai_provider_kind';
 
 export type WebviewMessage =
-	| { type: "webviewReady" }
-	| { type: "copyMessage"; text: string }
-	| { type: "openSettings" }
-	| { type: "testConnection" }
-	| { type: "refreshModels" }
+	| { type: 'webviewReady' }
+	| { type: 'copyMessage'; text: string }
+	| { type: 'openSettings' }
+	| { type: 'testConnection' }
+	| { type: 'refreshModels' }
 	| {
-			type: "updateProviderSettings";
+			type: 'updateProviderSettings';
 			provider: AiProviderKind;
 			providerUrl: string;
 	  }
-	| { type: "changeModel"; model: string }
-	| { type: "newChat" }
+	| { type: 'changeModel'; model: string }
+	| { type: 'newChat' }
 	| {
-			type: "switchChatSession";
+			type: 'switchChatSession';
 			sessionId: string;
 	  }
 	| {
-			type: "renameChatSession";
+			type: 'renameChatSession';
 			sessionId: string;
 			title: string;
 	  }
 	| {
-			type: "archiveChatSession";
+			type: 'archiveChatSession';
 			sessionId: string;
 	  }
 	| {
-			type: "restoreChatSession";
+			type: 'restoreChatSession';
 			sessionId: string;
 	  }
 	| {
-			type: "trashChatSession";
+			type: 'trashChatSession';
 			sessionId: string;
 	  }
 	| {
-			type: "restoreTrashedChatSession";
+			type: 'restoreTrashedChatSession';
 			sessionId: string;
 	  }
 	| {
-			type: "deleteChatSession";
+			type: 'deleteChatSession';
 			sessionId: string;
 	  }
-	| { type: "clearCurrentSession" }
-	| { type: "trashArchivedSessions" }
-	| { type: "emptyTrash" }
-	| { type: "stopGeneration" }
+	| { type: 'clearCurrentSession' }
+	| { type: 'trashArchivedSessions' }
+	| { type: 'emptyTrash' }
+	| { type: 'stopGeneration' }
 	| {
-			type: "chat";
+			type: 'chat';
 			text: string;
 	  };

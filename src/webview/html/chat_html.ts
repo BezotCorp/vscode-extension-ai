@@ -1,7 +1,7 @@
-import { currentLocale, escapeHtml, t } from "../../i18n";
-import { getStyles } from "../css";
-import { getChatScript } from "../javascript/chat_script";
-import { getModelManagementHtml } from "./model_management_html";
+import { currentLocale, escapeHtml, t } from '../../i18n';
+import { getStyles } from '../css';
+import { getChatScript } from '../javascript/chat_script';
+import { getModelManagementHtml } from './model_management_html';
 
 // Every visible text is read from the catalog in the display language; the page never mixes two languages.
 export function getChatHtml(): string {
@@ -19,15 +19,15 @@ ${getStyles()}
 <body>
 
 <header id="chat-header">
-  <div id="view-title"><span id="view-title-text">${ui("ui.newConversation")}</span></div>
+  <div id="view-title"><span id="view-title-text">${ui('ui.newConversation')}</span></div>
 
   <div id="header-actions">
     <button
       id="open-history"
       class="header-action"
       type="button"
-      title="${ui("ui.history")}"
-      aria-label="${ui("ui.history")}"
+      title="${ui('ui.history')}"
+      aria-label="${ui('ui.history')}"
     >
       ◷
     </button>
@@ -36,8 +36,8 @@ ${getStyles()}
       id="new-chat"
       class="header-action"
       type="button"
-      title="${ui("ui.newConversation")}"
-      aria-label="${ui("ui.newConversation")}"
+      title="${ui('ui.newConversation')}"
+      aria-label="${ui('ui.newConversation')}"
     >
       +
     </button>
@@ -46,8 +46,8 @@ ${getStyles()}
       id="open-configuration"
       class="header-action"
       type="button"
-      title="${ui("ui.configuration")}"
-      aria-label="${ui("ui.configuration")}"
+      title="${ui('ui.configuration')}"
+      aria-label="${ui('ui.configuration')}"
     >
       ⚙
     </button>
@@ -61,7 +61,7 @@ ${getStyles()}
       data-history-filter="active"
       type="button"
     >
-      ${ui("ui.filterActive")}
+      ${ui('ui.filterActive')}
     </button>
 
     <button
@@ -69,7 +69,7 @@ ${getStyles()}
       data-history-filter="archived"
       type="button"
     >
-      ${ui("ui.filterArchived")}
+      ${ui('ui.filterArchived')}
     </button>
 
     <button
@@ -77,14 +77,14 @@ ${getStyles()}
       data-history-filter="trash"
       type="button"
     >
-      ${ui("ui.filterTrash")}
+      ${ui('ui.filterTrash')}
     </button>
   </div>
 
   <ul id="history-session-list"></ul>
 
   <div id="history-empty" hidden>
-    ${ui("ui.historyEmpty")}
+    ${ui('ui.historyEmpty')}
   </div>
 
   <div id="history-bulk-actions">
@@ -93,7 +93,7 @@ ${getStyles()}
       class="history-bulk-action"
       type="button"
     >
-      ${ui("ui.clearCurrent")}
+      ${ui('ui.clearCurrent')}
     </button>
 
     <button
@@ -102,7 +102,7 @@ ${getStyles()}
       type="button"
       hidden
     >
-      ${ui("ui.trashArchived")}
+      ${ui('ui.trashArchived')}
     </button>
 
     <button
@@ -111,7 +111,7 @@ ${getStyles()}
       type="button"
       hidden
     >
-      ${ui("ui.emptyTrash")}
+      ${ui('ui.emptyTrash')}
     </button>
   </div>
 </section>
@@ -120,10 +120,10 @@ ${getStyles()}
 
   <section id="view-chat" class="view-panel active">
     <div id="backend-alert" hidden>
-      <span>${ui("ui.backendUnavailable")}</span>
+      <span>${ui('ui.backendUnavailable')}</span>
 
       <button id="backend-alert-configure" type="button">
-        ${ui("ui.openConfiguration")}
+        ${ui('ui.openConfiguration')}
       </button>
     </div>
 
@@ -133,7 +133,7 @@ ${getStyles()}
       <div id="composer-toolbar">
         <select
           id="chat-model-select"
-          aria-label="${ui("ui.activeModel")}"
+          aria-label="${ui('ui.activeModel')}"
         ></select>
 
         <button
@@ -141,22 +141,22 @@ ${getStyles()}
           type="button"
           hidden
         >
-          ${ui("ui.configure")}
+          ${ui('ui.configure')}
         </button>
       </div>
 
       <div id="input-area">
         <textarea
           id="input"
-          placeholder="${ui("ui.placeholder")}"
+          placeholder="${ui('ui.placeholder')}"
           rows="1"
         ></textarea>
 
         <button
           id="send"
           type="button"
-          title="${ui("ui.send")}"
-          aria-label="${ui("ui.send")}"
+          title="${ui('ui.send')}"
+          aria-label="${ui('ui.send')}"
         >
           ↑
         </button>
@@ -164,8 +164,8 @@ ${getStyles()}
         <button
           id="stop"
           type="button"
-          title="${ui("ui.stop")}"
-          aria-label="${ui("ui.stop")}"
+          title="${ui('ui.stop')}"
+          aria-label="${ui('ui.stop')}"
           disabled
         >
           ■

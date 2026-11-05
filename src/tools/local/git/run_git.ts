@@ -1,26 +1,26 @@
-import { spawn } from "node:child_process";
+import { spawn } from 'node:child_process';
 
-import { baseEnvironment } from "../../base_environment";
-import { BoundedText } from "./bounded_text";
-import type { GitRunOptions } from "./git_run_options";
-import type { GitRunResult } from "./git_run_result";
+import { baseEnvironment } from '../../base_environment';
+import { BoundedText } from './bounded_text';
+import type { GitRunOptions } from './git_run_options';
+import type { GitRunResult } from './git_run_result';
 
 const KILL_GRACE_MS = 2_000;
 
 // Options placed before every command: nothing a repository's own configuration says can start a program through
 // them (file system monitor, pager, external protocol helpers, credential prompts), and output is plain text.
 const SAFETY_OPTIONS = [
-	"--no-pager",
-	"-c",
-	"core.fsmonitor=false",
-	"-c",
-	"core.pager=cat",
-	"-c",
-	"core.quotepath=false",
-	"-c",
-	"color.ui=false",
-	"-c",
-	"protocol.ext.allow=never",
+	'--no-pager',
+	'-c',
+	'core.fsmonitor=false',
+	'-c',
+	'core.pager=cat',
+	'-c',
+	'core.quotepath=false',
+	'-c',
+	'color.ui=false',
+	'-c',
+	'protocol.ext.allow=never',
 ];
 
 // The only program the extension starts for git tools is git itself, without a shell, with arguments the tools
@@ -49,28 +49,28 @@ export function runGit(options: GitRunOptions): Promise<GitRunResult> {
 			return;
 		}
 
-		const child = spawn("git", [...SAFETY_OPTIONS, ...options.args], {
+		const child = spawn('git', [...SAFETY_OPTIONS, ...options.args], {
 			cwd: options.cwd,
 			shell: false,
 			env: {
 				...baseEnvironment([
-					"SSH_AUTH_SOCK",
-					"XDG_CONFIG_HOME",
-					"GIT_AUTHOR_NAME",
-					"GIT_AUTHOR_EMAIL",
-					"GIT_COMMITTER_NAME",
-					"GIT_COMMITTER_EMAIL",
+					'SSH_AUTH_SOCK',
+					'XDG_CONFIG_HOME',
+					'GIT_AUTHOR_NAME',
+					'GIT_AUTHOR_EMAIL',
+					'GIT_COMMITTER_NAME',
+					'GIT_COMMITTER_EMAIL',
 				]),
 				// No prompt can be answered: a missing credential or an editor request must fail, not hang.
-				GIT_TERMINAL_PROMPT: "0",
-				GIT_EDITOR: "true",
-				GIT_PAGER: "cat",
-				LC_MESSAGES: "C",
-				GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? "ssh -o BatchMode=yes",
+				GIT_TERMINAL_PROMPT: '0',
+				GIT_EDITOR: 'true',
+				GIT_PAGER: 'cat',
+				LC_MESSAGES: 'C',
+				GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes',
 			},
 			// Own process group on POSIX so a timeout or cancellation also stops git's children (ssh, hooks).
-			detached: process.platform !== "win32",
-			stdio: ["ignore", "pipe", "pipe"],
+			detached: process.platform !== 'win32',
+			stdio: ['ignore', 'pipe', 'pipe'],
 		});
 
 		let spawned = false;
@@ -80,7 +80,7 @@ export function runGit(options: GitRunOptions): Promise<GitRunResult> {
 
 		const terminate = (killSignal: NodeJS.Signals) => {
 			try {
-				if (process.platform !== "win32" && child.pid) {
+				if (process.platform !== 'win32' && child.pid) {
 					process.kill(-child.pid, killSignal);
 				} else {
 					child.kill(killSignal);
@@ -90,8 +90,8 @@ export function runGit(options: GitRunOptions): Promise<GitRunResult> {
 			}
 		};
 		const stop = () => {
-			terminate("SIGTERM");
-			killTimer = setTimeout(() => terminate("SIGKILL"), KILL_GRACE_MS);
+			terminate('SIGTERM');
+			killTimer = setTimeout(() => terminate('SIGKILL'), KILL_GRACE_MS);
 		};
 		const timeoutTimer = setTimeout(() => {
 			timedOut = true;
@@ -104,19 +104,19 @@ export function runGit(options: GitRunOptions): Promise<GitRunResult> {
 		const cleanup = () => {
 			clearTimeout(timeoutTimer);
 			clearTimeout(killTimer);
-			options.signal?.removeEventListener("abort", onAbort);
+			options.signal?.removeEventListener('abort', onAbort);
 		};
 
-		options.signal?.addEventListener("abort", onAbort, { once: true });
-		child.stdout.setEncoding("utf8");
-		child.stderr.setEncoding("utf8");
-		child.stdout.on("data", (chunk: string) => stdout.append(chunk));
-		child.stderr.on("data", (chunk: string) => stderr.append(chunk));
-		child.on("spawn", () => {
+		options.signal?.addEventListener('abort', onAbort, { once: true });
+		child.stdout.setEncoding('utf8');
+		child.stderr.setEncoding('utf8');
+		child.stdout.on('data', (chunk: string) => stdout.append(chunk));
+		child.stderr.on('data', (chunk: string) => stderr.append(chunk));
+		child.on('spawn', () => {
 			spawned = true;
 		});
 
-		child.on("error", (error: NodeJS.ErrnoException) => {
+		child.on('error', (error: NodeJS.ErrnoException) => {
 			if (spawned) {
 				return;
 			}
@@ -128,7 +128,7 @@ export function runGit(options: GitRunOptions): Promise<GitRunResult> {
 			});
 		});
 
-		child.on("close", (exitCode, terminatedBySignal) => {
+		child.on('close', (exitCode, terminatedBySignal) => {
 			cleanup();
 			finish({ exitCode, terminatedBySignal, timedOut, aborted });
 		});

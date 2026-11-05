@@ -5,7 +5,7 @@ import {
 	createChatSession,
 	normalizeChatSession,
 	renameChatSession,
-} from "./chat_session";
+} from './chat_session';
 
 export const CHAT_STORE_VERSION = 1;
 
@@ -53,48 +53,33 @@ export function normalizeChatStore(store: ChatStore): ChatStore {
 		};
 	}
 
-	const activeSessionExists = activeSessions.some(
-		(session) => session.id === store.activeSessionId,
-	);
+	const activeSessionExists = activeSessions.some((session) => session.id === store.activeSessionId);
 
 	return {
 		version: CHAT_STORE_VERSION,
-		activeSessionId: activeSessionExists
-			? store.activeSessionId
-			: activeSessions[0].id,
+		activeSessionId: activeSessionExists ? store.activeSessionId : activeSessions[0].id,
 		sessions,
 	};
 }
 
-export function getActiveChatSession(
-	store: ChatStore,
-): ChatSession | undefined {
+export function getActiveChatSession(store: ChatStore): ChatSession | undefined {
 	const session = store.sessions.find(
-		(candidate) =>
-			candidate.id === store.activeSessionId && isActiveSession(candidate),
+		(candidate) => candidate.id === store.activeSessionId && isActiveSession(candidate),
 	);
 
 	return session ?? ensureActiveChatSession(store);
 }
 
-export function createAndActivateChatSession(
-	store: ChatStore,
-	title?: string,
-): ChatSession {
+export function createAndActivateChatSession(store: ChatStore, title?: string): ChatSession {
 	const activeSession = store.sessions.find(
-		(session) =>
-			session.id === store.activeSessionId &&
-			isActiveSession(session) &&
-			session.messages.length === 0,
+		(session) => session.id === store.activeSessionId && isActiveSession(session) && session.messages.length === 0,
 	);
 
 	if (activeSession) {
 		return activeSession;
 	}
 
-	const emptySession = store.sessions.find(
-		(session) => isActiveSession(session) && session.messages.length === 0,
-	);
+	const emptySession = store.sessions.find((session) => isActiveSession(session) && session.messages.length === 0);
 
 	if (emptySession) {
 		store.activeSessionId = emptySession.id;
@@ -109,12 +94,9 @@ export function createAndActivateChatSession(
 	return session;
 }
 
-export function activateMostRecentNonEmptyChatSession(
-	store: ChatStore,
-): ChatSession | undefined {
+export function activateMostRecentNonEmptyChatSession(store: ChatStore): ChatSession | undefined {
 	const activeSession = store.sessions.find(
-		(session) =>
-			session.id === store.activeSessionId && isActiveSession(session),
+		(session) => session.id === store.activeSessionId && isActiveSession(session),
 	);
 
 	if (activeSession && activeSession.messages.length > 0) {
@@ -122,9 +104,7 @@ export function activateMostRecentNonEmptyChatSession(
 	}
 
 	const mostRecentSession = store.sessions
-		.filter(
-			(session) => isActiveSession(session) && session.messages.length > 0,
-		)
+		.filter((session) => isActiveSession(session) && session.messages.length > 0)
 		.slice()
 		.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
 
@@ -137,13 +117,8 @@ export function activateMostRecentNonEmptyChatSession(
 	return mostRecentSession;
 }
 
-export function setActiveChatSession(
-	store: ChatStore,
-	sessionId: string,
-): ChatSession | undefined {
-	const session = store.sessions.find(
-		(candidate) => candidate.id === sessionId && isActiveSession(candidate),
-	);
+export function setActiveChatSession(store: ChatStore, sessionId: string): ChatSession | undefined {
+	const session = store.sessions.find((candidate) => candidate.id === sessionId && isActiveSession(candidate));
 
 	if (session) {
 		store.activeSessionId = session.id;
@@ -152,27 +127,16 @@ export function setActiveChatSession(
 	return session;
 }
 
-export function renameChatSessionById(
-	store: ChatStore,
-	sessionId: string,
-	title: string,
-): void {
-	const session = store.sessions.find(
-		(candidate) => candidate.id === sessionId && isActiveSession(candidate),
-	);
+export function renameChatSessionById(store: ChatStore, sessionId: string, title: string): void {
+	const session = store.sessions.find((candidate) => candidate.id === sessionId && isActiveSession(candidate));
 
 	if (session) {
 		renameChatSession(session, title);
 	}
 }
 
-export function archiveChatSessionById(
-	store: ChatStore,
-	sessionId: string,
-): void {
-	const session = store.sessions.find(
-		(candidate) => candidate.id === sessionId && isActiveSession(candidate),
-	);
+export function archiveChatSessionById(store: ChatStore, sessionId: string): void {
+	const session = store.sessions.find((candidate) => candidate.id === sessionId && isActiveSession(candidate));
 
 	if (!session) {
 		return;
@@ -186,15 +150,10 @@ export function archiveChatSessionById(
 	}
 }
 
-export function restoreArchivedChatSessionById(
-	store: ChatStore,
-	sessionId: string,
-): void {
+export function restoreArchivedChatSessionById(store: ChatStore, sessionId: string): void {
 	const session = store.sessions.find(
 		(candidate) =>
-			candidate.id === sessionId &&
-			candidate.archivedAt !== undefined &&
-			candidate.trashedAt === undefined,
+			candidate.id === sessionId && candidate.archivedAt !== undefined && candidate.trashedAt === undefined,
 	);
 
 	if (!session) {
@@ -205,14 +164,8 @@ export function restoreArchivedChatSessionById(
 	session.updatedAt = new Date().toISOString();
 }
 
-export function trashChatSessionById(
-	store: ChatStore,
-	sessionId: string,
-): void {
-	const session = store.sessions.find(
-		(candidate) =>
-			candidate.id === sessionId && candidate.trashedAt === undefined,
-	);
+export function trashChatSessionById(store: ChatStore, sessionId: string): void {
+	const session = store.sessions.find((candidate) => candidate.id === sessionId && candidate.trashedAt === undefined);
 
 	if (!session) {
 		return;
@@ -228,14 +181,8 @@ export function trashChatSessionById(
 	}
 }
 
-export function restoreTrashedChatSessionById(
-	store: ChatStore,
-	sessionId: string,
-): void {
-	const session = store.sessions.find(
-		(candidate) =>
-			candidate.id === sessionId && candidate.trashedAt !== undefined,
-	);
+export function restoreTrashedChatSessionById(store: ChatStore, sessionId: string): void {
+	const session = store.sessions.find((candidate) => candidate.id === sessionId && candidate.trashedAt !== undefined);
 
 	if (!session) {
 		return;
@@ -258,22 +205,14 @@ export function trashArchivedChatSessions(store: ChatStore): void {
 	}
 }
 
-export function deleteTrashedChatSessionById(
-	store: ChatStore,
-	sessionId: string,
-): void {
-	const session = store.sessions.find(
-		(candidate) =>
-			candidate.id === sessionId && candidate.trashedAt !== undefined,
-	);
+export function deleteTrashedChatSessionById(store: ChatStore, sessionId: string): void {
+	const session = store.sessions.find((candidate) => candidate.id === sessionId && candidate.trashedAt !== undefined);
 
 	if (!session) {
 		return;
 	}
 
-	store.sessions = store.sessions.filter(
-		(candidate) => candidate.id !== sessionId,
-	);
+	store.sessions = store.sessions.filter((candidate) => candidate.id !== sessionId);
 
 	if (!store.sessions.some(isActiveSession)) {
 		activateFirstAvailableSession(store);
@@ -281,9 +220,7 @@ export function deleteTrashedChatSessionById(
 }
 
 export function emptyTrashedChatSessions(store: ChatStore): void {
-	store.sessions = store.sessions.filter(
-		(session) => session.trashedAt === undefined,
-	);
+	store.sessions = store.sessions.filter((session) => session.trashedAt === undefined);
 
 	if (!store.sessions.some(isActiveSession)) {
 		activateFirstAvailableSession(store);
@@ -298,8 +235,7 @@ export function clearActiveChatSession(store: ChatStore): void {
 
 function ensureActiveChatSession(store: ChatStore): ChatSession {
 	let session = store.sessions.find(
-		(candidate) =>
-			candidate.id === store.activeSessionId && isActiveSession(candidate),
+		(candidate) => candidate.id === store.activeSessionId && isActiveSession(candidate),
 	);
 
 	if (!session) {

@@ -1,32 +1,23 @@
-import * as path from "node:path";
-import * as vscode from "vscode";
+import * as path from 'node:path';
+import * as vscode from 'vscode';
 
-import {
-	getWorkspaceRoots,
-	resolvePath,
-	resourcePath,
-} from "../../../workspace";
-import type {
-	Tool,
-	ToolAccessGuard,
-	ToolExecutionContext,
-	ToolExecutionResult,
-} from "../..";
-import { readStringArrayArg } from "../../tool_input";
-import { toolFailure, toolSuccess } from "../../tool_result";
+import { getWorkspaceRoots, resolvePath, resourcePath } from '../../../workspace';
+import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { readStringArrayArg } from '../../tool_input';
+import { toolFailure, toolSuccess } from '../../tool_result';
 
 const MAX_ENTRIES = 1_000;
 
 const IGNORED_DIRECTORIES = new Set([
-	".cache",
-	".git",
-	".next",
-	"build",
-	"coverage",
-	"dist",
-	"node_modules",
-	"out",
-	"target",
+	'.cache',
+	'.git',
+	'.next',
+	'build',
+	'coverage',
+	'dist',
+	'node_modules',
+	'out',
+	'target',
 ]);
 
 type FileEntry = {
@@ -41,57 +32,51 @@ type FileSection = {
 };
 
 export class ListFilesTool implements Tool {
-	readonly id = "list_files";
-	readonly name = "List Files";
+	readonly id = 'list_files';
+	readonly name = 'List Files';
 	readonly readOnlyCompatible = true;
-	readonly permissionDefault = "allow" as const;
+	readonly permissionDefault = 'allow' as const;
 	readonly description =
 		'Lists the useful file structure for discovery. Use {"all":true} to list the whole current window, or {"paths":["src","docs"]} to list one or more specific directories. Use this before read_file when the exact file path is unknown. Generated directories such as target and node_modules are omitted.';
 
 	readonly parameters = {
-		type: "object" as const,
+		type: 'object' as const,
 		properties: {
 			all: {
-				type: "boolean",
+				type: 'boolean',
 				description:
-					"Set explicitly to true to list the useful structure of every folder in the current window. Cannot be combined with paths.",
+					'Set explicitly to true to list the useful structure of every folder in the current window. Cannot be combined with paths.',
 			},
 			paths: {
-				type: "array",
-				items: { type: "string" },
+				type: 'array',
+				items: { type: 'string' },
 				description:
-					"One or more directories to list. Paths may be relative to the current window or absolute. Cannot be combined with all.",
+					'One or more directories to list. Paths may be relative to the current window or absolute. Cannot be combined with all.',
 			},
 		},
 	};
 
 	constructor(private readonly accessGuard: ToolAccessGuard) {}
 
-	async execute(
-		input: unknown,
-		context?: ToolExecutionContext,
-	): Promise<ToolExecutionResult> {
-		const values = (
-			typeof input === "object" && input !== null ? input : {}
-		) as Record<string, unknown>;
+	async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
+		const values = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>;
 		const all = values.all === true;
-		const paths = readStringArrayArg(input, "paths")
+		const paths = readStringArrayArg(input, 'paths')
 			?.map((value) => value.trim())
 			.filter((value) => value.length > 0);
 
 		if (all && paths?.length) {
-			return toolFailure("error", this.id, undefined, {
-				reason: "invalid_arguments",
-				message:
-					'Choose exactly one scope: {"all":true} or {"paths":[...]}, not both.',
+			return toolFailure('error', this.id, undefined, {
+				reason: 'invalid_arguments',
+				message: 'Choose exactly one scope: {"all":true} or {"paths":[...]}, not both.',
 				executed: false,
 				retryable: true,
 			});
 		}
 
 		if (!all && !paths?.length) {
-			return toolFailure("error", this.id, undefined, {
-				reason: "invalid_arguments",
+			return toolFailure('error', this.id, undefined, {
+				reason: 'invalid_arguments',
 				message:
 					'list_files needs an explicit scope. Use {"all":true} for the whole current window or {"paths":["..."]} for one or more directories.',
 				executed: false,
@@ -100,22 +85,20 @@ export class ListFilesTool implements Tool {
 		}
 
 		if (values.all !== undefined && values.all !== true) {
-			return toolFailure("error", this.id, undefined, {
-				reason: "invalid_arguments",
+			return toolFailure('error', this.id, undefined, {
+				reason: 'invalid_arguments',
 				message: 'When "all" is provided it must be true.',
 				executed: false,
 				retryable: true,
 			});
 		}
 
-		const requested = all
-			? getWorkspaceRoots().map((uri) => uri.toString())
-			: unique(paths ?? []);
+		const requested = all ? getWorkspaceRoots().map((uri) => uri.toString()) : unique(paths ?? []);
 
 		if (requested.length === 0) {
-			return toolFailure("error", this.id, undefined, {
-				reason: "no_current_window",
-				message: "No folder is open in the current window.",
+			return toolFailure('error', this.id, undefined, {
+				reason: 'no_current_window',
+				message: 'No folder is open in the current window.',
 				executed: false,
 				retryable: false,
 			});
@@ -127,9 +110,9 @@ export class ListFilesTool implements Tool {
 
 		for (const requestedPath of requested) {
 			if (context?.signal?.aborted) {
-				return toolFailure("cancelled", this.id, requestedPath, {
-					reason: "cancelled_by_user",
-					message: "File listing was cancelled.",
+				return toolFailure('cancelled', this.id, requestedPath, {
+					reason: 'cancelled_by_user',
+					message: 'File listing was cancelled.',
 					executed: false,
 					retryable: true,
 				});
@@ -147,8 +130,8 @@ export class ListFilesTool implements Tool {
 				stat = await vscode.workspace.fs.stat(resolved.uri);
 			} catch (error) {
 				if (isNotFoundError(error)) {
-					return toolFailure("error", this.id, resourcePath(resolved.uri), {
-						reason: "not_found",
+					return toolFailure('error', this.id, resourcePath(resolved.uri), {
+						reason: 'not_found',
 						message:
 							'The requested directory was not found. Use {"all":true} to discover the current window structure or list a known parent directory.',
 						executed: false,
@@ -160,10 +143,9 @@ export class ListFilesTool implements Tool {
 			}
 
 			if (!(stat.type & vscode.FileType.Directory)) {
-				return toolFailure("error", this.id, resourcePath(resolved.uri), {
-					reason: "not_a_directory",
-					message:
-						"The requested path is not a directory. Use read_file when the exact file path is already known.",
+				return toolFailure('error', this.id, resourcePath(resolved.uri), {
+					reason: 'not_a_directory',
+					message: 'The requested path is not a directory. Use read_file when the exact file path is already known.',
 					executed: false,
 					retryable: true,
 				});
@@ -171,19 +153,12 @@ export class ListFilesTool implements Tool {
 
 			const entries: FileEntry[] = [];
 
-			const result = await walkDirectory(
-				resolved.uri,
-				1,
-				entries,
-				remaining,
-				this.accessGuard,
-				context?.signal,
-			);
+			const result = await walkDirectory(resolved.uri, 1, entries, remaining, this.accessGuard, context?.signal);
 
 			if (result.cancelled) {
-				return toolFailure("cancelled", this.id, resourcePath(resolved.uri), {
-					reason: "cancelled_by_user",
-					message: "File listing was cancelled.",
+				return toolFailure('cancelled', this.id, resourcePath(resolved.uri), {
+					reason: 'cancelled_by_user',
+					message: 'File listing was cancelled.',
 					executed: false,
 					retryable: true,
 				});
@@ -203,12 +178,12 @@ export class ListFilesTool implements Tool {
 			}
 		}
 
-		const content = sections.map(formatSection).join("\n\n");
+		const content = sections.map(formatSection).join('\n\n');
 
-		return toolSuccess(this.id, all ? "current_window" : requested.join(", "), {
-			content: content || "(empty)",
+		return toolSuccess(this.id, all ? 'current_window' : requested.join(', '), {
+			content: content || '(empty)',
 			details: {
-				scope: all ? "all" : "paths",
+				scope: all ? 'all' : 'paths',
 				requested,
 				entries: MAX_ENTRIES - remaining,
 				truncated,
@@ -281,14 +256,7 @@ async function walkDirectory(
 		const symbolicLink = Boolean(type & vscode.FileType.SymbolicLink);
 
 		if (directory && !symbolicLink) {
-			const nested = await walkDirectory(
-				child,
-				depth + 1,
-				output,
-				remaining - used,
-				accessGuard,
-				signal,
-			);
+			const nested = await walkDirectory(child, depth + 1, output, remaining - used, accessGuard, signal);
 
 			used += nested.used;
 			truncated ||= nested.truncated;
@@ -311,20 +279,16 @@ function formatSection(section: FileSection): string {
 	const lines = [`${section.label}/`];
 
 	for (const entry of section.entries) {
-		const indent = "  ".repeat(entry.depth);
-		lines.push(indent + entry.name + (entry.directory ? "/" : ""));
+		const indent = '  '.repeat(entry.depth);
+		lines.push(indent + entry.name + (entry.directory ? '/' : ''));
 	}
 
-	return lines.join("\n");
+	return lines.join('\n');
 }
 
-function displayLabel(
-	requestedPath: string,
-	uri: vscode.Uri,
-	all: boolean,
-): string {
+function displayLabel(requestedPath: string, uri: vscode.Uri, all: boolean): string {
 	if (!all) {
-		return requestedPath === "." ? "." : requestedPath.replace(/[\\/]+$/, "");
+		return requestedPath === '.' ? '.' : requestedPath.replace(/[\\/]+$/, '');
 	}
 
 	const folder = (vscode.workspace.workspaceFolders ?? []).find(
@@ -341,5 +305,5 @@ function unique(values: string[]): string[] {
 function isNotFoundError(error: unknown): boolean {
 	const code = (error as { code?: unknown } | null)?.code;
 
-	return code === "ENOENT" || code === "FileNotFound";
+	return code === 'ENOENT' || code === 'FileNotFound';
 }

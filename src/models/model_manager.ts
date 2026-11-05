@@ -1,15 +1,16 @@
+import type { AiProviderKind } from '../config/ai_provider_kind';
+
 import {
-	type AiProviderKind,
 	type ExtensionConfig,
 	getExtensionConfig,
 	updateExtensionModel,
 	updateExtensionProviderSettings,
-} from "../config/extension_config";
-import type { ModelInfo } from "./model_info";
-import { createModelProvider } from "./model_registry";
+} from '../config/extension_config';
+import type { ModelInfo } from './model_info';
+import { createModelProvider } from './model_registry';
 
 export type ModelState = {
-	provider: ExtensionConfig["provider"];
+	provider: ExtensionConfig['provider'];
 	providerUrl: string;
 	activeModel: string;
 	models: ModelInfo[];
@@ -52,20 +53,14 @@ export class ModelManager {
 		return this.getState();
 	}
 
-	async updateProviderSettings(
-		provider: AiProviderKind,
-		providerUrl: string,
-	): Promise<ModelState> {
+	async updateProviderSettings(provider: AiProviderKind, providerUrl: string): Promise<ModelState> {
 		await updateExtensionProviderSettings(provider, providerUrl);
 
 		return this.getState();
 	}
 }
 
-function ensureActiveModelExists(
-	models: ModelInfo[],
-	config: ExtensionConfig,
-): ModelInfo[] {
+function ensureActiveModelExists(models: ModelInfo[], config: ExtensionConfig): ModelInfo[] {
 	if (models.some((model) => model.id === config.model)) {
 		return models;
 	}

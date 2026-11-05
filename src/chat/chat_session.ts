@@ -1,13 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
-import { defaultChatTitle, isDefaultChatTitle } from "../i18n";
-import type { ToolRound } from "../tools/tool_round";
-import {
-	type ChatMessage,
-	cloneChatMessage,
-	createChatMessage,
-} from "./chat_message";
-import type { ChatRole } from "./chat_role";
+import { defaultChatTitle, isDefaultChatTitle } from '../i18n';
+import type { ToolRound } from '../tools/tool_round';
+import { type ChatMessage, cloneChatMessage, createChatMessage } from './chat_message';
+import type { ChatRole } from './chat_role';
 
 /**
  * Represents a chat session.
@@ -31,7 +27,7 @@ export function createChatSession(title = defaultChatTitle()): ChatSession {
 	const now = new Date().toISOString();
 
 	if (!title) {
-		throw new Error("Title cannot be empty");
+		throw new Error('Title cannot be empty');
 	}
 
 	return {
@@ -49,14 +45,11 @@ export function createChatSession(title = defaultChatTitle()): ChatSession {
  * @param messages - An array of chat messages.
  * @returns A chat session created from the legacy data.
  */
-export function createChatSessionFromLegacy(
-	id: string,
-	messages: ChatMessage[],
-): ChatSession {
+export function createChatSessionFromLegacy(id: string, messages: ChatMessage[]): ChatSession {
 	const now = new Date().toISOString();
 
 	if (!id || !messages || !Array.isArray(messages)) {
-		throw new Error("Invalid input");
+		throw new Error('Invalid input');
 	}
 
 	return {
@@ -98,7 +91,7 @@ export function addMessageToChatSession(
 	session.messages.push(message);
 	session.updatedAt = message.createdAt;
 
-	if (role === "user" && isDefaultChatTitle(session.title)) {
+	if (role === 'user' && isDefaultChatTitle(session.title)) {
 		session.title = createChatTitleFromMessage(content);
 	}
 }
@@ -136,8 +129,7 @@ export function renameChatSession(session: ChatSession, title: string): void {
  */
 export function normalizeChatSession(session: ChatSession): ChatSession {
 	const title = session.title?.trim();
-	const trashedAt =
-		typeof session.trashedAt === "string" ? session.trashedAt : undefined;
+	const trashedAt = typeof session.trashedAt === 'string' ? session.trashedAt : undefined;
 
 	return {
 		id: session.id || randomUUID(),
@@ -145,14 +137,10 @@ export function normalizeChatSession(session: ChatSession): ChatSession {
 		// display language; a title the user chose is kept as it is.
 		title: !title || isDefaultChatTitle(title) ? defaultChatTitle() : title,
 		createdAt: session.createdAt || new Date().toISOString(),
-		updatedAt:
-			session.updatedAt || session.createdAt || new Date().toISOString(),
-		archivedAt:
-			typeof session.archivedAt === "string" ? session.archivedAt : undefined,
+		updatedAt: session.updatedAt || session.createdAt || new Date().toISOString(),
+		archivedAt: typeof session.archivedAt === 'string' ? session.archivedAt : undefined,
 		trashedAt,
-		messages: Array.isArray(session.messages)
-			? session.messages.map(cloneChatMessage)
-			: [],
+		messages: Array.isArray(session.messages) ? session.messages.map(cloneChatMessage) : [],
 	};
 }
 
@@ -162,11 +150,9 @@ export function normalizeChatSession(session: ChatSession): ChatSession {
  * @returns A chat title based on the first user message.
  */
 function createChatTitleFromMessages(messages: ChatMessage[]): string {
-	const firstUserMessage = messages.find(
-		(message) => message.role === "user",
-	)?.content;
+	const firstUserMessage = messages.find((message) => message.role === 'user')?.content;
 
-	return createChatTitleFromMessage(firstUserMessage ?? "");
+	return createChatTitleFromMessage(firstUserMessage ?? '');
 }
 
 /**
@@ -175,7 +161,7 @@ function createChatTitleFromMessages(messages: ChatMessage[]): string {
  * @returns A chat title based on the message content.
  */
 function createChatTitleFromMessage(message: string): string {
-	const clean = message.trim().replace(/\s+/g, " ");
+	const clean = message.trim().replace(/\s+/g, ' ');
 
 	if (!clean) {
 		return defaultChatTitle();

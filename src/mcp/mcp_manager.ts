@@ -1,10 +1,10 @@
-import * as vscode from "vscode";
-import type { McpStartFailure } from "./mcp_start_failure";
-import type { Tool, ToolAccessGuard } from "../tools";
-import type { McpServerConfig, McpToolDescriptor, McpServerEntry } from ".";
-import { McpClient } from "./mcp_client";
-import { McpTool, mcpToolId } from "./mcp_tool";
-import { t } from "../i18n";
+import * as vscode from 'vscode';
+import type { McpStartFailure } from './mcp_start_failure';
+import type { Tool, ToolAccessGuard } from '../tools';
+import type { McpServerConfig, McpToolDescriptor, McpServerEntry } from '.';
+import { McpClient } from './mcp_client';
+import { McpTool, mcpToolId } from './mcp_tool';
+import { t } from '../i18n';
 
 const RETRY_AFTER_FAILURE_MS = 30_000;
 // A message does not wait longer than this for servers that are still starting; they join at the next message.
@@ -19,15 +19,10 @@ export class McpManager {
 	private readonly failures = new Map<string, McpStartFailure>();
 	private idleTimer: NodeJS.Timeout | undefined;
 
-	constructor(
-		private readonly getServerConfigs: () => Record<string, McpServerConfig>,
-	) {}
+	constructor(private readonly getServerConfigs: () => Record<string, McpServerConfig>) {}
 
 	// Starts configured servers on demand, discovers their tools and wraps them as permission-checked tools.
-	async createTools(
-		accessGuard: ToolAccessGuard,
-		signal?: AbortSignal,
-	): Promise<Tool[]> {
+	async createTools(accessGuard: ToolAccessGuard, signal?: AbortSignal): Promise<Tool[]> {
 		if (!(await this.ensureServers(signal))) {
 			return [];
 		}
@@ -75,26 +70,16 @@ export class McpManager {
 		this.sync(configs);
 
 		for (const [name, config] of Object.entries(configs)) {
-			if (
-				!this.servers.has(name) &&
-				!this.starting.has(name) &&
-				this.canTryStart(name, config)
-			) {
+			if (!this.servers.has(name) && !this.starting.has(name) && this.canTryStart(name, config)) {
 				this.starting.set(
 					name,
-					this.startServer(name, config).finally(() =>
-						this.starting.delete(name),
-					),
+					this.startServer(name, config).finally(() => this.starting.delete(name)),
 				);
 			}
 		}
 
 		await waitFor([...this.starting.values()], STARTUP_WAIT_MS, signal);
-		await Promise.all(
-			[...this.servers.entries()].map(([name, entry]) =>
-				this.refreshTools(name, entry),
-			),
-		);
+		await Promise.all([...this.servers.entries()].map(([name, entry]) => this.refreshTools(name, entry)));
 
 		this.watchIdleServers();
 
@@ -102,17 +87,11 @@ export class McpManager {
 	}
 
 	// Stops servers that were removed, changed or have exited. Called before each use and when settings change.
-	sync(
-		configs: Record<string, McpServerConfig> = this.getServerConfigs(),
-	): void {
+	sync(configs: Record<string, McpServerConfig> = this.getServerConfigs()): void {
 		for (const [name, entry] of [...this.servers.entries()]) {
 			const config = configs[name];
 
-			if (
-				!config ||
-				entry.client.isClosed ||
-				JSON.stringify(config) !== entry.configKey
-			) {
+			if (!config || entry.client.isClosed || JSON.stringify(config) !== entry.configKey) {
 				entry.client.dispose();
 				this.servers.delete(name);
 			}
@@ -157,17 +136,10 @@ export class McpManager {
 	private canTryStart(name: string, config: McpServerConfig): boolean {
 		const failure = this.failures.get(name);
 
-		return (
-			!failure ||
-			failure.configKey !== JSON.stringify(config) ||
-			Date.now() - failure.at > RETRY_AFTER_FAILURE_MS
-		);
+		return !failure || failure.configKey !== JSON.stringify(config) || Date.now() - failure.at > RETRY_AFTER_FAILURE_MS;
 	}
 
-	private async refreshTools(
-		name: string,
-		entry: McpServerEntry,
-	): Promise<void> {
+	private async refreshTools(name: string, entry: McpServerEntry): Promise<void> {
 		if (!entry.client.hasStaleTools) {
 			return;
 		}
@@ -175,25 +147,16 @@ export class McpManager {
 		try {
 			entry.tools = await entry.client.listTools();
 		} catch (error) {
-			console.error(
-				`BezotCorp AI: could not refresh the tools of MCP server "${name}": ${String(error)}`,
-			);
+			console.error(`BezotCorp AI: could not refresh the tools of MCP server "${name}": ${String(error)}`);
 		}
 	}
 
-	private async startServer(
-		name: string,
-		config: McpServerConfig,
-	): Promise<void> {
+	private async startServer(name: string, config: McpServerConfig): Promise<void> {
 		const configKey = JSON.stringify(config);
 
 		// "/" separates server and tool in permission scopes, "__" in rule names.
-		if (name.includes("/") || name.includes("__") || !config.command) {
-			this.reportFailure(
-				name,
-				configKey,
-				'its name contains "/" or "__", or it has no command',
-			);
+		if (name.includes('/') || name.includes('__') || !config.command) {
+			this.reportFailure(name, configKey, 'its name contains "/" or "__", or it has no command');
 			return;
 		}
 
@@ -221,11 +184,7 @@ export class McpManager {
 				throw error;
 			}
 		} catch (error) {
-			this.reportFailure(
-				name,
-				configKey,
-				error instanceof Error ? error.message : String(error),
-			);
+			this.reportFailure(name, configKey, error instanceof Error ? error.message : String(error));
 		}
 	}
 
@@ -233,24 +192,16 @@ export class McpManager {
 		const repeated = this.failures.get(name)?.configKey === configKey;
 
 		this.failures.set(name, { configKey, at: Date.now() });
-		console.error(
-			`BezotCorp AI: MCP server "${name}" failed to start: ${reason}`,
-		);
+		console.error(`BezotCorp AI: MCP server "${name}" failed to start: ${reason}`);
 
 		if (!repeated) {
-			void vscode.window.showWarningMessage(
-				t("notify.mcpFailed", { name, reason }),
-			);
+			void vscode.window.showWarningMessage(t('notify.mcpFailed', { name, reason }));
 		}
 	}
 }
 
 // Resolves when the promises settle, the delay passes, or the signal aborts, whichever comes first.
-function waitFor(
-	promises: Promise<void>[],
-	delayMs: number,
-	signal?: AbortSignal,
-): Promise<void> {
+function waitFor(promises: Promise<void>[], delayMs: number, signal?: AbortSignal): Promise<void> {
 	if (promises.length === 0) {
 		return Promise.resolve();
 	}
@@ -261,11 +212,11 @@ function waitFor(
 
 		function done(): void {
 			clearTimeout(timer);
-			signal?.removeEventListener("abort", onAbort);
+			signal?.removeEventListener('abort', onAbort);
 			resolve();
 		}
 
-		signal?.addEventListener("abort", onAbort, { once: true });
+		signal?.addEventListener('abort', onAbort, { once: true });
 		void Promise.allSettled(promises).then(done);
 	});
 }

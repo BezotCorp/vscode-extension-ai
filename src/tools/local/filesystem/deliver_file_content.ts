@@ -1,10 +1,6 @@
-import {
-	TRUNCATION_MARKER,
-	type TruncatedText,
-	truncateText,
-} from "../../../workspace";
-import type { ToolExecutionResult } from "../..";
-import { fitToolResult } from "../../tool_result";
+import { TRUNCATION_MARKER, type TruncatedText, truncateText } from '../../../workspace';
+import type { ToolExecutionResult } from '../..';
+import { fitToolResult } from '../../tool_result';
 
 export type DeliveredContent = {
 	// The result exactly as the model will receive it.
@@ -32,10 +28,10 @@ export function deliverFileContent(
 
 	const bodyLength = shown.truncated ? whole - TRUNCATION_MARKER.length : whole;
 	const body = shown.text.slice(0, Math.min(fitted.kept, bodyLength));
-	const lastBreak = body.lastIndexOf("\n");
+	const lastBreak = body.lastIndexOf('\n');
 
 	return {
 		result: fitted.result,
-		received: lastBreak < 0 ? "" : body.slice(0, lastBreak),
+		received: lastBreak < 0 ? '' : body.slice(0, lastBreak),
 	};
 }

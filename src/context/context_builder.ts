@@ -1,8 +1,8 @@
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
-import { isProtectedResource } from "../permissions";
-import { truncateContent } from "../workspace";
-import type { AiContext, ContextFile } from ".";
+import { isProtectedResource } from '../permissions';
+import { truncateContent } from '../workspace';
+import type { AiContext, ContextFile } from '.';
 
 export async function buildAiContext(): Promise<AiContext> {
 	return {
@@ -15,17 +15,11 @@ export async function buildAiContext(): Promise<AiContext> {
 function getActiveFile(): ContextFile | undefined {
 	const editor = vscode.window.activeTextEditor;
 
-	if (
-		!editor ||
-		editor.document.isUntitled ||
-		editor.document.uri.scheme !== "file"
-	) {
+	if (!editor || editor.document.isUntitled || editor.document.uri.scheme !== 'file') {
 		return undefined;
 	}
 
-	return isHidden(editor.document.uri.fsPath)
-		? undefined
-		: documentToContextFile(editor.document);
+	return isHidden(editor.document.uri.fsPath) ? undefined : documentToContextFile(editor.document);
 }
 
 function documentToContextFile(document: vscode.TextDocument): ContextFile {

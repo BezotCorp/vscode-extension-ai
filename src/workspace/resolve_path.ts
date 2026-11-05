@@ -1,9 +1,9 @@
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import * as vscode from "vscode";
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import * as vscode from 'vscode';
 
-import { detectStructuralWorkspace } from "./detect_structural_workspace";
-import { parseResourceUri, type ResolvedPath } from "./resolved_path";
+import { detectStructuralWorkspace } from './detect_structural_workspace';
+import { parseResourceUri, type ResolvedPath } from './resolved_path';
 
 export async function resolvePath(inputPath: string): Promise<ResolvedPath> {
 	const roots = getWorkspaceRoots();
@@ -16,9 +16,7 @@ export async function resolvePath(inputPath: string): Promise<ResolvedPath> {
 
 	const container = canonicalRoots.find((root) => isInside(root, target));
 
-	const structuralWorkspace = container
-		? undefined
-		: await detectStructuralWorkspace(target, canonicalRoots);
+	const structuralWorkspace = container ? undefined : await detectStructuralWorkspace(target, canonicalRoots);
 
 	return {
 		uri: target,
@@ -36,10 +34,7 @@ export function getWorkspaceRoots(): vscode.Uri[] {
 	return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
 }
 
-async function resolveRequestedUri(
-	inputPath: string,
-	roots: readonly vscode.Uri[],
-): Promise<vscode.Uri> {
+async function resolveRequestedUri(inputPath: string, roots: readonly vscode.Uri[]): Promise<vscode.Uri> {
 	if (path.isAbsolute(inputPath)) {
 		return vscode.Uri.file(inputPath);
 	}
@@ -51,8 +46,8 @@ async function resolveRequestedUri(
 	}
 
 	if (roots.length === 0) {
-		throw Object.assign(new Error("No workspace folder is open."), {
-			code: "NoWorkspace",
+		throw Object.assign(new Error('No workspace folder is open.'), {
+			code: 'NoWorkspace',
 		});
 	}
 
@@ -70,7 +65,7 @@ async function chooseRoot(
 }> {
 	const folders = vscode.workspace.workspaceFolders ?? [];
 	const normalized = normalizeInput(inputPath);
-	const [first] = normalized.split("/");
+	const [first] = normalized.split('/');
 
 	if (roots.length > 1) {
 		const namedIndex = folders.findIndex((folder) => folder.name === first);
@@ -105,13 +100,13 @@ function resolveRelative(root: vscode.Uri, inputPath: string): vscode.Uri {
 
 	return root.with({
 		path: resolvedPath,
-		query: "",
-		fragment: "",
+		query: '',
+		fragment: '',
 	});
 }
 
 function normalizeInput(inputPath: string): string {
-	return inputPath.replace(/\\/g, "/");
+	return inputPath.replace(/\\/g, '/');
 }
 
 async function exists(uri: vscode.Uri): Promise<boolean> {
@@ -124,7 +119,7 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
 }
 
 async function canonicalize(uri: vscode.Uri): Promise<vscode.Uri> {
-	if (uri.scheme !== "file") {
+	if (uri.scheme !== 'file') {
 		return uri;
 	}
 
@@ -150,19 +145,13 @@ function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
 		return false;
 	}
 
-	if (parent.scheme === "file" && child.scheme === "file") {
+	if (parent.scheme === 'file' && child.scheme === 'file') {
 		const relative = path.relative(parent.fsPath, child.fsPath);
 
-		return (
-			relative === "" ||
-			(!relative.startsWith("..") && !path.isAbsolute(relative))
-		);
+		return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 	}
 
 	const relative = path.posix.relative(parent.path, child.path);
 
-	return (
-		relative === "" ||
-		(!relative.startsWith("..") && !path.posix.isAbsolute(relative))
-	);
+	return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
 }

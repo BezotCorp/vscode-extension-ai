@@ -1,9 +1,4 @@
-import type {
-	AccessLevel,
-	AccessRequest,
-	PermissionResource,
-	ToolAccessProfile,
-} from ".";
+import type { AccessLevel, AccessRequest, PermissionResource, ToolAccessProfile } from '.';
 
 export type PermissionRequest = {
 	tool: ToolAccessProfile;
