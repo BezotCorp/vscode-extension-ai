@@ -59,8 +59,14 @@ export class McpClient {
   }
 
   static async start(config: McpServerConfig, signal?: AbortSignal): Promise<McpClient> {
+    const workspaceRoot = getWorkspaceRoot();
+
     const child = spawn(config.command, config.args ?? [], {
-      cwd: config.cwd ?? getWorkspaceRoot(),
+      cwd:
+        config.cwd ??
+        (workspaceRoot?.scheme === 'file'
+          ? workspaceRoot.fsPath
+          : undefined),
       // The server is third-party code: it receives a basic environment plus what its configuration lists, not
       // every variable of the editor (tokens, credentials) it has no reason to see.
       env: { ...baseEnvironment(), ...config.env },

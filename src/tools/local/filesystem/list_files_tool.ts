@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { getWorkspaceRoots, resolvePath } from '../../../workspace';
+import { getWorkspaceRoots, resolvePath, resourcePath } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readStringArrayArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
@@ -93,7 +93,7 @@ export class ListFilesTool implements Tool {
       });
     }
 
-    const requested = all ? getWorkspaceRoots() : unique(paths ?? []);
+    const requested = all ? getWorkspaceRoots().map((uri) => uri.toString()) : unique(paths ?? []);
 
     if (requested.length === 0) {
       return toolFailure('error', this.id, undefined, {
@@ -118,7 +118,7 @@ export class ListFilesTool implements Tool {
         });
       }
 
-      const resolved = resolvePath(requestedPath);
+      const resolved = await resolvePath(requestedPath);
 
       await this.accessGuard.assertReadable(this, resolved, true, {
         signal: context?.signal,
@@ -130,7 +130,7 @@ export class ListFilesTool implements Tool {
         stat = await vscode.workspace.fs.stat(resolved.uri);
       } catch (error) {
         if (isNotFoundError(error)) {
-          return toolFailure('error', this.id, resolved.uri.fsPath, {
+          return toolFailure('error', this.id, resourcePath(resolved.uri), {
             reason: 'not_found',
             message:
               'The requested directory was not found. Use {"all":true} to discover the current window structure or list a known parent directory.',
@@ -143,7 +143,7 @@ export class ListFilesTool implements Tool {
       }
 
       if (!(stat.type & vscode.FileType.Directory)) {
-        return toolFailure('error', this.id, resolved.uri.fsPath, {
+        return toolFailure('error', this.id, resourcePath(resolved.uri), {
           reason: 'not_a_directory',
           message: 'The requested path is not a directory. Use read_file when the exact file path is already known.',
           executed: false,
@@ -156,7 +156,7 @@ export class ListFilesTool implements Tool {
       const result = await walkDirectory(resolved.uri, 1, entries, remaining, this.accessGuard, context?.signal);
 
       if (result.cancelled) {
-        return toolFailure('cancelled', this.id, resolved.uri.fsPath, {
+        return toolFailure('cancelled', this.id, resourcePath(resolved.uri), {
           reason: 'cancelled_by_user',
           message: 'File listing was cancelled.',
           executed: false,
@@ -168,7 +168,7 @@ export class ListFilesTool implements Tool {
       truncated ||= result.truncated;
 
       sections.push({
-        label: displayLabel(requestedPath, resolved.uri.fsPath, all),
+        label: displayLabel(requestedPath, resolved.uri, all),
         entries,
       });
 
@@ -239,7 +239,7 @@ async function walkDirectory(
 
     const child = vscode.Uri.joinPath(uri, name);
 
-    if (accessGuard.isProtected(child.fsPath)) {
+    if (accessGuard.isProtected(resourcePath(child))) {
       continue;
     }
 
@@ -286,16 +286,16 @@ function formatSection(section: FileSection): string {
   return lines.join('\n');
 }
 
-function displayLabel(requestedPath: string, fsPath: string, all: boolean): string {
+function displayLabel(requestedPath: string, uri: vscode.Uri, all: boolean): string {
   if (!all) {
     return requestedPath === '.' ? '.' : requestedPath.replace(/[\\/]+$/, '');
   }
 
   const folder = (vscode.workspace.workspaceFolders ?? []).find(
-    (candidate) => path.resolve(candidate.uri.fsPath) === path.resolve(fsPath),
+    (candidate) => candidate.uri.toString() === uri.toString(),
   );
 
-  return folder?.name ?? path.basename(fsPath);
+  return folder?.name ?? path.posix.basename(uri.path);
 }
 
 function unique(values: string[]): string[] {

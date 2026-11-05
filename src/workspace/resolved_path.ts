@@ -5,9 +5,12 @@ import { StructuralWorkspace } from './structural_workspace';
 export type ResolvedPath = {
   uri: vscode.Uri;
   insideCurrentWindow: boolean;
-  // Current VS Code folder containing the target, when it is inside the window.
-  currentWindowRoot?: string;
-  // Recognised project/workspace containing both the current window and this target.
-  // Detection grants no permission.
+  currentWindowRoot?: vscode.Uri;
   structuralWorkspace?: StructuralWorkspace;
 };
+
+export function resourcePath(uri: vscode.Uri): string {
+  return uri.scheme === 'file'
+    ? uri.fsPath
+    : uri.toString();
+}

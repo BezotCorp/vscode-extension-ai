@@ -1,9 +1,9 @@
-import {
-  StructuralWorkspaceKind,
-} from './structural_workspace_kind';
+import * as vscode from 'vscode';
+
+import { StructuralWorkspaceKind } from './structural_workspace_kind';
 
 export type StructuralWorkspace = {
   kind: StructuralWorkspaceKind;
-  root: string;
-  marker: string;
+  root: vscode.Uri;
+  marker: vscode.Uri;
 };

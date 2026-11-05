@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { contentEffect, removalEffect } from '../../../permissions';
-import { findDirtyDocuments, resolvePath } from '../../../workspace';
+import { findDirtyDocuments, resolvePath, resourcePath } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
@@ -28,9 +28,14 @@ export class MoveFileTool implements Tool {
   constructor(private readonly accessGuard: ToolAccessGuard) {}
 
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
-    const source = resolvePath(readStringArg(input, 'from') ?? '');
-    const destination = resolvePath(readStringArg(input, 'to') ?? '');
-    const resource = `${source.uri.fsPath} -> ${destination.uri.fsPath}`;
+    const [source, destination] = await Promise.all([
+      resolvePath(readStringArg(input, 'from') ?? ''),
+      resolvePath(readStringArg(input, 'to') ?? ''),
+    ]);
+
+    const sourcePath = resourcePath(source.uri);
+    const destinationPath = resourcePath(destination.uri);
+    const resource = `${sourcePath} -> ${destinationPath}`;
     const stat = await vscode.workspace.fs.stat(source.uri);
     const isDirectory = Boolean(stat.type & vscode.FileType.Directory);
 
@@ -39,7 +44,7 @@ export class MoveFileTool implements Tool {
     }
 
     await this.accessGuard.assertMove(this, source, destination, isDirectory, {
-      effects: [removalEffect(source.uri.fsPath), contentEffect(destination.uri.fsPath)],
+      effects: [removalEffect(sourcePath), contentEffect(destinationPath)],
       access: readAccessArg(input),
       signal: context?.signal,
     });

@@ -2,117 +2,147 @@
 
 ![BezotCorp AI](assets/banner.png)
 
-**A configurable, local-first AI coding assistant for VS Code.**
+**A local-first AI coding assistant for VS Code.**
 
-BezotCorp AI connects VS Code to local or remote AI providers and gives AI assistants access to your workspace context directly inside VS Code.
+BezotCorp AI brings AI directly into VS Code while keeping you in control of the models, tools and infrastructure you use.
 
-Use Ollama today, connect your own backend, or integrate future BezotCorp services.
+Use a local Ollama model, connect your own backend, and let the assistant read your project, modify files, work with Git, access configured MCP tools and keep multiple conversations inside VS Code.
 
 ---
 
-## Features
+## Why BezotCorp AI?
 
-### AI Chat
+BezotCorp AI is designed for developers who want an AI assistant without giving up control of their environment.
 
-Chat directly with AI inside VS Code.
+- Use local models with Ollama
+- Connect your own AI backend
+- Keep conversations directly inside VS Code
+- Let the AI inspect and modify project files
+- Use dedicated Git tools
+- Connect MCP servers
+- Control what the AI is allowed to do
+- Use the interface in English or French
+- No mandatory cloud service
+
+---
+
+## AI Chat
+
+Chat with your AI without leaving VS Code.
 
 - Streaming responses
-- Stop generation support
-- Context-aware conversations
-- Multiple chat sessions
-- Persistent session storage
-- Session switching
-- Session rename
-- Session deletion
-- Provider abstraction
-- Backend health monitoring
-
-### Model Management
-
-Choose and manage the model used by the assistant.
-
-- Active model display
-- Model selector
-- Manual model entry
-- Ollama model discovery
-- Model refresh
-- Persisted model selection
-- Custom backend model support
-
-### Context
-
-The active editor file is attached automatically when available. Additional project context is discovered through explicit tools.
-
-- Active file context
-- `list_files` for project structure discovery
-- `read_file` / `read_files` for known paths
-- `search_text` for content discovery
-
-### File Changes
-
-A single tool, `update_file`, changes an existing file.
-
-- Either an exact piece of text to replace (a text that appears several times is refused instead of guessed) or the whole content
-- The diff is shown in the permission dialog
-- The change only goes ahead if what the AI read is still true; otherwise it receives the current content
-- Safety copy, write, integrity check and restoration
-
-### AI Providers
-
-Supported providers:
-
-- Ollama
-- Custom Backend
-- Future BezotCorp Backend
-
-### Connection Management
-
-Built-in backend monitoring.
-
-- Connection testing
-- Status indicator
-- Provider diagnostics
-
-### Tools and Agent Workflows
-
-The AI can use tools when the provider supports tool calling (Ollama). It only does what an explicit tool allows: there is no tool that runs a shell command, a script or an arbitrary program, and the model is told what is unavailable so it says so instead of improvising.
-
-- Files: list, read, search, create, edit (exact text replacement), write, move and delete; project context is discovered explicitly
-- Web: fetch a page
-- Git, as specialised tools with bounded parameters: `git_status`, `git_diff`, `git_log`, `git_show`, `git_branch_list`, `git_add`, `git_unstage`, `git_commit`, `git_branch_create`, `git_switch`, `git_fetch`, `git_pull` (fast-forward only), `git_push` (no force). There is no reset, rebase, merge, stash, checkout of files or amend
-- MCP servers over stdio, configured in user settings (`bezotcorpAi.mcpServers`); each MCP tool is controlled on its own
-- Permissions separate tool capability from filesystem resource access. A tool may be `allow`, `ask` or `deny`, for the current session (`currentSession`) or for all sessions (`allSessions`). Files explicitly opened in the current VS Code window form the implicit filesystem perimeter. Outside resources can be authorized once, for the current session or for all sessions. Cargo, pnpm and Node workspaces are detected structurally so the user can authorize the detected workspace when appropriate; detection itself never grants access
-- Autonomy modes: read-only, confirmation, accept edits, automatic
-- Protected resources (`.env`, keys, `.npmrc`, `.git`, `.ssh`…, extendable with `bezotcorpAi.protectedPaths`) always ask and never inherit remembered resource permissions. Critical operations also require a reason from the AI and a fresh confirmation every time. A path outside the current window asks unless the same tool already has a matching explicit resource permission; a detected structural workspace may be authorized without silently authorizing unrelated external paths
-- A refusal covers every route to the same effect during the answer
-- Earlier turns, including tool calls and results, are sent back to the model
-- Without tool calling, the AI cannot change files
-- Model management foundation
-- Interface in French and English, following the VS Code display language
-
-### Local First
-
-Keep full control of your infrastructure.
-
-- Self-hosted AI support
-- Local models with Ollama
-- Remote backends supported
-- No mandatory cloud dependency
+- Multiple conversations
+- Persistent conversation history
+- Rename conversations
+- Archive and restore conversations
+- Trash and permanently delete conversations
+- Clear the current conversation
+- Stop generation at any time
+- Tool calls and results kept with the conversation
 
 ---
 
-## Installation
+## Project Context
 
-Install the extension from:
+The assistant can inspect your project when it needs more context.
 
-- Visual Studio Marketplace
-- Open VSX Registry
+It can:
+
+- Read files
+- Read several files at once
+- List folders and project structure
+- Search text across files
+- Use the active editor file as context
+
+The AI does not automatically receive your entire project.
 
 ---
 
-## Configuration
+## File Operations
 
-### Configure Ollama
+BezotCorp AI can make changes directly in your project.
+
+It can:
+
+- Create files
+- Update existing files
+- Modify several files in one tool call
+- Move and rename files or folders
+- Delete files or folders
+
+For file updates, the extension checks that the file still matches the context the AI worked from before applying the change.
+
+Existing-file updates also use safety copies and integrity verification so interrupted or invalid writes can be detected and recovered.
+
+---
+
+## Git Operations
+
+The assistant can work with Git through dedicated operations.
+
+Supported operations include:
+
+- Status
+- Diff
+- Log
+- Show commits
+- List branches
+- Stage and unstage files
+- Create commits
+- Create and switch branches
+- Fetch
+- Pull
+- Push
+
+There is no unrestricted shell or arbitrary Git command execution.
+
+---
+
+## MCP Integration
+
+BezotCorp AI can connect to MCP servers configured by the user.
+
+Each MCP tool is exposed separately and follows the extension permission system.
+
+---
+
+## Permissions and Safety
+
+You stay in control of what the AI can do.
+
+Tools can be:
+
+- Allowed
+- Confirmed before use
+- Denied
+
+Access outside the files and folders currently opened in VS Code requires explicit authorization.
+
+Sensitive resources such as environment files, keys, Git metadata and other protected paths always require confirmation.
+
+Critical operations require a fresh confirmation every time.
+
+The extension also provides several autonomy levels, from read-only operation to more automatic workflows.
+
+---
+
+## Local-First Operation
+
+BezotCorp AI does not require a cloud service.
+
+With Ollama, your model and prompts can stay entirely on your machine.
+
+You can also connect your own remote or self-hosted backend if you prefer.
+
+---
+
+## AI Providers
+
+### Ollama Provider
+
+Run local models directly on your machine.
+
+Example:
 
 ```json
 {
@@ -122,7 +152,9 @@ Install the extension from:
 }
 ```
 
-### Configure a Custom Backend
+### Custom Backend Provider
+
+Connect BezotCorp AI to your own backend.
 
 ```json
 {
@@ -132,108 +164,84 @@ Install the extension from:
 }
 ```
 
-## Commands
+---
 
-### Open Chat
+## Installation
 
-```text
-BezotCorp AI: Open Chat
-```
+BezotCorp AI can be installed from:
 
-### Open Settings
+- Visual Studio Marketplace
+- Open VSX Registry
 
-```text
-BezotCorp AI: Open Settings
-```
+After installation, open the BezotCorp AI view from the VS Code activity bar.
 
 ---
 
-## Architecture
+## Available Commands
 
-```text
-VS Code Extension
-        │
-        ├── Chat UI
-        ├── Chat Sessions
-        ├── Context Builder
-        ├── Model Management
-        ├── Tools, MCP and Permissions
-        └── AI Provider
-                │
-                ├── Ollama
-                ├── Custom Backend
-                └── Future BezotCorp Backend
-```
+- `BezotCorp AI: Open Chat`
+- `BezotCorp AI: Open Settings`
+- `BezotCorp AI: Manage Permissions`
+- `BezotCorp AI: Revoke All Permissions`
+- `BezotCorp AI: Open Permission Settings`
 
-The extension manages context collection, model selection, provider integration, chat sessions, file changes and streaming responses directly inside VS Code.
+---
+
+## Languages
+
+The interface is available in:
+
+- English
+- French
+
+BezotCorp AI follows the VS Code display language.
 
 ---
 
 ## Privacy
 
-BezotCorp AI does not require any cloud service.
-
 Privacy depends on the provider you choose.
 
 ### Ollama Privacy
 
-- Local execution
-- Local models
-- Local data
+When Ollama runs locally:
+
+- The model runs locally
+- Prompts stay local
+- Project data stays local
 
 ### Custom Backend Privacy
 
-- Privacy depends on your infrastructure
+Data handling depends on the infrastructure you connect.
 
-### Future BezotCorp Backend Privacy
+### Future BezotCorp Services Privacy
 
-- Policy will be documented separately
+Privacy information will be documented separately before those services are made available.
 
 ---
 
-## Current Features
+## Development and Contributing
 
-### Implemented
+Want to understand the implementation or contribute to BezotCorp AI?
 
-- AI chat
-- Streaming responses
-- Stop generation
-- Multiple chat sessions
-- Persistent session storage
-- Session switching
-- Session rename
-- Session deletion
-- Active model display
-- Model selector
-- Manual model entry
-- Ollama model discovery
-- Model refresh
-- Persisted model selection
-- Backend status monitoring
-- Connection testing
-- Ollama integration
-- Custom backend integration
-- VS Code commands
-- Tool calling with permissions (Ollama)
-- File, git and web tools
-- MCP client over stdio
-- Conversation history with tool traffic
+- [Architecture](docs/architecture.md) — current technical architecture and implementation boundaries
+- [TODO](docs/todo.md) — remaining implementation and validation work
 
-### Planned
+The extension is written in TypeScript for VS Code.
 
-- Multi-file editing
-- Workspace semantic graph
-- Agent orchestration
-- Memory integration
-- Provider profiles
-- Model capability profiles
+Install dependencies:
 
-### Future
+```bash
+pnpm install
+```
 
-- Multi-agent collaboration
-- Autonomous coding workflows
-- Project knowledge graph
-- Native Rust ecosystem integration
+Compile the extension:
+
+```bash
+pnpm compile
+```
+
+Contributions should preserve the explicit tool boundaries, permission model and local-first design.
 
 ---
 

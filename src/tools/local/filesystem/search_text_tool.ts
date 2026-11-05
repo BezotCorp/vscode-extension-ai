@@ -40,7 +40,7 @@ export class SearchTextTool implements Tool {
       });
     }
 
-    await this.accessGuard.assertPath(this, 'search', resolvePath('.'), true, {
+    await this.accessGuard.assertPath(this, 'search', await resolvePath('.'), true, {
       signal: context?.signal,
     });
 

@@ -1,85 +1,157 @@
-import * as fs from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { detectStructuralWorkspace, ResolvedPath } from '.';
+import { detectStructuralWorkspace } from './detect_structural_workspace';
+import { ResolvedPath } from './resolved_path';
 
-// Relative paths start at the first workspace folder. In a multi-root workspace a path may also start with the
-// name of a folder ("api/src/index.ts"), and a path that exists in only one folder is found there.
-export function resolvePath(inputPath: string): ResolvedPath {
+export async function resolvePath(inputPath: string): Promise<ResolvedPath> {
   const roots = getWorkspaceRoots();
 
-  if (roots.length === 0 && !path.isAbsolute(inputPath)) {
-    throw Object.assign(new Error('No workspace folder is open.'), { code: 'NoWorkspace' });
-  }
+  const requested = await resolveRequestedUri(inputPath, roots);
 
-  const realRoots = roots.map(realPath);
-  const base = path.isAbsolute(inputPath) ? realRoots[0] : chooseRoot(inputPath, roots, realRoots);
-  const target = realPath(path.resolve(base ?? '/', stripFolderName(inputPath, roots, base)));
-  const container = realRoots.find((root) => isInside(root, target));
-  const structuralWorkspace = container
-    ? undefined
-    : detectStructuralWorkspace(target, realRoots);
+  const target = await canonicalize(requested);
+
+  const canonicalRoots = await Promise.all(roots.map(canonicalize));
+
+  const container = canonicalRoots.find((root) => isInside(root, target));
+
+  const structuralWorkspace = container ? undefined : await detectStructuralWorkspace(target, canonicalRoots);
 
   return {
-    uri: vscode.Uri.file(target),
+    uri: target,
     insideCurrentWindow: container !== undefined,
     currentWindowRoot: container,
     structuralWorkspace,
   };
 }
 
-export function getWorkspaceRoot(): string | undefined {
+export function getWorkspaceRoot(): vscode.Uri | undefined {
   return getWorkspaceRoots()[0];
 }
 
-export function getWorkspaceRoots(): string[] {
-  return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
+export function getWorkspaceRoots(): vscode.Uri[] {
+  return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
 }
 
-function chooseRoot(inputPath: string, roots: string[], realRoots: string[]): string {
-  if (roots.length > 1) {
-    const [first] = inputPath.split(/[\\/]/);
-    const named = (vscode.workspace.workspaceFolders ?? []).findIndex((folder) => folder.name === first);
+async function resolveRequestedUri(inputPath: string, roots: readonly vscode.Uri[]): Promise<vscode.Uri> {
+  if (isExplicitUri(inputPath)) {
+    return vscode.Uri.parse(inputPath, true);
+  }
 
-    if (named >= 0 && inputPath.length > first.length) {
-      return realRoots[named];
+  if (path.isAbsolute(inputPath)) {
+    return vscode.Uri.file(inputPath);
+  }
+
+  if (roots.length === 0) {
+    throw Object.assign(new Error('No workspace folder is open.'), { code: 'NoWorkspace' });
+  }
+
+  const selected = await chooseRoot(inputPath, roots);
+
+  return resolveRelative(selected.root, selected.relativePath);
+}
+
+async function chooseRoot(
+  inputPath: string,
+  roots: readonly vscode.Uri[],
+): Promise<{
+  root: vscode.Uri;
+  relativePath: string;
+}> {
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const normalized = normalizeInput(inputPath);
+  const [first] = normalized.split('/');
+
+  if (roots.length > 1) {
+    const namedIndex = folders.findIndex((folder) => folder.name === first);
+
+    if (namedIndex >= 0 && normalized.length > first.length) {
+      return {
+        root: roots[namedIndex],
+        relativePath: normalized.slice(first.length + 1),
+      };
     }
 
-    const existing = realRoots.find((root) => fs.existsSync(path.resolve(root, inputPath)));
+    for (const root of roots) {
+      const candidate = resolveRelative(root, normalized);
 
-    if (existing) {
-      return existing;
+      if (await exists(candidate)) {
+        return {
+          root,
+          relativePath: normalized,
+        };
+      }
     }
   }
 
-  return realRoots[0];
+  return {
+    root: roots[0],
+    relativePath: normalized,
+  };
 }
 
-// "api/src/index.ts" is a path inside the folder named "api", not a folder called "api" under the first root.
-function stripFolderName(inputPath: string, roots: string[], base: string | undefined): string {
-  const folders = vscode.workspace.workspaceFolders ?? [];
-  const [first] = inputPath.split(/[\\/]/);
-  const named = folders.find((folder) => folder.name === first && realPath(folder.uri.fsPath) === base);
+function resolveRelative(root: vscode.Uri, inputPath: string): vscode.Uri {
+  const resolvedPath = path.posix.resolve(root.path, normalizeInput(inputPath));
 
-  return roots.length > 1 && named && inputPath.length > first.length && !fs.existsSync(path.resolve(base ?? '/', inputPath))
-    ? inputPath.slice(first.length + 1)
-    : inputPath;
+  return root.with({
+    path: resolvedPath,
+    query: '',
+    fragment: '',
+  });
 }
 
-function isInside(parent: string, child: string): boolean {
-  const relative = path.relative(parent, child);
-
-  return !relative.startsWith('..') && !path.isAbsolute(relative);
+function normalizeInput(inputPath: string): string {
+  return inputPath.replace(/\\/g, '/');
 }
 
-// Resolves symbolic links on the nearest existing ancestor so paths that do not exist yet are checked too.
-function realPath(target: string): string {
+function isExplicitUri(inputPath: string): boolean {
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(inputPath);
+}
+
+async function exists(uri: vscode.Uri): Promise<boolean> {
   try {
-    return fs.realpathSync(target);
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function canonicalize(uri: vscode.Uri): Promise<vscode.Uri> {
+  if (uri.scheme !== 'file') {
+    return uri;
+  }
+
+  return vscode.Uri.file(await realPath(uri.fsPath));
+}
+
+async function realPath(target: string): Promise<string> {
+  try {
+    return await fs.realpath(target);
   } catch {
     const parent = path.dirname(target);
 
-    return parent === target ? target : path.join(realPath(parent), path.basename(target));
+    if (parent === target) {
+      return target;
+    }
+
+    return path.join(await realPath(parent), path.basename(target));
   }
+}
+
+function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
+  if (parent.scheme !== child.scheme || parent.authority !== child.authority) {
+    return false;
+  }
+
+  if (parent.scheme === 'file' && child.scheme === 'file') {
+    const relative = path.relative(parent.fsPath, child.fsPath);
+
+    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  }
+
+  const relative = path.posix.relative(parent.path, child.path);
+
+  return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
 }

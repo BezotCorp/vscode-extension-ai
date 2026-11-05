@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { removalEffect } from '../../../permissions';
-import { findDirtyDocuments, resolvePath } from '../../../workspace';
+import { findDirtyDocuments, resolvePath, resourcePath } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
@@ -28,8 +28,8 @@ export class DeleteFileTool implements Tool {
   constructor(private readonly accessGuard: ToolAccessGuard) {}
 
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
-    const resolved = resolvePath(readStringArg(input, 'path') ?? '');
-    const fsPath = resolved.uri.fsPath;
+    const resolved = await resolvePath(readStringArg(input, 'path') ?? '');
+    const fsPath = resourcePath(resolved.uri);
     const stat = await vscode.workspace.fs.stat(resolved.uri);
     const isDirectory = Boolean(stat.type & vscode.FileType.Directory);
 

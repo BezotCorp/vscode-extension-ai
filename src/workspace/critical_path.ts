@@ -9,7 +9,9 @@ import { ResolvedPath } from '.';
 function systemRoots(): string[] {
   switch (process.platform) {
     case 'win32':
-      return [process.env.SystemRoot, process.env.ProgramFiles, process.env['ProgramFiles(x86)']].filter((root): root is string => Boolean(root));
+      return [process.env.SystemRoot, process.env.ProgramFiles, process.env['ProgramFiles(x86)']].filter(
+        (root): root is string => Boolean(root),
+      );
     case 'darwin':
       return [
         '/System',
@@ -57,6 +59,10 @@ function systemRoots(): string[] {
 // strongest confirmation; reading never does (the caller decides). Being critical does not depend on the perimeter the
 // user allowed: a system location stays critical inside the current window or the home folder.
 export function describeCriticalPath(resolved: ResolvedPath): string | undefined {
+  if (resolved.uri.scheme !== 'file') {
+    return undefined;
+  }
+
   const target = path.resolve(resolved.uri.fsPath);
   const home = os.homedir();
 
@@ -76,9 +82,7 @@ export function describeCriticalPath(resolved: ResolvedPath): string | undefined
     }
   }
 
-  return systemRoots().some((root) => isInsideOrSame(target, root))
-    ? 'a system location'
-    : undefined;
+  return systemRoots().some((root) => isInsideOrSame(target, root)) ? 'a system location' : undefined;
 }
 
 // True when `child` is `parent` itself or lies below it.

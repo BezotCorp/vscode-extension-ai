@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
+import * as vscode from 'vscode';
+
 import { contentEffect } from '../../../permissions';
-import { resolvePath, sha256Hex } from '../../../workspace';
+import { resolvePath, resourcePath, sha256Hex } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { ACCESS_PARAMETER, describeContent, readAccessArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
@@ -42,32 +44,38 @@ export class CreateFileTool implements Tool {
       });
     }
 
-    const resolved = resolvePath(readStringArg(input, 'path') ?? '');
-    const fsPath = resolved.uri.fsPath;
+    const resolved = await resolvePath(readStringArg(input, 'path') ?? '');
+    const resource = resourcePath(resolved.uri);
 
     await this.accessGuard.assertPath(this, 'create', resolved, false, {
       detail: describeContent(content),
-      effects: [contentEffect(fsPath)],
+      effects: [contentEffect(resource)],
       access: readAccessArg(input),
       signal: context?.signal,
     });
 
-    await fs.mkdir(path.dirname(fsPath), { recursive: true });
+    const parent = resolved.uri.with({
+      path: path.posix.dirname(resolved.uri.path),
+      query: '',
+      fragment: '',
+    });
+
+    await vscode.workspace.fs.createDirectory(parent);
 
     const bytes = new TextEncoder().encode(content);
-    const handle = await fs.open(fsPath, 'wx');
+    const temporary = vscode.Uri.joinPath(parent, `.bezotcorp-ai-${randomUUID()}.tmp`);
 
     try {
-      await handle.writeFile(bytes);
+      await vscode.workspace.fs.writeFile(temporary, bytes);
+
+      await vscode.workspace.fs.rename(temporary, resolved.uri, { overwrite: false });
     } finally {
-      await handle.close();
+      await Promise.resolve(vscode.workspace.fs.delete(temporary, { useTrash: false })).catch(() => undefined);
     }
 
-    // There is no original to protect, so no safety copy: the usual write protections apply (permission, exclusive
-    // creation). The AI knows exactly what it wrote, so that is its context for a later update_file.
-    this.versions.remember(fsPath, sha256Hex(bytes), content, true);
+    this.versions.remember(resource, sha256Hex(bytes), content, true);
 
-    return toolSuccess(this.id, fsPath, {
+    return toolSuccess(this.id, resource, {
       message: 'File created.',
       details: { bytesWritten: bytes.length },
     });

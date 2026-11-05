@@ -21,7 +21,7 @@ export class GitUnstageTool extends GitTool {
   };
 
   protected async plan(input: unknown, repository: string): Promise<GitPlan | ToolExecutionResult> {
-    const paths = readRepositoryPaths(input, 'paths', repository, true);
+    const paths = await readRepositoryPaths(input, 'paths', repository, true);
 
     if (paths instanceof Error) {
       return this.reject(paths.message);

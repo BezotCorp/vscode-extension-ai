@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { findOpenDocument, ResolvedPath, resolvePath, sha256Hex } from '../../../workspace';
+import { findOpenDocument, ResolvedPath, resolvePath, resourcePath, sha256Hex } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readNumberArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
@@ -33,8 +33,8 @@ export class ReadFileTool implements Tool {
 
   async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
     const relativePath = readStringArg(input, 'path') ?? '';
-    const resolved = resolvePath(relativePath);
-    const fsPath = resolved.uri.fsPath;
+    const resolved = await resolvePath(relativePath);
+    const fsPath = resourcePath(resolved.uri);
 
     await this.accessGuard.assertReadable(this, resolved, false, { signal: context?.signal });
 

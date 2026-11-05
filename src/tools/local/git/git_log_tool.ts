@@ -27,7 +27,7 @@ export class GitLogTool extends GitTool {
   protected async plan(input: unknown, repository: string): Promise<GitPlan | ToolExecutionResult> {
     const count = readCount(input, 'maxCount', 20, 100);
     const revision = readRevision(input, 'revision');
-    const paths = readRepositoryPaths(input, 'paths', repository, false);
+    const paths = await readRepositoryPaths(input, 'paths', repository, false);
 
     for (const value of [count, revision, paths]) {
       if (value instanceof Error) {

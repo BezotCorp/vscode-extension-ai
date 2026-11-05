@@ -23,7 +23,7 @@ export class GitShowTool extends GitTool {
 
   protected async plan(input: unknown, repository: string): Promise<GitPlan | ToolExecutionResult> {
     const revision = readRevision(input, 'revision');
-    const paths = readRepositoryPaths(input, 'paths', repository, false);
+    const paths = await readRepositoryPaths(input, 'paths', repository, false);
 
     if (!revision || revision instanceof Error) {
       return this.reject(revision instanceof Error ? revision.message : '"revision" is required.');

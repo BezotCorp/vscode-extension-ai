@@ -77,12 +77,12 @@ export function readBoolean(input: unknown, key: string): boolean {
   return value === true || value === 'true';
 }
 
-export function readRepositoryPaths(
+export async function readRepositoryPaths(
   input: unknown,
   key: string,
   repository: string,
   required: boolean,
-): RepositoryPaths | Error {
+): Promise<RepositoryPaths | Error> {
   const raw = (input as Record<string, unknown> | null | undefined)?.[key];
   const items = Array.isArray(raw) ? raw : typeof raw === 'string' && raw.trim() ? [raw] : [];
 
@@ -102,7 +102,12 @@ export function readRepositoryPaths(
       return new Error(`"${key}" holds an invalid path.`);
     }
 
-    const resolved = resolvePath(item.trim());
+    const resolved = await resolvePath(item.trim());
+
+    if (resolved.uri.scheme !== 'file') {
+      return new Error(`"${item}" is not available to git as a filesystem path.`);
+    }
+
     const relative = path.relative(repository, resolved.uri.fsPath);
 
     if (relative.startsWith('..') || path.isAbsolute(relative)) {

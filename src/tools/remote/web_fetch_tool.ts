@@ -4,6 +4,7 @@ import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from
 import { describeContent, readStringArg } from '../tool_input';
 import { toolFailure, toolSuccess } from '../tool_result';
 import { t } from '../../i18n';
+import { Decoding } from './decoding';
 
 const TIMEOUT_MS = 15_000;
 const MAX_BODY_BYTES = 1_000_000;
@@ -11,12 +12,6 @@ const SAFE_METHODS = new Set(['GET', 'HEAD']);
 const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']);
 // Errors raised before any byte of the request could be delivered.
 const NOT_DELIVERED_CODES = new Set(['ENOTFOUND', 'ECONNREFUSED', 'EAI_AGAIN', 'ERR_TLS_CERT_ALTNAME_INVALID']);
-
-type Decoding = {
-  format: 'json' | 'text' | 'binary' | 'none';
-  ok: boolean;
-  error?: string;
-};
 
 export class WebFetchTool implements Tool {
   readonly id = 'web_fetch';
@@ -79,9 +74,7 @@ export class WebFetchTool implements Tool {
         ]
           .filter(Boolean)
           .join('\n'),
-        warning: isLocalOrPrivateHost(url.hostname)
-          ? t('warning.privateNetwork')
-          : undefined,
+        warning: isLocalOrPrivateHost(url.hostname) ? t('warning.privateNetwork') : undefined,
       },
       context?.signal,
     );
@@ -111,7 +104,8 @@ export class WebFetchTool implements Tool {
     let bodyCut: boolean;
 
     try {
-      ({ bytes, cut: bodyCut } = method === 'HEAD' ? { bytes: new Uint8Array(), cut: false } : await readLimited(response, signal));
+      ({ bytes, cut: bodyCut } =
+        method === 'HEAD' ? { bytes: new Uint8Array(), cut: false } : await readLimited(response, signal));
     } catch (error) {
       const failure = this.requestFailure(error, resource, safe, context?.signal, timeout);
 
@@ -267,7 +261,9 @@ function decodeBody(
     mime === 'application/x-www-form-urlencoded';
 
   if (!textual || bytes.subarray(0, 8000).includes(0)) {
-    return { decoding: { format: 'binary', ok: false, error: `Body not decoded (content type: ${mime || 'unknown'}).` } };
+    return {
+      decoding: { format: 'binary', ok: false, error: `Body not decoded (content type: ${mime || 'unknown'}).` },
+    };
   }
 
   const text = new TextDecoder(charsetOf(contentType)).decode(bytes);
@@ -289,7 +285,11 @@ function decodeBody(
 }
 
 function charsetOf(contentType: string | undefined): string {
-  const charset = /charset=([^;]+)/i.exec(contentType ?? '')?.[1]?.trim().replace(/["']/g, '') ?? 'utf-8';
+  const charset =
+    /charset=([^;]+)/i
+      .exec(contentType ?? '')?.[1]
+      ?.trim()
+      .replace(/["']/g, '') ?? 'utf-8';
 
   try {
     new TextDecoder(charset);

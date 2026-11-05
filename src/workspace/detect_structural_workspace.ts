@@ -1,42 +1,33 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as vscode from 'vscode';
 
-import { StructuralWorkspace } from '.';
+import { StructuralWorkspace } from './structural_workspace';
 
 const MAX_MANIFEST_BYTES = 1_000_000;
 
-export function detectStructuralWorkspace(
-  target: string,
-  currentWindowRoots: readonly string[],
-): StructuralWorkspace | undefined {
-  const targetPath = path.resolve(target);
-  const roots = currentWindowRoots.map((root) => path.resolve(root));
-
+export async function detectStructuralWorkspace(
+  target: vscode.Uri,
+  currentWindowRoots: readonly vscode.Uri[],
+): Promise<StructuralWorkspace | undefined> {
   const candidates = new Map<string, StructuralWorkspace>();
 
-  for (const root of roots) {
+  for (const root of currentWindowRoots) {
     for (const parent of parents(root)) {
-      const detected = detectAt(parent);
+      const detected = await detectAt(parent);
 
-      if (
-        detected &&
-        isInside(detected.root, root) &&
-        isInside(detected.root, targetPath)
-      ) {
-        candidates.set(detected.root, detected);
+      if (detected && isInside(detected.root, root) && isInside(detected.root, target)) {
+        candidates.set(detected.root.toString(), detected);
       }
     }
   }
 
-  return [...candidates.values()].sort(
-    (left, right) => right.root.length - left.root.length,
-  )[0];
+  return [...candidates.values()].sort((left, right) => right.root.path.length - left.root.path.length)[0];
 }
 
-function detectAt(root: string): StructuralWorkspace | undefined {
-  const cargo = path.join(root, 'Cargo.toml');
+async function detectAt(root: vscode.Uri): Promise<StructuralWorkspace | undefined> {
+  const cargo = vscode.Uri.joinPath(root, 'Cargo.toml');
 
-  if (isFile(cargo) && cargoContainsWorkspace(cargo)) {
+  if ((await isFile(cargo)) && (await cargoContainsWorkspace(cargo))) {
     return {
       kind: 'cargo',
       root,
@@ -44,9 +35,9 @@ function detectAt(root: string): StructuralWorkspace | undefined {
     };
   }
 
-  const pnpm = path.join(root, 'pnpm-workspace.yaml');
+  const pnpm = vscode.Uri.joinPath(root, 'pnpm-workspace.yaml');
 
-  if (isFile(pnpm)) {
+  if (await isFile(pnpm)) {
     return {
       kind: 'pnpm',
       root,
@@ -54,9 +45,9 @@ function detectAt(root: string): StructuralWorkspace | undefined {
     };
   }
 
-  const packageJson = path.join(root, 'package.json');
+  const packageJson = vscode.Uri.joinPath(root, 'package.json');
 
-  if (isFile(packageJson) && packageContainsWorkspaces(packageJson)) {
+  if ((await isFile(packageJson)) && (await packageContainsWorkspaces(packageJson))) {
     return {
       kind: 'node',
       root,
@@ -67,14 +58,14 @@ function detectAt(root: string): StructuralWorkspace | undefined {
   return undefined;
 }
 
-function cargoContainsWorkspace(file: string): boolean {
-  const text = readSmallText(file);
+async function cargoContainsWorkspace(uri: vscode.Uri): Promise<boolean> {
+  const text = await readSmallText(uri);
 
   return text !== undefined && /^\s*\[workspace(?:\.[^\]]+)?\]\s*$/m.test(text);
 }
 
-function packageContainsWorkspaces(file: string): boolean {
-  const text = readSmallText(file);
+async function packageContainsWorkspaces(uri: vscode.Uri): Promise<boolean> {
+  const text = await readSmallText(uri);
 
   if (text === undefined) {
     return false;
@@ -85,68 +76,63 @@ function packageContainsWorkspaces(file: string): boolean {
       workspaces?: unknown;
     };
 
-    return (
-      Array.isArray(value.workspaces) ||
-      (
-        typeof value.workspaces === 'object' &&
-        value.workspaces !== null
-      )
-    );
+    return Array.isArray(value.workspaces) || (typeof value.workspaces === 'object' && value.workspaces !== null);
   } catch {
     return false;
   }
 }
 
-function readSmallText(file: string): string | undefined {
+async function readSmallText(uri: vscode.Uri): Promise<string | undefined> {
   try {
-    const stat = fs.statSync(file);
+    const stat = await vscode.workspace.fs.stat(uri);
 
-    if (!stat.isFile() || stat.size > MAX_MANIFEST_BYTES) {
+    if (!(stat.type & vscode.FileType.File) || stat.size > MAX_MANIFEST_BYTES) {
       return undefined;
     }
 
-    return fs.readFileSync(file, 'utf-8');
+    return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
   } catch {
     return undefined;
   }
 }
 
-function isFile(file: string): boolean {
+async function isFile(uri: vscode.Uri): Promise<boolean> {
   try {
-    return fs.statSync(file).isFile();
+    const stat = await vscode.workspace.fs.stat(uri);
+
+    return Boolean(stat.type & vscode.FileType.File);
   } catch {
     return false;
   }
 }
 
-function parents(start: string): string[] {
-  const result: string[] = [];
-  let current = path.resolve(start);
+function parents(start: vscode.Uri): vscode.Uri[] {
+  const result: vscode.Uri[] = [];
+  let current = start;
 
   for (;;) {
     result.push(current);
 
-    const parent = path.dirname(current);
+    const parentPath = path.posix.dirname(current.path);
 
-    if (parent === current) {
+    if (parentPath === current.path) {
       return result;
     }
 
-    current = parent;
+    current = current.with({
+      path: parentPath,
+      query: '',
+      fragment: '',
+    });
   }
 }
 
-function isInside(parent: string, child: string): boolean {
-  const relative = path.relative(
-    path.resolve(parent),
-    path.resolve(child),
-  );
+function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
+  if (parent.scheme !== child.scheme || parent.authority !== child.authority) {
+    return false;
+  }
 
-  return (
-    relative === '' ||
-    (
-      !relative.startsWith('..') &&
-      !path.isAbsolute(relative)
-    )
-  );
+  const relative = path.posix.relative(parent.path, child.path);
+
+  return relative === '' || (!relative.startsWith('..') && !path.posix.isAbsolute(relative));
 }

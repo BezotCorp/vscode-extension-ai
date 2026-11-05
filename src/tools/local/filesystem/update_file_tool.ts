@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { contentEffect, PermissionError } from '../../../permissions';
-import { findDirtyDocuments, ResolvedPath, resolvePath, TruncatedText } from '../../../workspace';
+import { findDirtyDocuments, ResolvedPath, resolvePath, resourcePath, TruncatedText } from '../../../workspace';
 import { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
 import { toolErrorFromException, toolFailure, toolSuccess } from '../../tool_result';
@@ -68,8 +68,8 @@ export class UpdateFileTool implements Tool {
       return this.invalidArguments(request.error);
     }
 
-    const resolved = resolvePath(readStringArg(input, 'path') ?? '');
-    const fsPath = resolved.uri.fsPath;
+    const resolved = await resolvePath(readStringArg(input, 'path') ?? '');
+    const fsPath = resourcePath(resolved.uri);
 
     if (findDirtyDocuments(resolved.uri).length > 0) {
       return unsavedChangesFailure(this.id, fsPath);
@@ -159,9 +159,7 @@ export class UpdateFileTool implements Tool {
             retryable: true,
           });
         default:
-          void vscode.window.showErrorMessage(
-            t('notify.writeNotRestored', { path: fsPath, backup: data.backupPath }),
-          );
+          void vscode.window.showErrorMessage(t('notify.writeNotRestored', { path: fsPath, backup: data.backupPath }));
 
           return toolFailure('error', this.id, fsPath, {
             reason: 'restore_failed',
@@ -315,9 +313,7 @@ export class UpdateFileTool implements Tool {
 
     if (stopped) {
       this.versions.clearConflicts(fsPath);
-      void vscode.window.showWarningMessage(
-        t('notify.updateStopped', { path: fsPath }),
-      );
+      void vscode.window.showWarningMessage(t('notify.updateStopped', { path: fsPath }));
     }
 
     const build = (shown?: TruncatedText): ToolExecutionResult =>

@@ -14,6 +14,7 @@ import {
 import {
   describeCriticalPath,
   ResolvedPath,
+  resourcePath,
   StructuralWorkspace,
 } from '../workspace';
 import { MessageKey, t } from '../i18n';
@@ -115,7 +116,7 @@ export class ToolAccessGuard {
     options: GuardOptions = {},
   ): Promise<void> {
     const fsPath =
-      resolved.uri.fsPath;
+      resourcePath(resolved.uri);
 
     await this.authorize(
       {
@@ -165,13 +166,13 @@ export class ToolAccessGuard {
         action:
           `move ${isDirectory ? 'folder' : 'file'} ` +
           sanitizeForPrompt(
-            source.uri.fsPath,
+            resourcePath(source.uri),
           ),
 
         actionLabel:
           t(
             `action.move.${isDirectory ? 'folder' : 'file'}`,
-            { path: sanitizeForPrompt(source.uri.fsPath) },
+            { path: sanitizeForPrompt(resourcePath(source.uri)) },
           ),
 
         resources: [
@@ -189,7 +190,7 @@ export class ToolAccessGuard {
           t('detail.destination', {
             path:
               sanitizeForPrompt(
-                destination.uri.fsPath,
+                resourcePath(destination.uri),
               ),
           }),
           options.detail,
@@ -214,7 +215,7 @@ export class ToolAccessGuard {
     isDirectory: boolean,
   ): PermissionRequest['resources'][number] {
     const fsPath =
-      resolved.uri.fsPath;
+      resourcePath(resolved.uri);
 
     if (
       resolved.insideCurrentWindow
@@ -227,8 +228,9 @@ export class ToolAccessGuard {
           kind: 'currentWindow',
 
           root:
-            resolved.currentWindowRoot ??
-            fsPath,
+            resolved.currentWindowRoot
+              ? resourcePath(resolved.currentWindowRoot)
+              : fsPath,
         },
       };
     }
@@ -578,7 +580,10 @@ export class ToolAccessGuard {
 
     const reason =
       structural
-        ? t('dialog.reason.structural', { kind: structural.kind, root: structural.root })
+        ? t('dialog.reason.structural', {
+            kind: structural.kind,
+            root: resourcePath(structural.root),
+          })
         : t('dialog.reason.outside');
 
     const choices = [
@@ -646,7 +651,7 @@ export class ToolAccessGuard {
       await this.store
         .allowResource(
           toolId,
-          structural.root,
+          resourcePath(structural.root),
           'structuralWorkspace',
           answer.choice ===
             buttons.allowWorkspaceCurrentSession
@@ -1002,8 +1007,8 @@ function commonStructuralWorkspace(
 
   return workspaces.every(
     (workspace) =>
-      workspace?.root ===
-        first.root &&
+      workspace?.root.toString() ===
+        first.root.toString() &&
       workspace.kind ===
         first.kind,
   )

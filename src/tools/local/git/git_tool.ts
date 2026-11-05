@@ -103,13 +103,26 @@ export abstract class GitTool implements Tool {
       });
     }
 
-    const chosen = folder ? roots.find((root) => path.basename(root) === folder) : roots[0];
+    const filesystemRoots = roots.filter((root) => root.scheme === 'file');
+
+    if (filesystemRoots.length === 0) {
+      return toolFailure('error', this.id, undefined, {
+        reason: 'git_requires_filesystem',
+        message: 'Git tools require a workspace backed by a filesystem path available to the git executable.',
+        executed: false,
+        retryable: false,
+      });
+    }
+
+    const chosen = folder ? filesystemRoots.find((root) => path.basename(root.fsPath) === folder) : filesystemRoots[0];
 
     return (
-      chosen ??
+      chosen?.fsPath ??
       toolFailure('error', this.id, folder, {
         reason: 'unknown_folder',
-        message: `No workspace folder is named "${folder}". Open folders: ${roots.map((root) => path.basename(root)).join(', ')}.`,
+        message:
+          `No filesystem-backed workspace folder is named "${folder}". ` +
+          `Open folders: ${filesystemRoots.map((root) => path.basename(root.fsPath)).join(', ')}.`,
         executed: false,
         retryable: true,
       })
