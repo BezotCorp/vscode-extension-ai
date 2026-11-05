@@ -1,42 +1,14 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-
+import { KILL_GRACE_MS } from '../process_limits';
 import { baseEnvironment } from '../tools/base_environment';
 import { getWorkspaceRoot } from '../workspace';
 import type { McpServerConfig, McpToolInfo } from '.';
+import type { JsonRpcMessage } from './json_rpc_message';
+import type { McpCallResult } from './mcp_call_result';
+import { PROTOCOL_VERSION, REQUEST_TIMEOUT_MS, STARTUP_TIMEOUT_MS, STDERR_TAIL_CHARS } from './mcp_client_constants';
+import type { McpContentPart } from './mcp_content_part';
 import { McpRequestError } from './mcp_request_error';
-
-const PROTOCOL_VERSION = '2024-11-05';
-const STARTUP_TIMEOUT_MS = 15_000;
-const REQUEST_TIMEOUT_MS = 60_000;
-const STDERR_TAIL_CHARS = 2_000;
-const KILL_GRACE_MS = 2_000;
-
-type PendingRequest = {
-	resolve(value: unknown): void;
-	reject(error: Error): void;
-};
-
-type JsonRpcMessage = {
-	id?: number | string;
-	method?: string;
-	result?: unknown;
-	error?: { code: number; message: string };
-};
-
-export type McpCallResult = {
-	text: string;
-	isError: boolean;
-	partTypes: string[];
-	structuredContent?: unknown;
-};
-
-type McpContentPart = {
-	type: string;
-	text?: string;
-	mimeType?: string;
-	data?: string;
-	resource?: { uri?: string; text?: string; mimeType?: string };
-};
+import type { PendingRequest } from './pending_request';
 
 // Minimal MCP client over stdio (newline-delimited JSON-RPC).
 export class McpClient {

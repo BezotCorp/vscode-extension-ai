@@ -11,11 +11,8 @@ import type {
 	ResourcePermissionGrant,
 	ResourcePermissionKind,
 } from '.';
-
-const TOOL_SETTING = 'permissions';
-const RESOURCE_KEY = 'bezotcorpAi.resourcePermissions.v2';
-
-const LIFETIMES: PermissionLifetime[] = ['currentSession', 'allSessions'];
+import { PERMISSION_LIFETIMES } from './permission_lifetimes';
+import { RESOURCE_KEY, TOOL_SETTING } from './permission_storage_keys';
 
 export class PermissionStore {
 	private readonly sessionTools = new Map<string, PermissionPolicy>();
@@ -29,7 +26,7 @@ export class PermissionStore {
 	}
 
 	resolve(toolId: string): PermissionResolution | undefined {
-		const decisions = LIFETIMES.flatMap((lifetime) => {
+		const decisions = PERMISSION_LIFETIMES.flatMap((lifetime) => {
 			const policy = this.get(toolId, lifetime);
 
 			return policy
@@ -68,7 +65,7 @@ export class PermissionStore {
 	}
 
 	list(): PermissionEntry[] {
-		return LIFETIMES.flatMap((lifetime) =>
+		return PERMISSION_LIFETIMES.flatMap((lifetime) =>
 			[...this.readToolDecisions(lifetime).entries()].map(([toolId, policy]) => ({
 				toolId,
 				policy,

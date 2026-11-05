@@ -1,6 +1,5 @@
+import { TRUNCATION_MARKER } from './truncate_content_constants';
 import { MAX_FILE_CHARS } from './workspace_limits';
-
-export const TRUNCATION_MARKER = '\n\n/* Content truncated by BezotCorp AI */';
 
 export type TruncatedText = {
 	text: string;

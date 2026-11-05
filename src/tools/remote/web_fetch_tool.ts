@@ -1,17 +1,13 @@
+import { t } from '../../i18n';
 import { networkEffect, sanitizeForPrompt } from '../../permissions';
 import { truncateText } from '../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '..';
 import { describeContent, readStringArg } from '../tool_input';
 import { toolFailure, toolSuccess } from '../tool_result';
-import { t } from '../../i18n';
 import type { Decoding } from './decoding';
-
-const TIMEOUT_MS = 15_000;
-const MAX_BODY_BYTES = 1_000_000;
-const SAFE_METHODS = new Set(['GET', 'HEAD']);
-const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']);
-// Errors raised before any byte of the request could be delivered.
-const NOT_DELIVERED_CODES = new Set(['ENOTFOUND', 'ECONNREFUSED', 'EAI_AGAIN', 'ERR_TLS_CERT_ALTNAME_INVALID']);
+import { NOT_DELIVERED_CODES } from './web_fetch_error_codes';
+import { MAX_BODY_BYTES, TIMEOUT_MS } from './web_fetch_limits';
+import { ALLOWED_METHODS, SAFE_METHODS } from './web_fetch_methods';
 
 export class WebFetchTool implements Tool {
 	readonly id = 'web_fetch';

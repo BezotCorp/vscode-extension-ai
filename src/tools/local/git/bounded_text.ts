@@ -1,5 +1,4 @@
-const HEAD_CHARS = 4_000;
-const TAIL_CHARS = 36_000;
+import { HEAD_CHARS, TAIL_CHARS } from './bounded_text_limits';
 
 // Keeps the beginning and the end of a stream, which is where programs print what matters.
 export class BoundedText {

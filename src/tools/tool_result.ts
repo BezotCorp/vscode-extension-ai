@@ -1,21 +1,8 @@
 import type { ToolExecutionResult, ToolStatus } from '.';
-
-export const MAX_SERIALIZED_CHARS = 48_000;
-
-type SuccessFields = {
-	content?: string;
-	message?: string;
-	details?: Record<string, unknown>;
-};
-
-type FailureFields = {
-	reason: string;
-	message: string;
-	executed: boolean | 'unknown';
-	retryable: boolean;
-	content?: string;
-	details?: Record<string, unknown>;
-};
+import type { FailureFields } from './failure_fields';
+import type { SuccessFields } from './success_fields';
+import { CUT_MARKER, MAX_SERIALIZED_CHARS } from './tool_result_constants';
+import { ERROR_CODES } from './tool_error_codes';
 
 export function toolSuccess(
 	operation: string,
@@ -40,48 +27,6 @@ export function toolFailure(
 ): ToolExecutionResult {
 	return { status, operation, resource, ...fields };
 }
-
-const ERROR_CODES: Record<string, { reason: string; message: string }> = {
-	ENOENT: { reason: 'not_found', message: 'The path does not exist.' },
-	FileNotFound: { reason: 'not_found', message: 'The path does not exist.' },
-	EEXIST: {
-		reason: 'already_exists',
-		message: 'The destination already exists.',
-	},
-	FileExists: {
-		reason: 'already_exists',
-		message: 'The destination already exists.',
-	},
-	EACCES: {
-		reason: 'os_permission_denied',
-		message: 'The operating system denied access.',
-	},
-	EPERM: {
-		reason: 'os_permission_denied',
-		message: 'The operating system denied access.',
-	},
-	NoPermissions: {
-		reason: 'os_permission_denied',
-		message: 'The operating system denied access.',
-	},
-	EISDIR: { reason: 'is_a_directory', message: 'The path is a directory.' },
-	FileIsADirectory: {
-		reason: 'is_a_directory',
-		message: 'The path is a directory.',
-	},
-	ENOTDIR: {
-		reason: 'not_a_directory',
-		message: 'A path segment is not a directory.',
-	},
-	FileNotADirectory: {
-		reason: 'not_a_directory',
-		message: 'A path segment is not a directory.',
-	},
-	NoWorkspace: {
-		reason: 'no_workspace',
-		message: 'No workspace folder is open.',
-	},
-};
 
 // `sideEffects` tells whether the failed operation could have changed something before failing.
 export function toolErrorFromException(
@@ -111,8 +56,6 @@ export function toolErrorFromException(
 		retryable: false,
 	});
 }
-
-const CUT_MARKER = '\n/* content cut to fit the model context */';
 
 // The result as the model will receive it. When the serialized result is too long, only its content is cut, and cut so
 // that the serialization fits `maxChars` exactly (the marker and the flag that tell about the cut are counted).

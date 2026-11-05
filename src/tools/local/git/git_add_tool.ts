@@ -1,8 +1,9 @@
+import { t } from '../../../i18n';
 import type { ToolExecutionResult } from '../..';
 import { readRepositoryPaths } from './git_arguments';
+import { FOLDER_PARAMETER } from './git_folder_parameter';
 import type { GitPlan } from './git_plan';
-import { FOLDER_PARAMETER, GitTool } from './git_tool';
-import { t } from '../../../i18n';
+import { GitTool } from './git_tool';
 
 export class GitAddTool extends GitTool {
 	readonly id = 'git_add';

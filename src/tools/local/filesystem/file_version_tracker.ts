@@ -1,26 +1,6 @@
-const MAX_SEGMENTS_PER_FILE = 8;
-const MAX_TRACKED_FILES = 200;
-
-// A part of a file the model received, exactly as it received it. `whole` is true when that part is the entire file.
-type Segment = {
-	text: string;
-	whole: boolean;
-};
-
-// What the model received of one file: the SHA of the whole file when it was read, whether the model got all of it,
-// and the parts it really got. None of it reaches the model.
-type SeenFile = {
-	sha: string;
-	complete: boolean;
-	segments: Segment[];
-};
-
-export type ReceivedPart = {
-	text: string;
-	// Where this part starts in the current file.
-	start: number;
-};
-
+import { MAX_SEGMENTS_PER_FILE, MAX_TRACKED_FILES } from './file_version_limits';
+import type { ReceivedPart } from './received_part';
+import type { SeenFile } from './seen_file';
 // Internal memory of the file tools: what the model really received of each file, and how many times in a row an
 // update was refused because that context had become wrong. It lives for one generation, like the context window
 // it describes: earlier turns reach the model cut down or not at all, so nothing is assumed about them. The model

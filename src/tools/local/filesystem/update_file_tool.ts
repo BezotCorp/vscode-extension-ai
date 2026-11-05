@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-
+import { t } from '../../../i18n';
 import { contentEffect, PermissionError } from '../../../permissions';
 import {
 	findDirtyDocuments,
@@ -9,31 +9,22 @@ import {
 	type TruncatedText,
 } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
-import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
+import { ACCESS_PARAMETER } from '../../access_parameter';
+import { readAccessArg, readStringArg } from '../../tool_input';
 import { toolErrorFromException, toolFailure, toolSuccess } from '../../tool_result';
-import type { FileRead } from './file_read';
 import { deliverFileContent } from './deliver_file_content';
-import type { FileVersionTracker, ReceivedPart } from './file_version_tracker';
-import { READ_MODE_COMPOSED } from './read_mode';
+import type { FileRead } from './file_read';
+import type { FileVersionTracker } from './file_version_tracker';
+import { READ_MODE_COMPOSED } from './read_mode_values';
+import { MAX_RETRY } from './update_file_limits';
+import type { PreparedUpdate } from './prepared_update';
 import type { ReadFileTool } from './read_file_tool';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
-import { type UpdateProjection, projectUpdate } from './update_projection';
+import { projectUpdate } from './update_projection';
 import type { UpdateRequest } from './update_request';
 import type { WriteFileData } from './write_file_data';
 import type { WriteFilePipeline } from './write_file_pipeline';
 import type { WriteFileState } from './write_file_state';
-import { t } from '../../../i18n';
-
-// Retries allowed after the first attempt when the file keeps changing: the initial attempt and two retries.
-const MAX_RETRY = 2;
-
-type Prepared = {
-	read: FileRead;
-	projection: Extract<UpdateProjection, { ok: true }>;
-	contextWasCurrent: boolean;
-	// Local change on a file that changed: the part the model received that is still unchanged around the change.
-	part?: ReceivedPart;
-};
 
 // The only operation that changes an existing file. The AI gives either a local change (old_text, new_text) or a
 // whole new content; both become the same thing, the exact bytes the file must contain afterwards. From there one
@@ -249,7 +240,7 @@ export class UpdateFileTool implements Tool {
 		resolved: ResolvedPath,
 		request: UpdateRequest,
 		maxResultChars?: number,
-	): Promise<Prepared | ToolExecutionResult> {
+	): Promise<PreparedUpdate | ToolExecutionResult> {
 		const fsPath = resolved.uri.fsPath;
 		const read = await this.reader.read(resolved, READ_MODE_COMPOSED);
 
@@ -300,7 +291,7 @@ export class UpdateFileTool implements Tool {
 
 	// After a write that was checked: what the AI knows of the file now. If its whole context was valid, it knows the
 	// whole new file; otherwise the part it worked from, with its own change in it.
-	private rememberWritten(fsPath: string, request: UpdateRequest, prepared: Prepared, sha: string): void {
+	private rememberWritten(fsPath: string, request: UpdateRequest, prepared: PreparedUpdate, sha: string): void {
 		const { projection } = prepared;
 
 		if (

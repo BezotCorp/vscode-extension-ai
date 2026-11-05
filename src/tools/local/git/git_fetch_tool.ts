@@ -1,10 +1,10 @@
+import { t } from '../../../i18n';
 import type { ToolExecutionResult } from '../..';
 import { readRemote } from './git_arguments';
+import { FOLDER_PARAMETER } from './git_folder_parameter';
+import { NETWORK_TIMEOUT_MS } from './git_timeouts';
 import type { GitPlan } from './git_plan';
-import { FOLDER_PARAMETER, GitTool } from './git_tool';
-import { t } from '../../../i18n';
-
-const NETWORK_TIMEOUT_MS = 120_000;
+import { GitTool } from './git_tool';
 
 export class GitFetchTool extends GitTool {
 	readonly id = 'git_fetch';

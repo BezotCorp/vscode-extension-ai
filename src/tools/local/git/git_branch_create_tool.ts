@@ -1,8 +1,9 @@
+import { t } from '../../../i18n';
 import type { ToolExecutionResult } from '../..';
 import { readBranchName, readRevision } from './git_arguments';
+import { FOLDER_PARAMETER } from './git_folder_parameter';
 import type { GitPlan } from './git_plan';
-import { FOLDER_PARAMETER, GitTool } from './git_tool';
-import { t } from '../../../i18n';
+import { GitTool } from './git_tool';
 
 export class GitBranchCreateTool extends GitTool {
 	readonly id = 'git_branch_create';

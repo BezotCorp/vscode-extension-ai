@@ -1,7 +1,6 @@
 import type { ToolCall, ToolExecutionResult, ToolRegistry, ToolRound } from '.';
+import { MAX_CALLS_PER_ROUND } from './tool_loop_limits';
 import { serializeToolResult, toolFailure } from './tool_result';
-
-const MAX_CALLS_PER_ROUND = 8;
 
 export type ToolLoopOptions<TMessage> = {
 	messages: TMessage[];

@@ -8,14 +8,7 @@ import {
 } from '../config/extension_config';
 import type { ModelInfo } from './model_info';
 import { createModelProvider } from './model_registry';
-
-export type ModelState = {
-	provider: ExtensionConfig['provider'];
-	providerUrl: string;
-	activeModel: string;
-	models: ModelInfo[];
-	error?: string;
-};
+import type { ModelState } from './model_state';
 
 export class ModelManager {
 	async getState(): Promise<ModelState> {

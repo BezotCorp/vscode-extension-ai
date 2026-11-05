@@ -1,9 +1,9 @@
 import type { Tool, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { MAX_SERIALIZED_CHARS } from '../../tool_result_constants';
 import { toolFailureFromException } from '../../tool_failure_from_exception';
-import { MAX_SERIALIZED_CHARS, toolFailure, toolSuccess } from '../../tool_result';
+import { toolFailure, toolSuccess } from '../../tool_result';
 import { validateToolInput } from '../../tool_validation';
-
-const MAX_FILES_PER_CALL = 20;
+import { MAX_FILES_PER_CALL } from './batch_file_limits';
 
 // The plural form of a file tool: the same operation on several files in one call, so the AI picks the tool by the
 // number of files and never has to decide anything else. It adds nothing of its own to what happens to a file:

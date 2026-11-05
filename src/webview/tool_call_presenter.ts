@@ -3,8 +3,7 @@ import type * as vscode from 'vscode';
 import type { ChatMessage } from '../chat/chat_message';
 import { closingText } from '../chat/message_text';
 import type { ToolCall, ToolExecutionResult } from '../tools';
-
-const MAX_ARGUMENT_CHARS = 200;
+import { MAX_ARGUMENT_CHARS } from './tool_call_presenter_limits';
 
 export function sendToolCall(webviewView: vscode.WebviewView, sessionId: string, call: ToolCall): void {
 	webviewView.webview.postMessage({

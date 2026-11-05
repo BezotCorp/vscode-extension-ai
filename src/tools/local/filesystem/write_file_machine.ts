@@ -1,8 +1,6 @@
 import type { StateMachineDefinition } from '../../../state_machine';
 import type { WriteFileState } from './write_file_state';
 
-export const WRITE_FILE_KIND = 'write_file';
-
 export const WRITE_FILE_MACHINE: StateMachineDefinition<WriteFileState> = {
 	initial: 'ready_to_copy',
 	transitions: {

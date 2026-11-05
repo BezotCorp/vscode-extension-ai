@@ -3,32 +3,7 @@ import * as vscode from 'vscode';
 
 import { parseResourceUri, resourcePath } from '../workspace';
 import { pathMatches } from './path_matches';
-
-// Credentials, keys and repository internals. Reading, changing or removing them always needs the user's answer,
-// whatever a tool is allowed to do, and they stay out of the context, searches and git output.
-const DEFAULT_PROTECTED = [
-	'.env',
-	'.env.*',
-	'*.pem',
-	'*.key',
-	'*.p12',
-	'*.pfx',
-	'id_rsa*',
-	'id_ed25519*',
-	'id_ecdsa*',
-	'.npmrc',
-	'.pypirc',
-	'.netrc',
-	'.git-credentials',
-	'.git',
-	'.ssh',
-	'.aws',
-	'.gnupg',
-	'.kube',
-];
-
-// Templates are meant to be shared.
-const TEMPLATE_SUFFIX = /\.(example|sample|template|dist)$/i;
+import { DEFAULT_PROTECTED, TEMPLATE_SUFFIX } from './protected_resource_patterns';
 
 export function getProtectedPatterns(): string[] {
 	const added = vscode.workspace.getConfiguration('bezotcorpAi').inspect<string[]>('protectedPaths')?.globalValue;

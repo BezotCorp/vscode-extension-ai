@@ -2,13 +2,8 @@ import * as path from 'node:path';
 
 import { resolvePath } from '../../../workspace';
 import { readNumberArg, readStringArg } from '../../tool_input';
+import { MAX_MESSAGE_CHARS, MAX_PATHS, NAME_PATTERN, REF_PATTERN, REMOTE_PATTERN } from './git_argument_constants';
 import type { RepositoryPaths } from './repository_paths';
-
-const REF = /^[A-Za-z0-9_][A-Za-z0-9._/@{}^~+-]*$/;
-const NAME = /^[A-Za-z0-9_][A-Za-z0-9._/-]*$/;
-const REMOTE = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
-const MAX_PATHS = 50;
-const MAX_MESSAGE_CHARS = 4_000;
 
 // Each reader returns the validated value or an error message for the model. Nothing a parameter contains can
 // become an option: values never start with "-", and paths are passed as literal pathspecs after "--".
@@ -22,7 +17,7 @@ export function readRevision(input: unknown, key: string): string | undefined | 
 		return undefined;
 	}
 
-	return value.length <= 200 && REF.test(value) ? value : new Error(`"${key}" is not a valid revision.`);
+	return value.length <= 200 && REF_PATTERN.test(value) ? value : new Error(`"${key}" is not a valid revision.`);
 }
 
 export function readBranchName(input: unknown, key: string): string | undefined | Error {
@@ -34,7 +29,7 @@ export function readBranchName(input: unknown, key: string): string | undefined 
 
 	const valid =
 		value.length <= 100 &&
-		NAME.test(value) &&
+		NAME_PATTERN.test(value) &&
 		!value.includes('..') &&
 		!value.endsWith('/') &&
 		!value.endsWith('.lock');
@@ -46,7 +41,7 @@ export function readBranchName(input: unknown, key: string): string | undefined 
 export function readRemote(input: unknown, key: string): string | Error {
 	const value = readStringArg(input, key) ?? 'origin';
 
-	return value.length <= 100 && REMOTE.test(value)
+	return value.length <= 100 && REMOTE_PATTERN.test(value)
 		? value
 		: new Error(`"${key}" must be the name of a configured remote.`);
 }

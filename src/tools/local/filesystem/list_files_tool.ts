@@ -5,31 +5,9 @@ import { getWorkspaceRoots, resolvePath, resourcePath } from '../../../workspace
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readStringArrayArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
-
-const MAX_ENTRIES = 1_000;
-
-const IGNORED_DIRECTORIES = new Set([
-	'.cache',
-	'.git',
-	'.next',
-	'build',
-	'coverage',
-	'dist',
-	'node_modules',
-	'out',
-	'target',
-]);
-
-type FileEntry = {
-	depth: number;
-	name: string;
-	directory: boolean;
-};
-
-type FileSection = {
-	label: string;
-	entries: FileEntry[];
-};
+import type { FileEntry } from './file_entry';
+import type { FileSection } from './file_section';
+import { IGNORED_DIRECTORIES, MAX_ENTRIES } from './list_files_constants';
 
 export class ListFilesTool implements Tool {
 	readonly id = 'list_files';

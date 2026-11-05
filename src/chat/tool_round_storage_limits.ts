@@ -1,0 +1,1 @@
+export const MAX_STORED_RESULT_CHARACTERS = 4_000;

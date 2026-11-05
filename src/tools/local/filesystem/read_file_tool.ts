@@ -4,10 +4,11 @@ import { findOpenDocument, type ResolvedPath, resolvePath, resourcePath, sha256H
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readNumberArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
-import type { FileRead } from './file_read';
 import { deliverFileContent } from './deliver_file_content';
+import type { FileRead } from './file_read';
 import type { FileVersionTracker } from './file_version_tracker';
-import { READ_MODE_DIRECT, type ReadMode } from './read_mode';
+import { READ_MODE_DIRECT } from './read_mode_values';
+import type { ReadMode } from './read_mode';
 
 export class ReadFileTool implements Tool {
 	readonly id = 'read_file';

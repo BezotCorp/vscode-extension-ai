@@ -1,7 +1,6 @@
 import * as http from 'node:http';
-
-import { MAX_BRIDGE_PORT_ATTEMPTS, VSCODE_PORT } from '../constants';
 import { handleActiveFile } from './active_file_handler';
+import { MAX_BRIDGE_PORT_ATTEMPTS, VSCODE_PORT } from './bridge_ports';
 import { handleOpenFiles } from './open_files_handler';
 import { isLocalProgramRequest } from './request_guard';
 

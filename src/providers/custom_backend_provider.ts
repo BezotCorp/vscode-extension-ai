@@ -1,12 +1,11 @@
 import type { ExtensionConfig } from '../config/extension_config';
-import type { AiProvider, ChatRequest, ChatResult, ChatStreamHandler } from './ai_provider';
-import type { ProviderStatus } from './provider_status';
 import { t } from '../i18n';
-
-type CustomBackendResponse = {
-	content?: string;
-	error?: string;
-};
+import type { AiProvider } from './ai_provider';
+import type { ChatRequest } from './chat_request';
+import type { ChatResult } from './chat_result';
+import type { ChatStreamHandler } from './chat_stream_handler';
+import type { CustomBackendResponse } from './custom_backend_response';
+import type { ProviderStatus } from './provider_status';
 
 export class CustomBackendProvider implements AiProvider {
 	readonly supportsTools = false;

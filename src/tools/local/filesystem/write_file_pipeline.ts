@@ -5,8 +5,9 @@ import * as vscode from 'vscode';
 
 import { StateMachine, StateMachineDatabase, type StateMachineRecord } from '../../../state_machine';
 import { sha256Hex } from '../../../workspace';
-import { WRITE_FILE_KIND, WRITE_FILE_MACHINE } from './write_file_machine';
+import { WRITE_FILE_KIND } from './write_file_constants';
 import type { WriteFileData } from './write_file_data';
+import { WRITE_FILE_MACHINE } from './write_file_machine';
 import type { WriteFileState } from './write_file_state';
 
 // The persistent part of update_file.

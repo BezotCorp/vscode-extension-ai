@@ -5,7 +5,8 @@ import * as vscode from 'vscode';
 import { contentEffect } from '../../../permissions';
 import { resolvePath, resourcePath, sha256Hex } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
-import { ACCESS_PARAMETER, describeContent, readAccessArg, readStringArg } from '../../tool_input';
+import { ACCESS_PARAMETER } from '../../access_parameter';
+import { describeContent, readAccessArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import type { FileVersionTracker } from './file_version_tracker';
 

@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
-
+import { DEFAULT_HISTORY_CHARACTERS, HISTORY_CONTEXT_SHARE, MAX_HISTORY_MESSAGES } from '../chat/chat_history_limits';
 import type { ChatManager } from '../chat/chat_manager';
 import type { ChatMessage } from '../chat/chat_message';
 import type { ChatRole } from '../chat/chat_role';
-import { DEFAULT_HISTORY_CHARACTERS, HISTORY_CONTEXT_SHARE, MAX_HISTORY_MESSAGES } from '../chat/chat_history_limits';
 import { closingText } from '../chat/message_text';
 import { getExtensionConfig } from '../config/extension_config';
 import { buildAiContext, estimatedCharacterBudget } from '../context';
-import type { ChatHistoryMessage } from '../providers/ai_provider';
-import { createProvider } from '../providers/provider_factory';
+import { t } from '../i18n';
 import type { McpManager } from '../mcp';
 import type { PermissionStore } from '../permissions';
+import type { ChatHistoryMessage } from '../providers/chat_history_message';
+import { createProvider } from '../providers/provider_factory';
 import {
 	createDefaultToolRegistry,
 	type FileToolServices,
@@ -20,9 +20,7 @@ import {
 } from '../tools';
 import { sendChatStore } from './chat_store_presenter';
 import { sendToolCall, sendToolNotice, sendToolResult } from './tool_call_presenter';
-import { t } from '../i18n';
-
-const MAX_STORED_RESULT_CHARACTERS = 4_000;
+import { MAX_STORED_RESULT_CHARACTERS } from '../chat/tool_round_storage_limits';
 
 export class GenerationController {
 	private currentAbortController: AbortController | undefined;

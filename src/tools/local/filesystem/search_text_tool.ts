@@ -4,11 +4,7 @@ import { findOpenDocument, resolvePath, resourcePath, WORKSPACE_EXCLUDE_GLOB } f
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
 import { readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
-
-const MAX_FILES = 500;
-const MAX_MATCHES = 50;
-const MAX_FILE_BYTES = 1_000_000;
-const MAX_LINE_CHARS = 200;
+import { MAX_FILE_BYTES, MAX_FILES, MAX_LINE_CHARS, MAX_MATCHES } from './search_text_limits';
 
 export class SearchTextTool implements Tool {
 	readonly id = 'search_text';

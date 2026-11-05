@@ -5,6 +5,3 @@
 // 1 = call made from a composed tool (update_file). It reads what is on the filesystem right now, and nothing is
 //     remembered: the content only reaches the AI if the composed tool decides to hand it over.
 export type ReadMode = 0 | 1;
-
-export const READ_MODE_DIRECT: ReadMode = 0;
-export const READ_MODE_COMPOSED: ReadMode = 1;

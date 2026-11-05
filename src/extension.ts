@@ -8,7 +8,7 @@ import {
 	OPEN_PERMISSION_RULES_COMMAND,
 	OPEN_SETTINGS_COMMAND,
 	REVOKE_ALL_PERMISSIONS_COMMAND,
-} from './constants';
+} from './extension_ids';
 import { t } from './i18n';
 import { McpManager } from './mcp';
 import { managePermissions, PermissionStore } from './permissions';

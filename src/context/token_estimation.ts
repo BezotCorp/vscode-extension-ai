@@ -1,4 +1,4 @@
-const CHARS_PER_TOKEN = 3;
+import { CHARS_PER_TOKEN } from './token_estimation_constants';
 
 export function estimatedCharactersForTokens(tokens: number): number {
 	return Math.floor(tokens * CHARS_PER_TOKEN);

@@ -1,27 +1,10 @@
 import { spawn } from 'node:child_process';
-
+import { KILL_GRACE_MS } from '../../../process_limits';
 import { baseEnvironment } from '../../base_environment';
 import { BoundedText } from './bounded_text';
+import { SAFETY_OPTIONS } from './git_safety_options';
 import type { GitRunOptions } from './git_run_options';
 import type { GitRunResult } from './git_run_result';
-
-const KILL_GRACE_MS = 2_000;
-
-// Options placed before every command: nothing a repository's own configuration says can start a program through
-// them (file system monitor, pager, external protocol helpers, credential prompts), and output is plain text.
-const SAFETY_OPTIONS = [
-	'--no-pager',
-	'-c',
-	'core.fsmonitor=false',
-	'-c',
-	'core.pager=cat',
-	'-c',
-	'core.quotepath=false',
-	'-c',
-	'color.ui=false',
-	'-c',
-	'protocol.ext.allow=never',
-];
 
 // The only program the extension starts for git tools is git itself, without a shell, with arguments the tools
 // built from validated parameters. There is no way to pass a program name or a raw command line.

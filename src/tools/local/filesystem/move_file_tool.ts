@@ -3,7 +3,8 @@ import * as vscode from 'vscode';
 import { contentEffect, removalEffect } from '../../../permissions';
 import { findDirtyDocuments, resolvePath, resourcePath } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
-import { ACCESS_PARAMETER, readAccessArg, readStringArg } from '../../tool_input';
+import { ACCESS_PARAMETER } from '../../access_parameter';
+import { readAccessArg, readStringArg } from '../../tool_input';
 import { toolSuccess } from '../../tool_result';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
 

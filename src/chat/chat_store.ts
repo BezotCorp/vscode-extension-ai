@@ -6,8 +6,7 @@ import {
 	normalizeChatSession,
 	renameChatSession,
 } from './chat_session';
-
-export const CHAT_STORE_VERSION = 1;
+import { CHAT_STORE_VERSION } from './chat_storage_constants';
 
 export type ChatStore = {
 	version: typeof CHAT_STORE_VERSION;

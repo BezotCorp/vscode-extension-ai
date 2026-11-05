@@ -1,17 +1,11 @@
 import * as vscode from 'vscode';
-import type { McpStartFailure } from './mcp_start_failure';
-import type { Tool, ToolAccessGuard } from '../tools';
-import type { McpServerConfig, McpToolDescriptor, McpServerEntry } from '.';
-import { McpClient } from './mcp_client';
-import { McpTool, mcpToolId } from './mcp_tool';
 import { t } from '../i18n';
-
-const RETRY_AFTER_FAILURE_MS = 30_000;
-// A message does not wait longer than this for servers that are still starting; they join at the next message.
-const STARTUP_WAIT_MS = 8_000;
-// A server nobody has called for this long is stopped, and restarted on demand.
-const IDLE_STOP_MS = 10 * 60_000;
-const IDLE_CHECK_MS = 60_000;
+import type { Tool, ToolAccessGuard } from '../tools';
+import type { McpServerConfig, McpServerEntry, McpToolDescriptor } from '.';
+import { McpClient } from './mcp_client';
+import { IDLE_CHECK_MS, IDLE_STOP_MS, RETRY_AFTER_FAILURE_MS, STARTUP_WAIT_MS } from './mcp_manager_limits';
+import type { McpStartFailure } from './mcp_start_failure';
+import { McpTool, mcpToolId } from './mcp_tool';
 
 export class McpManager {
 	private readonly servers = new Map<string, McpServerEntry>();

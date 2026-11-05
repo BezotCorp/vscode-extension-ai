@@ -1,6 +1,7 @@
 import type { ToolExecutionResult } from '../..';
+import { FOLDER_PARAMETER } from './git_folder_parameter';
 import type { GitPlan } from './git_plan';
-import { FOLDER_PARAMETER, GitTool } from './git_tool';
+import { GitTool } from './git_tool';
 
 export class GitBranchListTool extends GitTool {
 	readonly id = 'git_branch_list';

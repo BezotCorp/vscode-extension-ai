@@ -1,19 +1,12 @@
 import * as path from 'node:path';
-
+import { t } from '../../../i18n';
 import { getWorkspaceRoots, truncateText } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult, ToolParametersSchema } from '../..';
 import { readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
+import { DEFAULT_TIMEOUT_MS } from './git_timeouts';
 import type { GitPlan } from './git_plan';
 import { runGit } from './run_git';
-import { t } from '../../../i18n';
-
-const DEFAULT_TIMEOUT_MS = 30_000;
-
-export const FOLDER_PARAMETER = {
-	type: 'string',
-	description: 'Workspace folder name, only needed when several folders are open. Defaults to the first.',
-};
 
 // Common part of the git tools. A tool states its command and validates its parameters in plan(); this class
 // resolves the repository, asks for the permission, runs git and turns the outcome into a result the model can act on.

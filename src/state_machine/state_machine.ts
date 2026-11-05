@@ -1,22 +1,8 @@
+import type { Patch } from './patch';
+import type { Row } from './row';
 import type { StateMachineDatabase } from './state_machine_database';
 import type { StateMachineDefinition } from './state_machine_definition';
 import type { StateMachineRecord } from './state_machine_record';
-
-type Row = {
-	id: string;
-	kind: string;
-	subject: string;
-	state: string;
-	data: string;
-	payload: Uint8Array | null;
-	owner: number;
-	updated_at: number;
-};
-
-type Patch = {
-	data?: Record<string, unknown>;
-	payload?: Uint8Array | null;
-};
 
 // Persistent state machine for one kind of operation. SQLite is the source of truth for where each operation
 // stands: every transition is checked against the definition and written before the work of the next state starts,

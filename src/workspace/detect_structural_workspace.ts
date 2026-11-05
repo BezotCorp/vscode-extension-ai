@@ -2,8 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import type { StructuralWorkspace } from './structural_workspace';
-
-const MAX_MANIFEST_BYTES = 1_000_000;
+import { MAX_MANIFEST_BYTES } from './structural_workspace_limits';
 
 export async function detectStructuralWorkspace(
 	target: vscode.Uri,

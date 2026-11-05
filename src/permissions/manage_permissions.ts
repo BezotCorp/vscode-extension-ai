@@ -1,15 +1,9 @@
 import * as vscode from 'vscode';
 
 import { t } from '../i18n';
-import type {
-	PermissionLifetime,
-	PermissionPolicy,
-	PermissionStore,
-	ResourcePermissionGrant,
-	ToolPermissionInfo,
-} from '.';
-
-const LIFETIMES: PermissionLifetime[] = ['currentSession', 'allSessions'];
+import type { PermissionLifetime, PermissionPolicy, PermissionStore, ToolPermissionInfo } from '.';
+import { PERMISSION_LIFETIMES } from './permission_lifetimes';
+import type { PermissionItem } from './permission_item';
 
 // Labels are read when the menu opens, in the language VS Code is displayed in.
 function lifetimeLabel(lifetime: PermissionLifetime): string {
@@ -37,11 +31,6 @@ function resetToolItems(): {
 		},
 	];
 }
-
-type PermissionItem = vscode.QuickPickItem & {
-	toolId?: string;
-	grant?: ResourcePermissionGrant;
-};
 
 export async function managePermissions(
 	store: PermissionStore,
@@ -225,7 +214,7 @@ async function changeTool(store: PermissionStore, tool: ToolPermissionInfo): Pro
 		return;
 	}
 
-	const lifetimes = LIFETIMES.filter(
+	const lifetimes = PERMISSION_LIFETIMES.filter(
 		(lifetime) => choice.policy !== undefined || store.get(tool.id, lifetime) !== undefined,
 	);
 

@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 
+import { CATALOGS, DEFAULT_TITLES } from './i18n_catalogs';
+import type { Locale } from './locale';
 import { en, type MessageKey } from './messages_en';
-import { fr } from './messages_fr';
 
-export type Locale = 'en' | 'fr';
+export type { Locale } from './locale';
 export type { MessageKey } from './messages_en';
-
-const CATALOGS: Record<Locale, Record<MessageKey, string>> = { en, fr };
 
 // French when VS Code is displayed in French (fr, fr-FR, fr-CA...), English otherwise. One language for the whole UI.
 export function currentLocale(): Locale {
@@ -35,10 +34,6 @@ export function webviewStrings(): Record<string, string> {
 export function escapeHtml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// Titles that mean "no title yet", in every language the extension has used. A stored title is never rewritten for
-// being one of these, but it is recognised as the default so the first message can name the conversation.
-const DEFAULT_TITLES: ReadonlySet<string> = new Set(['New chat', en['chat.defaultTitle'], fr['chat.defaultTitle']]);
 
 export function defaultChatTitle(): string {
 	return t('chat.defaultTitle');
