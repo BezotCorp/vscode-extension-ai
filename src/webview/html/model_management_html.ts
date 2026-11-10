@@ -1,6 +1,4 @@
-import type { MessageKey } from '../../i18n';
-
-export function getModelManagementHtml(ui: (key: MessageKey) => string): string {
+export function getModelManagementHtml(ui: (key: string) => string): string {
 	return `
 <div id="model-card">
   <div class="settings-group">

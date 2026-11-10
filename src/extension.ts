@@ -9,7 +9,7 @@ import {
 	OPEN_SETTINGS_COMMAND,
 	REVOKE_ALL_PERMISSIONS_COMMAND,
 } from './extension_ids';
-import { t } from './i18n';
+import { configureLocale, t } from './i18n';
 import { McpManager } from './mcp';
 import { managePermissions, PermissionStore } from './permissions';
 import { createBridgeServer } from './server/bridge_server';
@@ -17,6 +17,7 @@ import { FileToolServices, listToolPermissions, ToolAccessGuard } from './tools'
 import { ChatViewProvider } from './webview/chat_view_provider';
 
 export function activate(context: vscode.ExtensionContext) {
+	configureLocale(vscode.env.language);
 	const permissionStore = new PermissionStore(context.globalState);
 
 	// Obsolete permission stores from earlier models no longer represent the

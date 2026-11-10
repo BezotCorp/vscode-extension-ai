@@ -1,4 +1,3 @@
-import type { MessageKey } from '../i18n';
 import { t } from '../i18n';
 import type { PermissionCapability } from '../permissions';
 
@@ -48,7 +47,7 @@ export const LIFETIME_FOR_MODEL = {
 } as const;
 
 // `describeCriticalPath` answers in English because the model reads it too; the dialog shows it translated.
-export const CRITICAL_REASON_KEYS: Record<string, MessageKey> = {
+export const CRITICAL_REASON_KEYS: Record<string, string> = {
 	'the home folder or one of its parents': 'critical.home',
 	'a folder of the current window or one of its parents': 'critical.window',
 	'the repository metadata (.git)': 'critical.git',

@@ -1,6 +1,6 @@
 {
 	"files": {
-		"includes": ["**", "!!out"]
+		"includes": ["**", "!!dist"]
 	},
 	"formatter": {
 		"indentStyle": "tab",

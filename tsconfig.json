@@ -2,12 +2,13 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2022",
-    "outDir": "out",
+    "outDir": "dist",
     "rootDir": "src",
     "strict": true,
     "sourceMap": true,
     "declaration": true,
     "skipLibCheck": true,
     "types": ["node", "vscode"]
-  }
+  },
+  "exclude": ["dist", "src/**/tests/**/*.test.ts", "src/**/tests/**/*.spec.ts"]
 }

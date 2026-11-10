@@ -1,6 +1,6 @@
 {
   "name": "bezotcorp-ai",
-  "displayName": "%displayName%",
+  "displayName": "%app.name%",
   "description": "%description%",
   "version": "1.8.0",
   "publisher": "bezotcorp",
@@ -36,10 +36,10 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
-      "title": "%config.title%",
+      "title": "%app.name%",
       "properties": {
         "bezotcorpAi.provider": {
           "type": "string",
@@ -146,7 +146,7 @@
       "activitybar": [
         {
           "id": "bezotcorp-ai",
-          "title": "%viewsContainer.title%",
+          "title": "%app.name%",
           "icon": "assets/icon.png"
         }
       ]
@@ -185,7 +185,8 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "i18n": "cargo run --release --quiet --manifest-path tools/rust/internationalization/Cargo.toml -- .",
+    "compile": "pnpm i18n && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -205,6 +206,7 @@
     "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/node": "^26.6.6",
     "@types/vscode": "^1.145.0",
+    "@vitest/coverage-v8": "5.1.0",
     "@vscode/vsce": "^4.1.0",
     "semantic-release": "^25.0.9",
     "semantic-release-vsce": "^6.1.8",

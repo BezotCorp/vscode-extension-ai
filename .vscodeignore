@@ -4,3 +4,4 @@ scripts/**
 .git/**
 pnpm-lock.yaml
 tsconfig.json
+data/i18n/*.ron
