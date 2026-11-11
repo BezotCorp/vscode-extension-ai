@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  ci-control:
+    name: CI control
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate internationalization
+        run: pnpm i18n
+
+      - name: Verify generated translations
+        run: git diff --exit-code -- 'package.nls*.json'
+
+      - name: Check Rust formatting
+        run: cargo fmt --all --check
+
+      - name: Check source formatting, lint and imports
+        run: pnpm exec biome ci .
+
+      - name: Compile TypeScript
+        run: pnpm compile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Package extension
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: pnpm exec vsce package --no-dependencies

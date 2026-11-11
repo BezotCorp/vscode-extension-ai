@@ -4,3 +4,9 @@ scripts/**
 .git/**
 pnpm-lock.yaml
 tsconfig.json
+data/i18n/*.ron
+coverage/**
+target/**
+tools/**
+Cargo.toml
+Cargo.lock

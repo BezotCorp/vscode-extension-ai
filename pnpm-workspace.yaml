@@ -1,13 +1,13 @@
 packages:
-  - "."
+  - '.'
 
 onlyBuiltDependencies:
-  - "@vscode/vsce-sign"
-  - "keytar"
+  - '@vscode/vsce-sign'
+  - 'keytar'
 
 allowBuilds:
-  "@vscode/vsce-sign": true
-  "keytar": true
+  '@vscode/vsce-sign': true
+  'keytar': true
 
 minimumReleaseAgeExclude:
-  - "@types/node@25.9.2"
+  - '@types/node@25.9.2'
