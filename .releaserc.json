@@ -7,7 +7,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "pnpm exec prettier --write CHANGELOG.md"
+        "prepareCmd": "pnpm exec biome format --write CHANGELOG.md"
       }
     ],
     [

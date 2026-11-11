@@ -1,8 +1,0 @@
-node_modules/
-dist/
-target/
-coverage/
-*.vsix
-pnpm-lock.yaml
-Cargo.lock
-package.nls*.json

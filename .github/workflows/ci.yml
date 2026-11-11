@@ -45,11 +45,8 @@ jobs:
       - name: Check Rust formatting
         run: cargo fmt --all --check
 
-      - name: Check source formatting
-        run: pnpm format:check
-
-      - name: Check lint and imports
-        run: pnpm exec biome check --formatter-enabled=false .
+      - name: Check source formatting, lint and imports
+        run: pnpm exec biome ci .
 
       - name: Compile TypeScript
         run: pnpm compile

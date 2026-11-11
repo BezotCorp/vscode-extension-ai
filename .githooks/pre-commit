@@ -2,12 +2,19 @@
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+root="$PWD"
 
-# Le hook agit uniquement sur les fichiers initialement indexés.
-# Il ne compile pas, ne lance pas les tests et ne génère pas l'i18n.
-#
-# Les sorties package.nls*.json appartiennent au générateur Rust.
-# Les sources RON ne sont pas formatées par ce hook.
+# Priorité à la version installée dans le projet.
+if [[ -x "$root/node_modules/.bin/biome" ]]; then
+    biome="$root/node_modules/.bin/biome"
+    origin="local"
+elif command -v biome >/dev/null 2>&1; then
+    biome=$(command -v biome)
+    origin="global"
+else
+    echo "Pre-commit : Biome introuvable (local et global)." >&2
+    exit 1
+fi
 
 mapfile -d '' -t staged < <(
     git diff --cached --name-only -z --diff-filter=ACMR
@@ -15,339 +22,288 @@ mapfile -d '' -t staged < <(
 
 ((${#staged[@]})) || exit 0
 
-# Fichiers temporaires en RAM lorsque disponible.
-if [[ -d /dev/shm && -w /dev/shm ]]; then
-    tmp=$(mktemp -d /dev/shm/pre-commit.XXXXXXXX)
-else
-    tmp=$(mktemp -d)
-fi
-
-trap 'rm -rf -- "$tmp"' EXIT
-
-index_path=$(git rev-parse --git-path index)
-
-if [[ ! -f "$index_path" ]]; then
-    echo "Pre-commit : index Git introuvable." >&2
+# Le contenu temporaire reste en RAM.
+if [[ ! -d /dev/shm || ! -w /dev/shm ]]; then
+    echo "Pre-commit : /dev/shm indisponible." >&2
     exit 1
 fi
 
-cp -- "$index_path" "$tmp/original-index"
-cp -- "$index_path" "$tmp/new-index"
-
-declare -a paths=()
-declare -a modes=()
-declare -a hashes=()
-
-declare -a sync_paths=()
-declare -a sync_files=()
-declare -a sync_originals=()
-
-declare -a preserved=()
-declare -a corrected=()
-declare -a whitespace_included=()
-
-snapshot_index="$tmp/snapshot-index"
-snapshot_working="$tmp/snapshot-working"
-
-mkdir -p "$snapshot_index" "$snapshot_working"
-
-# ------------------------------------------------------------
-# 1. Instantané initial
-# ------------------------------------------------------------
-
-i=0
-
-for path in "${staged[@]}"; do
-    # Ne jamais suivre les liens symboliques ou les fichiers absents.
-    if [[ ! -f "$path" || -L "$path" ]]; then
-        echo "Pre-commit : fichier absent ou non ordinaire : $path" >&2
-        exit 1
-    fi
-
-    # Les fichiers générés par Rust ne sont pas notre responsabilité.
-    case "$path" in
-    package.nls.json | package.nls.*.json)
-        continue
-        ;;
-    esac
-
-    # Sélectionner uniquement les formats pris en charge.
-    case "$path" in
-    *.ts | *.tsx | *.js | *.jsx | *.json | *.jsonc | \
-        *.css | *.scss | *.html | *.md | *.yaml | *.yml | *.rs) ;;
-    *)
-        continue
-        ;;
-    esac
-
-    mode=$(git ls-files --stage -- "$path" |
-        awk '$3 == 0 {print $1; exit}')
-
-    case "$mode" in
-    100644 | 100755) ;;
-    *)
-        echo "Pre-commit : entrée Git non prise en charge : $path" >&2
-        exit 1
-        ;;
-    esac
-
-    before="$snapshot_index/$i"
-    working="$snapshot_working/$i"
-
-    git show ":$path" >"$before"
-    cp -- "$path" "$working"
-
-    paths+=("$path")
-    modes+=("$mode")
-
-    i=$((i + 1))
-done
-
-((${#paths[@]})) || exit 0
-
-echo "Pre-commit : ${#paths[@]} source(s) à traiter."
-
-# ------------------------------------------------------------
-# 2. Formatage de la version sélectionnée
-# ------------------------------------------------------------
-
-for ((i = 0; i < ${#paths[@]}; i++)); do
-    path="${paths[i]}"
-    mode="${modes[i]}"
-
-    before="$snapshot_index/$i"
-    working="$snapshot_working/$i"
-    formatted="$tmp/$i.formatted"
-    intermediate="$tmp/$i.intermediate"
-
-    partial=false
-    whitespace_only=false
-
-    if ! cmp -s "$before" "$working"; then
-        partial=true
-
-        # Notre règle V1 : les différences exclusivement
-        # constituées de caractères blancs sont réintégrables.
-        if git diff -w --quiet -- "$path"; then
-            whitespace_only=true
-        fi
-    fi
-
-    if $partial && $whitespace_only; then
-        cp -- "$working" "$formatted"
-        whitespace_included+=("$path")
-    else
-        # Pour un MM avec du code non indexé, travailler
-        # exclusivement sur la version sélectionnée par Git.
-        cp -- "$before" "$formatted"
-
-        if $partial; then
-            preserved+=("$path")
-        fi
-    fi
-
-    case "$path" in
-    *.ts | *.tsx | *.js | *.jsx | *.json | *.jsonc)
-        # Biome : lint, corrections sûres et imports.
-        # Son formateur est désactivé dans notre projet.
-        pnpm exec biome check \
-            --write \
-            --formatter-enabled=false \
-            --stdin-file-path="$path" \
-            <"$formatted" >"$intermediate"
-
-        mv -- "$intermediate" "$formatted"
-
-        # Un seul passage Prettier, après Biome.
-        pnpm exec prettier \
-            --stdin-filepath "$path" \
-            <"$formatted" >"$intermediate"
-
-        mv -- "$intermediate" "$formatted"
-        ;;
-
-    *.css | *.scss | *.html | *.md | *.yaml | *.yml)
-        pnpm exec prettier \
-            --stdin-filepath "$path" \
-            <"$formatted" >"$intermediate"
-
-        mv -- "$intermediate" "$formatted"
-        ;;
-
-    *.rs)
-        rustfmt \
-            --edition 2024 \
-            --emit stdout \
-            --config skip_children=true \
-            <"$formatted" >"$intermediate"
-
-        mv -- "$intermediate" "$formatted"
-        ;;
-    esac
-
-    if ! cmp -s "$before" "$formatted"; then
-        hash=$(git hash-object -w --stdin <"$formatted")
-
-        hashes+=("$hash")
-        corrected+=("$path")
-    else
-        hashes+=("")
-    fi
-
-    # Seuls les fichiers sans modifications de code
-    # non indexées peuvent être synchronisés sur disque.
-    if ! $partial || $whitespace_only; then
-        if ! cmp -s "$working" "$formatted"; then
-            sync_paths+=("$path")
-            sync_files+=("$formatted")
-            sync_originals+=("$working")
-        fi
-    fi
-done
-
-# ------------------------------------------------------------
-# 3. Vérifications avant toute modification de l'index
-# ------------------------------------------------------------
-
-if ! cmp -s "$index_path" "$tmp/original-index"; then
-    echo "Pre-commit : l'index a changé pendant le traitement." >&2
-    exit 1
-fi
-
-for ((i = 0; i < ${#paths[@]}; i++)); do
-    path="${paths[i]}"
-
-    if ! cmp -s "$path" "$snapshot_working/$i"; then
-        echo "Pre-commit : fichier modifié pendant le traitement : $path" >&2
-        exit 1
-    fi
-done
-
-# ------------------------------------------------------------
-# 4. Préparation d'un nouvel index isolé
-# ------------------------------------------------------------
-
-changes=0
-
-for ((i = 0; i < ${#paths[@]}; i++)); do
-    [[ -n "${hashes[i]}" ]] || continue
-
-    GIT_INDEX_FILE="$tmp/new-index" \
-        git update-index \
-        --add \
-        --cacheinfo \
-        "${modes[i]},${hashes[i]},${paths[i]}"
-
-    changes=$((changes + 1))
-done
-
-# Aucun changement ? Ne pas réécrire l'index Git.
-if ((changes == 0)); then
-    echo "Pre-commit : aucune correction à indexer."
-    exit 0
-fi
-
-# Nouvelle vérification juste avant le remplacement.
-if ! cmp -s "$index_path" "$tmp/original-index"; then
-    echo "Pre-commit : index modifié entre-temps." >&2
-    exit 1
-fi
-
-# ------------------------------------------------------------
-# 5. Synchronisation contrôlée
-# ------------------------------------------------------------
-
-# Acquérir le verrou Git avant de synchroniser.
-if ! (
-    set -C
-    : >"$index_path.lock"
-) 2>/dev/null; then
-    echo "Pre-commit : index Git verrouillé." >&2
-    exit 1
-fi
-
-lock_held=true
+tmp=$(mktemp -d /dev/shm/bezotcorp-hook.XXXXXXXX)
+lock=""
+lock_held=false
 
 cleanup() {
-    if [[ "$lock_held" == true ]]; then
-        rm -f -- "$index_path.lock"
+    if $lock_held; then
+        rm -f -- "$lock"
     fi
     rm -rf -- "$tmp"
 }
 
 trap cleanup EXIT
 
-# Vérifier encore que les fichiers concernés sont inchangés.
-for ((i = 0; i < ${#sync_paths[@]}; i++)); do
-    if ! cmp -s "${sync_paths[i]}" "${sync_originals[i]}"; then
-        echo "Pre-commit : modification concurrente : ${sync_paths[i]}" >&2
-        exit 1
-    fi
-done
+mkdir -p "$tmp/tree" "$tmp/index" "$tmp/working" "$tmp/restore"
 
-# Sauvegarder en RAM les fichiers qui seront synchronisés.
-# Cela permet une restauration en cas d'échec d'une copie.
-mkdir -p "$tmp/restore"
+index_path=$(git rev-parse --git-path index)
+[[ "$index_path" = /* ]] || index_path="$root/$index_path"
 
-for ((i = 0; i < ${#sync_paths[@]}; i++)); do
-    cp -p -- "${sync_paths[i]}" "$tmp/restore/$i"
-done
-
-restored=false
-
-restore_working() {
-    if [[ "$restored" == false ]]; then
-        for ((j = 0; j < ${#sync_paths[@]}; j++)); do
-            cp -p -- "$tmp/restore/$j" "${sync_paths[j]}" || true
-        done
-        restored=true
-    fi
+[[ -f "$index_path" ]] || {
+    echo "Pre-commit : index Git introuvable." >&2
+    exit 1
 }
 
-# Synchroniser uniquement les fichiers autorisés.
-for ((i = 0; i < ${#sync_paths[@]}; i++)); do
-    if ! cp -- "${sync_files[i]}" "${sync_paths[i]}"; then
-        restore_working
-        echo "Pre-commit : échec de synchronisation." >&2
+cp -- "$index_path" "$tmp/original-index"
+cp -- "$index_path" "$tmp/new-index"
+
+declare -a paths=()
+declare -a modes=()
+declare -a partial=()
+declare -a whitespace=()
+declare -a biome_paths=()
+declare -a rust_paths=()
+declare -a sync_paths=()
+declare -a sync_sources=()
+declare -a sync_originals=()
+declare -a preserved=()
+declare -a corrected=()
+
+# Même configuration que celle du dépôt.
+# Si biome.json est indexé, utiliser sa version indexée.
+if git diff --cached --name-only -- biome.json |
+    grep -qx 'biome.json'; then
+    git show :biome.json > "$tmp/tree/biome.json"
+else
+    cp -- "$root/biome.json" "$tmp/tree/biome.json"
+fi
+
+echo "Pre-commit : Biome $origin ($("$biome" --version))"
+
+# -------------------------------------------------------
+# 1. Un seul instantané de la sélection Git
+# -------------------------------------------------------
+
+for path in "${staged[@]}"; do
+    case "$path" in
+        package.nls.json|package.nls.*.json)
+            continue
+            ;;
+        *.ts|*.tsx|*.js|*.jsx|*.json|*.jsonc|\
+        *.css|*.scss|*.md|*.yaml|*.yml|*.rs)
+            ;;
+        *)
+            continue
+            ;;
+    esac
+
+    [[ -f "$path" && ! -L "$path" ]] || {
+        echo "Fichier indisponible : $path" >&2
         exit 1
+    }
+
+    mode=$(
+        git ls-files --stage -- "$path" |
+        awk '$3 == 0 {print $1; exit}'
+    )
+
+    case "$mode" in
+        100644|100755) ;;
+        *)
+            echo "Mode Git inattendu : $path" >&2
+            exit 1
+            ;;
+    esac
+
+    i=${#paths[@]}
+    paths+=("$path")
+    modes+=("$mode")
+
+    git show ":$path" > "$tmp/index/$i"
+    cp -- "$path" "$tmp/working/$i"
+
+    is_partial=false
+    is_whitespace=false
+
+    if ! cmp -s "$tmp/index/$i" "$tmp/working/$i"; then
+        is_partial=true
+
+        if git diff -w --quiet -- "$path"; then
+            is_whitespace=true
+        fi
+    fi
+
+    partial+=("$is_partial")
+    whitespace+=("$is_whitespace")
+
+    destination="$tmp/tree/$path"
+    mkdir -p -- "$(dirname "$destination")"
+
+    # Les changements non indexés significatifs sont exclus.
+    if $is_partial && $is_whitespace; then
+        cp -- "$tmp/working/$i" "$destination"
+    else
+        cp -- "$tmp/index/$i" "$destination"
+
+        if $is_partial; then
+            preserved+=("$path")
+        fi
+    fi
+
+    case "$path" in
+        *.rs)
+            rust_paths+=("$path")
+            ;;
+        *)
+            biome_paths+=("$path")
+            ;;
+    esac
+done
+
+((${#paths[@]})) || {
+    echo "Pre-commit : aucune source à traiter."
+    exit 0
+}
+
+echo "Sources sélectionnées : ${#paths[@]}"
+echo "Biome : ${#biome_paths[@]} fichier(s)"
+echo "rustfmt : ${#rust_paths[@]} fichier(s)"
+
+# -------------------------------------------------------
+# 2. Biome en un seul processus
+# -------------------------------------------------------
+
+if ((${#biome_paths[@]})); then
+    echo "Biome : corrections sûres et formatage..."
+
+    (
+        cd "$tmp/tree"
+
+        "$biome" check --write \
+            --config-path="$tmp/tree" \
+            -- "${biome_paths[@]}"
+    )
+fi
+
+# -------------------------------------------------------
+# 3. rustfmt en un seul processus
+# -------------------------------------------------------
+
+if ((${#rust_paths[@]})); then
+    echo "rustfmt : formatage Rust..."
+
+    (
+        cd "$tmp/tree"
+
+        rustfmt \
+            --edition 2024 \
+            --config skip_children=true \
+            -- "${rust_paths[@]}"
+    )
+fi
+
+# -------------------------------------------------------
+# 4. Comparaison et préparation du nouvel index
+# -------------------------------------------------------
+
+changes=0
+
+for ((i=0; i<${#paths[@]}; i++)); do
+    path="${paths[i]}"
+    result="$tmp/tree/$path"
+
+    if ! cmp -s "$path" "$tmp/working/$i"; then
+        echo "Modification concurrente : $path" >&2
+        exit 1
+    fi
+
+    if ! cmp -s "$tmp/index/$i" "$result"; then
+        hash=$(git hash-object -w --stdin < "$result")
+
+        GIT_INDEX_FILE="$tmp/new-index" \
+            git update-index --add --cacheinfo \
+            "${modes[i]},$hash,$path"
+
+        corrected+=("$path")
+        changes=$((changes + 1))
+    fi
+
+    # Synchroniser le fichier de travail uniquement
+    # s'il ne contient aucun changement significatif
+    # volontairement laissé hors du commit.
+    if ! ${partial[i]} || ${whitespace[i]}; then
+        if ! cmp -s "$tmp/working/$i" "$result"; then
+            sync_paths+=("$path")
+            sync_sources+=("$result")
+            sync_originals+=("$tmp/working/$i")
+        fi
     fi
 done
 
-# Ne publier l'index préparé qu'après synchronisation.
-if ! cp -- "$tmp/new-index" "$index_path.lock"; then
-    restore_working
-    echo "Pre-commit : échec de préparation de l'index." >&2
+# Éviter toute écriture inutile dans l'index.
+if ((changes == 0)); then
+    echo "Pre-commit : aucune correction nécessaire."
+    exit 0
+fi
+
+if ! cmp -s "$index_path" "$tmp/original-index"; then
+    echo "Index Git modifié pendant le traitement." >&2
     exit 1
 fi
 
-if ! mv -- "$index_path.lock" "$index_path"; then
+# -------------------------------------------------------
+# 5. Synchronisation contrôlée
+# -------------------------------------------------------
+
+lock="$index_path.lock"
+
+if ! (set -C; : > "$lock") 2>/dev/null; then
+    echo "Index Git verrouillé." >&2
+    exit 1
+fi
+
+lock_held=true
+
+for ((i=0; i<${#sync_paths[@]}; i++)); do
+    if ! cmp -s "${sync_paths[i]}" "${sync_originals[i]}"; then
+        echo "Modification concurrente : ${sync_paths[i]}" >&2
+        exit 1
+    fi
+
+    cp -p -- "${sync_paths[i]}" "$tmp/restore/$i"
+done
+
+restore_working() {
+    for ((j=0; j<${#sync_paths[@]}; j++)); do
+        cp -p -- "$tmp/restore/$j" "${sync_paths[j]}" || true
+    done
+}
+
+for ((i=0; i<${#sync_paths[@]}; i++)); do
+    if ! cp -- "${sync_sources[i]}" "${sync_paths[i]}"; then
+        restore_working
+        echo "Échec de synchronisation des fichiers." >&2
+        exit 1
+    fi
+done
+
+if ! cp -- "$tmp/new-index" "$lock"; then
     restore_working
-    echo "Pre-commit : échec de remplacement de l'index." >&2
+    echo "Échec de préparation de l'index." >&2
+    exit 1
+fi
+
+if ! mv -- "$lock" "$index_path"; then
+    restore_working
+    echo "Échec de publication de l'index." >&2
     exit 1
 fi
 
 lock_held=false
 
-# ------------------------------------------------------------
-# 6. Bilan
-# ------------------------------------------------------------
-
 echo
-echo "=== Résultat du pre-commit ==="
-echo "Sources examinées : ${#paths[@]}"
-echo "Sources corrigées dans l'index : ${#corrected[@]}"
-
-if ((${#whitespace_included[@]})); then
-    echo
-    echo "Modifications de présentation intégrées :"
-    printf '  + %s\n' "${whitespace_included[@]}"
-fi
+echo "=== Pre-commit terminé ==="
+echo "Sources analysées : ${#paths[@]}"
+echo "Corrections indexées : ${#corrected[@]}"
 
 if ((${#preserved[@]})); then
-    echo
     echo "Modifications non indexées préservées :"
-    printf '  ! %s\n' "${preserved[@]}"
+    printf '  - %s\n' "${preserved[@]}"
 fi
-
-echo
-echo "Pre-commit terminé."
