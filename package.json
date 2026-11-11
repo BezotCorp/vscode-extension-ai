@@ -19,7 +19,7 @@
     "url": "https://github.com/Bezot-Corp/vscode-extension-ai/issues"
   },
   "engines": {
-    "vscode": "^1.120.0"
+    "vscode": "^1.145.0"
   },
   "categories": [
     "Other"
@@ -186,15 +186,15 @@
   },
   "scripts": {
     "i18n": "cargo run --release --quiet --manifest-path tools/rust/internationalization/Cargo.toml -- .",
-    "compile": "pnpm i18n && tsc -p ./",
+    "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
-    "lint": "biome lint .",
-    "check": "biome check . && pnpm compile",
-    "package": "pnpm check && vsce package",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "biome check --formatter-enabled=false .",
+    "package": "vsce package --no-dependencies",
     "release": "semantic-release",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare": "sh .githooks/install"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
@@ -208,6 +208,7 @@
     "@types/vscode": "^1.145.0",
     "@vitest/coverage-v8": "5.1.0",
     "@vscode/vsce": "^4.1.0",
+    "prettier": "^3.9.10",
     "semantic-release": "^25.0.9",
     "semantic-release-vsce": "^6.1.8",
     "typescript": "^7.0.2",

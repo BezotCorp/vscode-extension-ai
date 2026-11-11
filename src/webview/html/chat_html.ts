@@ -5,9 +5,9 @@ import { getModelManagementHtml } from './model_management_html';
 
 // Every visible text is read from the catalog in the display language; the page never mixes two languages.
 export function getChatHtml(): string {
-	const ui = (key: string): string => escapeHtml(t(key));
+  const ui = (key: string): string => escapeHtml(t(key));
 
-	return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="${currentLocale()}">
 <head>
 <meta charset="UTF-8">

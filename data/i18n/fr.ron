@@ -5,7 +5,7 @@
   "package": {
     "command.managePermissions.title": "BezotCorp AI : Gérer les permissions",
     "command.openChat.title": "BezotCorp AI : Ouvrir le chat",
-    "command.openPermissionRules.title": "BezotCorp AI : Ouvrir les paramètres de permissions",
+    "command.openPermissionRules.title": "BezotCorp AI : Ouvrir les paramètres des permissions",
     "command.openSettings.title": "BezotCorp AI : Ouvrir les paramètres",
     "command.revokeAllPermissions.title": "BezotCorp AI : Révoquer toutes les permissions",
     "config.autonomyMode.acceptEdits": "Les modifications de fichiers dans la fenêtre VS Code actuelle se font sans demander ; les commandes, le réseau et MCP demandent toujours.",

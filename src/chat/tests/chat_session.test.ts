@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage } from '../chat_message';
 import {
   addMessageToChatSession,
+  type ChatSession,
   clearChatSession,
   cloneChatSession,
   createChatSession,
   createChatSessionFromLegacy,
   normalizeChatSession,
   renameChatSession,
-  type ChatSession,
 } from '../chat_session';
 
 vi.mock('../../i18n', () => ({
@@ -519,7 +519,7 @@ describe('chat_session', () => {
     });
   });
 
-  describe('normalizeChatSession', () => {
+  describe('normalizeChatSession - malformed data', () => {
     it('handles completely empty session', () => {
       const normalized = normalizeChatSession({});
 

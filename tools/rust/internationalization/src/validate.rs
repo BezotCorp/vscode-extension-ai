@@ -1,5 +1,6 @@
 // Checks the relations between the locale files. Nothing is generated from sources that fail here.
-use crate::source::{DEFAULT_LOCALE, GLOBAL_NAMESPACE, Locale};
+use crate::locale::Locale;
+use crate::source::{DEFAULT_LOCALE, GLOBAL_NAMESPACE};
 use std::collections::BTreeSet;
 
 pub fn validate(locales: &[Locale]) -> Vec<String> {

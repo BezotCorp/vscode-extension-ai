@@ -1,3 +1,5 @@
+use crate::part::Part;
+
 pub struct Literal {
     pub line: usize,
     pub parts: Vec<Part>,

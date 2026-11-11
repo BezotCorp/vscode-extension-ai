@@ -12,95 +12,97 @@ const EXTENSION = '.bin';
 type Namespaces = ReadonlyMap<string, ReadonlyMap<string, string>>;
 
 const catalogs = new Map<string, Namespaces>();
+let localeCache: string[] | undefined;
 
 // The catalogs sit next to this file once compiled (dist/i18n).
 export function availableLocales(): string[] {
-	return readdirSync(__dirname)
-		.filter((file) => file.endsWith(EXTENSION))
-		.map((file) => file.slice(0, -EXTENSION.length))
-		.sort();
+  localeCache ??= readdirSync(__dirname)
+    .filter((file) => file.endsWith(EXTENSION))
+    .map((file) => file.slice(0, -EXTENSION.length))
+    .sort();
+  return localeCache;
 }
 
 export function lookup(locale: string, namespace: string, key: string): string | undefined {
-	return load(locale).get(namespace)?.get(key);
+  return load(locale).get(namespace)?.get(key);
 }
 
 export function namespaceMessages(locale: string, namespace: string): ReadonlyMap<string, string> {
-	return load(locale).get(namespace) ?? new Map();
+  return load(locale).get(namespace) ?? new Map();
 }
 
 function load(locale: string): Namespaces {
-	const cached = catalogs.get(locale);
+  const cached = catalogs.get(locale);
 
-	if (cached) {
-		return cached;
-	}
+  if (cached) {
+    return cached;
+  }
 
-	const catalog = parse(path.resolve(__dirname, `${locale}${EXTENSION}`));
+  const catalog = parse(path.resolve(__dirname, `${locale}${EXTENSION}`));
 
-	catalogs.set(locale, catalog);
+  catalogs.set(locale, catalog);
 
-	return catalog;
+  return catalog;
 }
 
 function parse(file: string): Namespaces {
-	const buffer = readFileSync(file);
+  const buffer = readFileSync(file);
 
-	if (buffer.length < HEADER_SIZE || !buffer.subarray(0, MAGIC.length).equals(MAGIC)) {
-		throw new Error(`Invalid i18n catalog: ${file}`);
-	}
+  if (buffer.length < HEADER_SIZE || !buffer.subarray(0, MAGIC.length).equals(MAGIC)) {
+    throw new Error(`Invalid i18n catalog: ${file}`);
+  }
 
-	let offset = MAGIC.length;
-	const version = buffer.readUInt16LE(offset);
+  let offset = MAGIC.length;
+  const version = buffer.readUInt16LE(offset);
 
-	offset += 2;
+  offset += 2;
 
-	if (version !== VERSION) {
-		throw new Error(`Unsupported i18n catalog version ${version}: ${file}`);
-	}
+  if (version !== VERSION) {
+    throw new Error(`Unsupported i18n catalog version ${version}: ${file}`);
+  }
 
-	const count = buffer.readUInt32LE(offset);
+  const count = buffer.readUInt32LE(offset);
 
-	offset += 4;
+  offset += 4;
 
-	const namespaces = new Map<string, Map<string, string>>();
+  const namespaces = new Map<string, Map<string, string>>();
 
-	const text = (size: number): string => {
-		if (offset + size > buffer.length) {
-			throw new Error(`Truncated i18n catalog: ${file}`);
-		}
+  const text = (size: number): string => {
+    if (offset + size > buffer.length) {
+      throw new Error(`Truncated i18n catalog: ${file}`);
+    }
 
-		const value = buffer.subarray(offset, offset + size).toString('utf8');
+    const value = buffer.subarray(offset, offset + size).toString('utf8');
 
-		offset += size;
+    offset += size;
 
-		return value;
-	};
-	const size = (bytes: 2 | 4): number => {
-		if (offset + bytes > buffer.length) {
-			throw new Error(`Truncated i18n catalog: ${file}`);
-		}
+    return value;
+  };
+  const size = (bytes: 2 | 4): number => {
+    if (offset + bytes > buffer.length) {
+      throw new Error(`Truncated i18n catalog: ${file}`);
+    }
 
-		const value = bytes === 2 ? buffer.readUInt16LE(offset) : buffer.readUInt32LE(offset);
+    const value = bytes === 2 ? buffer.readUInt16LE(offset) : buffer.readUInt32LE(offset);
 
-		offset += bytes;
+    offset += bytes;
 
-		return value;
-	};
+    return value;
+  };
 
-	for (let index = 0; index < count; index += 1) {
-		const namespace = text(size(2));
-		const key = text(size(2));
-		const value = text(size(4));
-		const messages = namespaces.get(namespace) ?? new Map<string, string>();
+  for (let index = 0; index < count; index += 1) {
+    const namespace = text(size(2));
+    const key = text(size(2));
+    const value = text(size(4));
+    const messages = namespaces.get(namespace) ?? new Map<string, string>();
 
-		messages.set(key, value);
-		namespaces.set(namespace, messages);
-	}
+    messages.set(key, value);
+    namespaces.set(namespace, messages);
+  }
 
-	if (offset !== buffer.length) {
-		throw new Error(`Unexpected trailing i18n data: ${file}`);
-	}
+  if (offset !== buffer.length) {
+    throw new Error(`Unexpected trailing i18n data: ${file}`);
+  }
 
-	return namespaces;
+  return namespaces;
 }

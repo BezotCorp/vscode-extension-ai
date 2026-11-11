@@ -7,8 +7,11 @@
 // Optional data/i18n/namespaces.ron maps a source path prefix to the namespaces it may use, for example
 //   { "src/chat/": ["chat", "global"], "src/permissions/": ["permissions", "global"] }
 
-use crate::scanner::{Part, literals};
-use crate::source::{GLOBAL_NAMESPACE, Id, Locale};
+use crate::id::Id;
+use crate::locale::Locale;
+use crate::part::Part;
+use crate::scanner::literals;
+use crate::source::GLOBAL_NAMESPACE;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;

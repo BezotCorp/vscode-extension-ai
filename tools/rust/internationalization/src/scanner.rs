@@ -1,3 +1,6 @@
+use crate::literal::Literal;
+use crate::part::Part;
+
 // The translation functions to look for.
 const TRANSLATION_CALLS: [&str; 3] = ["t", "tr", "ui"];
 // A `/` after one of these starts a regular expression, not a division.

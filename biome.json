@@ -1,16 +1,8 @@
 {
-	"files": {
-		"includes": ["**", "!!dist"]
-	},
-	"formatter": {
-		"indentStyle": "tab",
-		"lineWidth": 120
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "single",
-			"semicolons": "always",
-			"trailingCommas": "all"
-		}
-	}
+  "files": {
+    "includes": ["**", "!!dist", "!!coverage", "!!target"]
+  },
+  "formatter": {
+    "enabled": false
+  }
 }

@@ -1,4 +1,4 @@
 export type CustomBackendResponse = {
-	content?: string;
-	error?: string;
+  content?: string;
+  error?: string;
 };

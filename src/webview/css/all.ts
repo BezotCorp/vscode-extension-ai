@@ -1,5 +1,5 @@
 export function getAllStyles(): string {
-	return `
+  return `
 * {
   box-sizing: border-box;
 }

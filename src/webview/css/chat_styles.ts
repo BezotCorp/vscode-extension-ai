@@ -1,5 +1,5 @@
 export function getChatStyles(): string {
-	return `
+  return `
 #chat-header {
   flex: none;
   min-height: 46px;

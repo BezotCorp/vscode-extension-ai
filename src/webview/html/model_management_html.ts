@@ -1,5 +1,5 @@
 export function getModelManagementHtml(ui: (key: string) => string): string {
-	return `
+  return `
 <div id="model-card">
   <div class="settings-group">
     <label for="provider-select">${ui('ui.provider')}</label>

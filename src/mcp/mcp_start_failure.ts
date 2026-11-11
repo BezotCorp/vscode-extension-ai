@@ -1,4 +1,4 @@
 export type McpStartFailure = {
-	configKey: string;
-	at: number;
+  configKey: string;
+  at: number;
 };

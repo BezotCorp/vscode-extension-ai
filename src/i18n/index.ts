@@ -1,12 +1,12 @@
 export {
-	configureLocale,
-	currentLocale,
-	defaultChatTitle,
-	escapeHtml,
-	isDefaultChatTitle,
-	isMessageKey,
-	t,
-	webviewStrings,
+  configureLocale,
+  currentLocale,
+  defaultChatTitle,
+  escapeHtml,
+  isDefaultChatTitle,
+  isMessageKey,
+  t,
+  webviewStrings,
 } from './i18n';
 
 export type { Locale } from './locale';
