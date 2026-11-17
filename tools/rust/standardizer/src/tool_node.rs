@@ -1,4 +1,4 @@
-use crate::{node_base::NodeBase, tool::Tool};
+use crate::{graph_system::NodeBase, tool::Tool};
 use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

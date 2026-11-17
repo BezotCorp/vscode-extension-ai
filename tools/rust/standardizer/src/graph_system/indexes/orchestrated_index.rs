@@ -1,4 +1,7 @@
-use crate::{criterion::Criterion, index::Index, index_id::IndexId};
+use crate::{
+    criterion::Criterion,
+    graph_system::{Index, IndexId},
+};
 use std::collections::BTreeSet;
 
 /// One index participating in an orchestration, whether it already existed or

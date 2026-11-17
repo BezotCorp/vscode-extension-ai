@@ -1,5 +1,5 @@
 use crate::{
-    id_uuid_v7::IdUuidV7, indexable::Indexable, mutation_base::MutationBase,
+    graph_system::Indexable, id_uuid_v7::IdUuidV7, mutation_base::MutationBase,
     mutation_operation::MutationOperation, tag_id::TagId,
 };
 use serde::{Deserialize, Serialize};

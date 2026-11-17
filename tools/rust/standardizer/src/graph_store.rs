@@ -1,10 +1,7 @@
 use crate::{
     criterion::Criterion,
-    global_index::GlobalIndex,
+    graph_system::{GlobalIndex, INDEX_FILE_NAME, Index, IndexId, Indexable},
     id_uuid_v7::IdUuidV7,
-    index::{INDEX_FILE_NAME, Index},
-    index_id::IndexId,
-    indexable::Indexable,
     initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
     location::Location,
     partition::Partition,

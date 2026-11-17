@@ -1,7 +1,11 @@
 use crate::{
-    conformance_intent::ConformanceIntent, criterion::Criterion, edge::Edge, edge_id::EdgeId,
-    graph_store::GraphStore, interpretation::Interpretation, node::Node, node_id::NodeId,
-    operation::Operation, tag_registry::TagRegistry, tool::Tool,
+    conformance_intent::ConformanceIntent,
+    criterion::Criterion,
+    graph_store::GraphStore,
+    graph_system::{Edge, EdgeId, Interpretation, Node, NodeId},
+    operation::Operation,
+    tag_registry::TagRegistry,
+    tool::Tool,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},

@@ -1,4 +1,4 @@
-use crate::{id_uuid_v7::IdUuidV7, index_id::IndexId, location::Location};
+use crate::{graph_system::IndexId, id_uuid_v7::IdUuidV7, location::Location};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

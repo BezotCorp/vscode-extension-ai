@@ -1,4 +1,7 @@
-use crate::{index_id::IndexId, index_reference::IndexReference, tag_id::TagId};
+use crate::{
+    graph_system::{IndexId, IndexReference},
+    tag_id::TagId,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 

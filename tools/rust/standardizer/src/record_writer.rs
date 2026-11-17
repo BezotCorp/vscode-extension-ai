@@ -1,9 +1,15 @@
 use crate::{
-    graph_store::GraphStore, id_index::IdIndex, id_uuid_v7::IdUuidV7, index::Index,
-    index_changes::IndexChanges, index_orchestrator::IndexOrchestrator, indexable::Indexable,
-    location::Location, lookup_kind::LookupKind, record_file::RecordFile,
-    reference_index::ReferenceIndex, ron_file::RonFile, tag_id::TagId,
-    terminal_index::TerminalIndex, write_transaction::WriteTransaction,
+    graph_store::GraphStore,
+    graph_system::{
+        IdIndex, Index, IndexChanges, IndexOrchestrator, Indexable, ReferenceIndex, TerminalIndex,
+    },
+    id_uuid_v7::IdUuidV7,
+    location::Location,
+    lookup_kind::LookupKind,
+    record_file::RecordFile,
+    ron_file::RonFile,
+    tag_id::TagId,
+    write_transaction::WriteTransaction,
 };
 use std::{collections::BTreeSet, error::Error};
 

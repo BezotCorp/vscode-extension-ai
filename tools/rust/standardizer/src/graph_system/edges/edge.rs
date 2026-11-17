@@ -1,5 +1,7 @@
 use crate::{
-    edge_base::EdgeBase, id_uuid_v7::IdUuidV7, indexable::Indexable, node_id::NodeId, tag_id::TagId,
+    graph_system::{EdgeBase, Indexable, NodeId},
+    id_uuid_v7::IdUuidV7,
+    tag_id::TagId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

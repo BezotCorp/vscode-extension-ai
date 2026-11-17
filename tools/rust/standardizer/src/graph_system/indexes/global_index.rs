@@ -1,5 +1,5 @@
 use crate::{
-    criterion::Criterion, global_entry::GlobalEntry, index_id::IndexId, location::Location,
+    criterion::Criterion, global_entry::GlobalEntry, graph_system::IndexId, location::Location,
 };
 use serde::{Deserialize, Serialize};
 use std::{

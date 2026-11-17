@@ -1,4 +1,4 @@
-use crate::{file_extension::FileExtension, node_base::NodeBase};
+use crate::{file_extension::FileExtension, graph_system::NodeBase};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 #[derive(Deserialize, Serialize)]

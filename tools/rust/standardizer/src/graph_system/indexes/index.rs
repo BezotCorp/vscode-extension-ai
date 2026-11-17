@@ -1,6 +1,6 @@
 use crate::{
-    id_index::IdIndex, index_id::IndexId, intermediate_index::IntermediateIndex,
-    reference_index::ReferenceIndex, tag_id::TagId, terminal_index::TerminalIndex,
+    graph_system::{IdIndex, IndexId, IntermediateIndex, ReferenceIndex, TerminalIndex},
+    tag_id::TagId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

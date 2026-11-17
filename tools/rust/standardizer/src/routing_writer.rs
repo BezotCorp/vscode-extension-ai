@@ -1,9 +1,17 @@
 use crate::{
-    criterion::Criterion, edge::Edge, edge_base::EdgeBase, edge_id::EdgeId,
-    graph_store::GraphStore, id_uuid_v7::IdUuidV7, indexable::Indexable,
-    interpretation::Interpretation, interpretation_base::InterpretationBase, location::Location,
-    mutation::Mutation, mutation_base::MutationBase, mutation_operation::MutationOperation,
-    node::Node, node_base::NodeBase, node_id::NodeId, record_writer::RecordWriter, tag_id::TagId,
+    criterion::Criterion,
+    graph_store::GraphStore,
+    graph_system::{
+        Edge, EdgeBase, EdgeId, Indexable, Interpretation, InterpretationBase, Node, NodeBase,
+        NodeId,
+    },
+    id_uuid_v7::IdUuidV7,
+    location::Location,
+    mutation::Mutation,
+    mutation_base::MutationBase,
+    mutation_operation::MutationOperation,
+    record_writer::RecordWriter,
+    tag_id::TagId,
 };
 use std::{collections::BTreeSet, error::Error};
 

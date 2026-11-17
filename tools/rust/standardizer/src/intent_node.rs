@@ -1,4 +1,4 @@
-use crate::{conformance_intent::ConformanceIntent, node_base::NodeBase};
+use crate::{conformance_intent::ConformanceIntent, graph_system::NodeBase};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]

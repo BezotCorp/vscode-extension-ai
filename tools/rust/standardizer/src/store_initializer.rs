@@ -1,6 +1,6 @@
 use crate::{
-    global_index::GlobalIndex,
     graph_store::{GraphStore, TAG_REGISTRY_FILE, WRITE_LOCATIONS_FILE},
+    graph_system::GlobalIndex,
     initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
     ron_file::RonFile,
     store_lock::StoreLock,

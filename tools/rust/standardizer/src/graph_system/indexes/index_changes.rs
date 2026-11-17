@@ -1,4 +1,4 @@
-use crate::{global_index::GlobalIndex, location::Location};
+use crate::{graph_system::GlobalIndex, location::Location};
 
 /// Persistable index changes prepared by an index orchestration.
 pub(crate) struct IndexChanges {

@@ -2,13 +2,11 @@ use crate::{
     criterion::Criterion,
     global_entry::GlobalEntry,
     graph_store::GraphStore,
-    index::{INDEX_FILE_NAME, Index},
-    index_changes::IndexChanges,
-    index_id::IndexId,
-    index_reference::IndexReference,
-    intermediate_index::IntermediateIndex,
+    graph_system::{
+        INDEX_FILE_NAME, Index, IndexChanges, IndexId, IndexReference, IntermediateIndex,
+        OrchestratedIndex,
+    },
     location::Location,
-    orchestrated_index::OrchestratedIndex,
     partition::Partition,
     ron_file::RonFile,
 };

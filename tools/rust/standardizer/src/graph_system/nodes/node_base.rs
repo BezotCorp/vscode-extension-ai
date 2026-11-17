@@ -1,4 +1,4 @@
-use crate::{node_id::NodeId, tag_id::TagId};
+use crate::{graph_system::NodeId, tag_id::TagId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
