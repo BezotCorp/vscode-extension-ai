@@ -1,24 +1,11 @@
 use crate::{
-    graph_store::GraphStore,
-    id_index::IdIndex,
-    id_uuid_v7::IdUuidV7,
-    index::Index,
-    index_workspace::{IndexChanges, IndexWorkspace},
-    indexable::Indexable,
-    location::Location,
-    lookup_kind::LookupKind,
-    reference_index::ReferenceIndex,
-    ron_file::RonFile,
-    tag_id::TagId,
-    terminal_index::TerminalIndex,
-    write_transaction::WriteTransaction,
+    graph_store::GraphStore, id_index::IdIndex, id_uuid_v7::IdUuidV7, index::Index,
+    index_changes::IndexChanges, index_orchestrator::IndexOrchestrator, indexable::Indexable,
+    location::Location, lookup_kind::LookupKind, record_file::RecordFile,
+    reference_index::ReferenceIndex, ron_file::RonFile, tag_id::TagId,
+    terminal_index::TerminalIndex, write_transaction::WriteTransaction,
 };
 use std::{collections::BTreeSet, error::Error};
-
-enum RecordFile {
-    Create(Location, Vec<u8>),
-    Replace(Location, Vec<u8>),
-}
 
 /// Creates or retags records and keeps every index consistent, for any domain.
 pub(crate) struct RecordWriter;
@@ -45,7 +32,7 @@ impl RecordWriter {
             return Err("created record does not carry the assigned identity and tags".into());
         }
         let destination = store.destinations().select(&tags)?;
-        let mut workspace = IndexWorkspace::new(store);
+        let mut workspace = IndexOrchestrator::new(store);
 
         let segments = destination.partition().segments(id)?;
         let leaf = workspace.open(
@@ -93,7 +80,7 @@ impl RecordWriter {
             }
         }
         let changes = workspace.finish()?;
-        let file = RecordFile::Create(record_location, RonFile::render_compact(&record)?);
+        let file = RecordFile::create(record_location, RonFile::render_compact(&record)?);
         Self::commit(store, file, changes)?;
         Ok(id)
     }
@@ -106,7 +93,7 @@ impl RecordWriter {
         location: &Location,
     ) -> Result<(), Box<dyn Error>> {
         let destination = store.destinations().select(record.tags())?;
-        let mut workspace = IndexWorkspace::new(store);
+        let mut workspace = IndexOrchestrator::new(store);
         let segments = destination.partition().segments(record.id())?;
         let leaf = workspace.open(
             destination.root(),
@@ -122,7 +109,7 @@ impl RecordWriter {
             _ => return Err("physical leaf is not a terminal index".into()),
         }
         let changes = workspace.finish()?;
-        let file = RecordFile::Replace(location.clone(), RonFile::render_compact(record)?);
+        let file = RecordFile::replace(location.clone(), RonFile::render_compact(record)?);
         Self::commit(store, file, changes)
     }
 
@@ -136,13 +123,10 @@ impl RecordWriter {
         let directory = store.directory().to_path_buf();
         let mut transaction = WriteTransaction::begin();
         let outcome = (|| -> Result<(), Box<dyn Error>> {
-            let (location, bytes, create) = match &file {
-                RecordFile::Create(location, bytes) => (location, bytes, true),
-                RecordFile::Replace(location, bytes) => (location, bytes, false),
-            };
+            let (location, bytes, create) = file.parts();
             let path = location.resolve(&directory);
             transaction.create_directories(path.parent().ok_or("record without folder")?)?;
-            for (index, _) in &changes.indexes {
+            for (index, _) in changes.indexes() {
                 let index_path = index.resolve(&directory);
                 transaction
                     .create_directories(index_path.parent().ok_or("index without folder")?)?;
@@ -152,15 +136,15 @@ impl RecordWriter {
             } else {
                 transaction.replace_file(&path, bytes)?;
             }
-            for (index, bytes) in &changes.indexes {
+            for (index, bytes) in changes.indexes() {
                 transaction.replace_file(&index.resolve(&directory), bytes)?;
             }
-            transaction.replace_file(&store.global_index_path(), &changes.global_bytes)
+            transaction.replace_file(&store.global_index_path(), changes.global_bytes())
         })();
         match outcome {
             Ok(()) => {
                 transaction.commit();
-                store.replace_global(changes.global);
+                store.replace_global(changes.into_global());
                 Ok(())
             }
             Err(error) => match transaction.rollback() {

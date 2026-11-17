@@ -4,11 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-enum Undo {
-    RestoreFile { path: PathBuf, previous: Vec<u8> },
-    RemoveFile(PathBuf),
-    RemoveDirectory(PathBuf),
-}
+use crate::undo::Undo;
 
 /// Local filesystem changes that can be reverted together. Every change is
 /// journaled in memory once applied; `rollback` restores the previous state.
@@ -86,34 +82,23 @@ impl WriteTransaction {
         Ok(())
     }
 
-    pub(crate) fn commit(self) {}
-
-    /// Reverts every applied change, newest first. Reports what could not be reverted.
     pub(crate) fn rollback(self) -> Result<(), String> {
         let mut failures = Vec::new();
+
         for undo in self.undo.into_iter().rev() {
-            let (path, result) = match undo {
-                Undo::RestoreFile { path, previous } => {
-                    let result = fs::write(&path, previous);
-                    (path, result)
-                }
-                Undo::RemoveFile(path) => {
-                    let result = fs::remove_file(&path);
-                    (path, result)
-                }
-                Undo::RemoveDirectory(path) => {
-                    let result = fs::remove_dir(&path);
-                    (path, result)
-                }
-            };
-            if let Err(error) = result {
+            let path = undo.path().to_path_buf();
+
+            if let Err(error) = undo.rollback() {
                 failures.push(format!("{}: {error}", path.display()));
             }
         }
+
         if failures.is_empty() {
             Ok(())
         } else {
             Err(failures.join("; "))
         }
     }
+
+    pub(crate) fn commit(self) {}
 }

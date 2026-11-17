@@ -11,12 +11,15 @@ impl ToolNode {
     pub(crate) fn new(base: NodeBase, tool: Tool) -> Self {
         Self { base, tool }
     }
+
     pub(crate) fn base_mut(&mut self) -> &mut NodeBase {
         &mut self.base
     }
+
     pub(crate) fn base(&self) -> &NodeBase {
         &self.base
     }
+
     pub(crate) fn tool(&self) -> Tool {
         self.tool
     }

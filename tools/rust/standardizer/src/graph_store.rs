@@ -226,9 +226,10 @@ impl GraphStore {
     /// Consistency of what the global index declares, read index by index.
     fn verify(&self) -> Result<(), Box<dyn Error>> {
         let mut index_tags: BTreeMap<IndexId, BTreeSet<TagId>> = BTreeMap::new();
+        let mut index_locations: BTreeMap<Location, IndexId> = BTreeMap::new();
         let mut children = Vec::new();
         let mut records: BTreeMap<IdUuidV7, Location> = BTreeMap::new();
-        let mut located = Vec::new();
+        let mut located: BTreeMap<IdUuidV7, Location> = BTreeMap::new();
         let mut referrers = Vec::new();
         for (id, entry) in self.global.iter() {
             let location = entry.location();
@@ -238,6 +239,13 @@ impl GraphStore {
             {
                 return Err(format!("invalid index entry: {location}").into());
             }
+            if let Some(existing) = index_locations.insert(location.clone(), id) {
+                return Err(format!(
+                    "index location belongs to several identities: {location} ({existing} and {id})"
+                )
+                .into());
+            }
+
             let index = self.open(id)?;
             let tags = index.tags();
             self.check_registered(&tags)?;
@@ -265,7 +273,13 @@ impl GraphStore {
                     }
                 }
                 Index::Id(ids) => {
-                    located.extend(ids.entries().iter().map(|(r, l)| (*r, l.clone())));
+                    for (record, location) in ids.entries() {
+                        if located.insert(*record, location.clone()).is_some() {
+                            return Err(
+                                format!("record indexed by UUID several times: {record}").into()
+                            );
+                        }
+                    }
                 }
                 Index::Reference(references) => {
                     for by_referrer in references.entries().values() {
@@ -305,11 +319,34 @@ impl GraphStore {
                 return Err(format!("index with several parents: {child}").into());
             }
         }
-        for (record, location) in located.iter().chain(&referrers) {
+        for (record, location) in &located {
             if records.get(record) != Some(location) {
                 return Err(
                     format!("categorical index points to an unknown record: {record}").into(),
                 );
+            }
+        }
+
+        for (record, location) in &referrers {
+            if records.get(record) != Some(location) {
+                return Err(
+                    format!("categorical index points to an unknown record: {record}").into(),
+                );
+            }
+        }
+
+        for (record, location) in &records {
+            match located.get(record) {
+                Some(indexed) if indexed == location => {}
+                Some(indexed) => {
+                    return Err(format!(
+                        "UUID index points to the wrong location for {record}: {indexed} instead of {location}"
+                    )
+                    .into());
+                }
+                None => {
+                    return Err(format!("record missing from UUID index: {record}").into());
+                }
             }
         }
         // Every parent chain must end at a root: no index may belong to a cycle.
