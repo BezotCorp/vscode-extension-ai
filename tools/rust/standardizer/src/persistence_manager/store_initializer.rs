@@ -1,12 +1,9 @@
+use super::{
+    GLOBAL_INDEX_FILE, InitializationState, RonFile, StorageManager, StoreLock, TAG_REGISTRY_FILE,
+    WRITE_LOCATIONS_FILE, WriteTransaction,
+};
 use crate::{
-    graph_store::{GraphStore, TAG_REGISTRY_FILE, WRITE_LOCATIONS_FILE},
-    graph_system::GlobalIndex,
-    initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
-    ron_file::RonFile,
-    store_lock::StoreLock,
-    tag_registry::TagRegistry,
-    write_locations::WriteLocations,
-    write_transaction::WriteTransaction,
+    graph_system::GlobalIndex, tag_registry::TagRegistry, write_locations::WriteLocations,
 };
 use std::{error::Error, path::Path};
 
@@ -41,7 +38,7 @@ impl StoreInitializer {
                 &directory.join(GLOBAL_INDEX_FILE),
                 &RonFile::render_pretty(&GlobalIndex::empty())?,
             )?;
-            GraphStore::load(directory)?;
+            StorageManager::load(directory)?;
             StoreLock::create(directory)
         })();
         match outcome {
@@ -60,7 +57,7 @@ impl StoreInitializer {
     /// is; no index is created, no identity changes, no record is rewritten.
     pub(crate) fn adopt(directory: &Path) -> Result<(), Box<dyn Error>> {
         Self::require(directory, InitializationState::AdoptionPending, "adopt")?;
-        GraphStore::load(directory)?;
+        StorageManager::load(directory)?;
         StoreLock::create(directory)
     }
 

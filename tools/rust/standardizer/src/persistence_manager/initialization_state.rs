@@ -1,4 +1,4 @@
-use crate::{anomaly::Anomaly, store_lock::StoreLock};
+use super::{anomaly::Anomaly, store_lock::StoreLock};
 use std::{error::Error, fs, io, path::Path};
 
 pub(crate) const GLOBAL_INDEX_FILE: &str = "global_index.ron";

@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::undo::Undo;
+use super::undo::Undo;
 
 /// Local filesystem changes that can be reverted together. Every change is
 /// journaled in memory once applied; `rollback` restores the previous state.

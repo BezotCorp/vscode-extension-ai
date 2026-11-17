@@ -1,15 +1,10 @@
 use crate::{
-    graph_store::GraphStore,
-    graph_system::{
-        IdIndex, Index, IndexChanges, IndexOrchestrator, Indexable, ReferenceIndex, TerminalIndex,
-    },
+    graph_system::{IdIndex, Index, IndexOrchestrator, Indexable, ReferenceIndex, TerminalIndex},
     id_uuid_v7::IdUuidV7,
     location::Location,
     lookup_kind::LookupKind,
-    record_file::RecordFile,
-    ron_file::RonFile,
+    persistence_manager::{RecordFile, RonFile, StorageManager},
     tag_id::TagId,
-    write_transaction::WriteTransaction,
 };
 use std::{collections::BTreeSet, error::Error};
 
@@ -22,7 +17,7 @@ impl RecordWriter {
     /// its physical indexes, its categorical indexes and the global index, or
     /// nothing changed.
     pub(crate) fn add<R: Indexable>(
-        store: &mut GraphStore,
+        store: &mut StorageManager,
         domain: &TagId,
         tags: BTreeSet<TagId>,
         build: impl FnOnce(IdUuidV7, BTreeSet<TagId>) -> R,
@@ -88,14 +83,14 @@ impl RecordWriter {
         }
         let changes = workspace.finish()?;
         let file = RecordFile::create(record_location, RonFile::render_compact(&record)?);
-        Self::commit(store, file, changes)?;
+        store.commit(file, changes)?;
         Ok(id)
     }
 
     /// Rewrites an existing record after its tags changed and refreshes the
     /// aggregated tags of every index above it. References must not change.
     pub(crate) fn replace<R: Indexable>(
-        store: &mut GraphStore,
+        store: &mut StorageManager,
         record: &R,
         location: &Location,
     ) -> Result<(), Box<dyn Error>> {
@@ -118,47 +113,6 @@ impl RecordWriter {
         }
         let changes = workspace.finish()?;
         let file = RecordFile::replace(location.clone(), RonFile::render_compact(record)?);
-        Self::commit(store, file, changes)
-    }
-
-    /// Record first, global index last: the global index is the commit point.
-    /// On failure every applied change is reverted.
-    fn commit(
-        store: &mut GraphStore,
-        file: RecordFile,
-        changes: IndexChanges,
-    ) -> Result<(), Box<dyn Error>> {
-        let directory = store.directory().to_path_buf();
-        let mut transaction = WriteTransaction::begin();
-        let outcome = (|| -> Result<(), Box<dyn Error>> {
-            let (location, bytes, create) = file.parts();
-            let path = location.resolve(&directory);
-            transaction.create_directories(path.parent().ok_or("record without folder")?)?;
-            for (index, _) in changes.indexes() {
-                let index_path = index.resolve(&directory);
-                transaction
-                    .create_directories(index_path.parent().ok_or("index without folder")?)?;
-            }
-            if create {
-                transaction.create_file(&path, bytes)?;
-            } else {
-                transaction.replace_file(&path, bytes)?;
-            }
-            for (index, bytes) in changes.indexes() {
-                transaction.replace_file(&index.resolve(&directory), bytes)?;
-            }
-            transaction.replace_file(&store.global_index_path(), changes.global_bytes())
-        })();
-        match outcome {
-            Ok(()) => {
-                transaction.commit();
-                store.replace_global(changes.into_global());
-                Ok(())
-            }
-            Err(error) => match transaction.rollback() {
-                Ok(()) => Err(error),
-                Err(failures) => Err(format!("{error}; rollback incomplete: {failures}").into()),
-            },
-        }
+        store.commit(file, changes)
     }
 }

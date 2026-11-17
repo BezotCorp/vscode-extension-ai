@@ -1,14 +1,12 @@
 use crate::{
     criterion::Criterion,
     global_entry::GlobalEntry,
-    graph_store::GraphStore,
     graph_system::{
-        INDEX_FILE_NAME, Index, IndexChanges, IndexId, IndexReference, IntermediateIndex,
-        OrchestratedIndex,
+        INDEX_FILE_NAME, Index, IndexId, IndexReference, IntermediateIndex, OrchestratedIndex,
     },
     location::Location,
     partition::Partition,
-    ron_file::RonFile,
+    persistence_manager::{IndexChanges, RonFile, StorageManager},
 };
 use std::{
     cmp::Reverse,
@@ -18,13 +16,13 @@ use std::{
 
 /// Coordinates every index touched by one record operation before persistence.
 pub(crate) struct IndexOrchestrator<'a> {
-    store: &'a GraphStore,
+    store: &'a StorageManager,
     indexes: BTreeMap<Location, OrchestratedIndex>,
     parents: BTreeMap<Location, Location>,
 }
 
 impl<'a> IndexOrchestrator<'a> {
-    pub(crate) fn new(store: &'a GraphStore) -> Self {
+    pub(crate) fn new(store: &'a StorageManager) -> Self {
         Self {
             store,
             indexes: BTreeMap::new(),
@@ -85,7 +83,7 @@ impl<'a> IndexOrchestrator<'a> {
             None => {
                 // A new index is only legitimate where nothing exists: a file already
                 // there is a lost registration, not a new index.
-                if location.resolve(self.store.directory()).exists() {
+                if self.store.contains(location) {
                     return Err(format!(
                         "index file exists but is unknown to the global index, refusing to recreate it: {location}"
                     )

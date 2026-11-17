@@ -1,5 +1,5 @@
 use crate::{
-    biome::Biome, conformance_intent::ConformanceIntent, graph_store::GraphStore,
+    biome::Biome, conformance_intent::ConformanceIntent, persistence_manager::StorageManager,
     routing_graph::RoutingGraph, rustfmt::Rustfmt, tool::Tool, tracked_file::TrackedFile,
 };
 use std::{collections::BTreeMap, error::Error, path::Path};
@@ -9,7 +9,7 @@ pub(crate) struct Conformance {
 impl Conformance {
     pub(crate) fn load() -> Result<Self, Box<dyn Error>> {
         Ok(Self {
-            graph: RoutingGraph::load(&GraphStore::default_directory())?,
+            graph: RoutingGraph::load(&StorageManager::default_directory())?,
         })
     }
     pub(crate) fn execute(

@@ -1,7 +1,6 @@
 mod global_index;
 mod id_index;
 mod index;
-mod index_changes;
 mod index_id;
 mod index_orchestrator;
 mod index_reference;
@@ -14,7 +13,6 @@ mod terminal_index;
 pub(crate) use global_index::GlobalIndex;
 pub(crate) use id_index::IdIndex;
 pub(crate) use index::{INDEX_FILE_NAME, Index};
-pub(crate) use index_changes::IndexChanges;
 pub(crate) use index_id::IndexId;
 pub(crate) use index_orchestrator::IndexOrchestrator;
 pub(crate) use index_reference::IndexReference;

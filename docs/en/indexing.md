@@ -35,7 +35,7 @@ A **search** proceeds from the top to relevant indexes, then data. **Metadata ma
 | Storage                            | Read and write at a given location; do not decide which search strategy to use.                                                                                                                                                          |
 | Consistency checking / recovery    | Verify and repair through explicitly defined mechanisms without turning every search into an exhaustive scan.                                                                                                                            |
 
-A Rust structure may evolve to carry one of these responsibilities, but an existing name (`GraphStore`, `IndexOrchestrator`, etc.) does **not** define this contract. Check its actual calls and effects before renaming or moving it.
+A Rust structure may evolve to carry one of these responsibilities, but an existing name (`StorageManager`, `IndexOrchestrator`, etc.) does **not** define this contract. Check its actual calls and effects before renaming or moving it.
 
 ## 3. Identity, location, criteria and tags
 
@@ -118,7 +118,7 @@ An in-memory rollback does not establish a transactional guarantee: distinguish 
 
 ## 9. Relationship to the current implementation
 
-This contract **does not automatically validate** existing classes. In `standardizer`, `GlobalIndex` currently references identities, locations and criteria; `GraphStore` mixes storage access and search strategies; `IndexOrchestrator` coordinates index modifications; `IdIndex` and `ReferenceIndex` exist; tag searches currently traverse the physical hierarchy.
+This contract **does not automatically validate** existing classes. In `standardizer`, `GlobalIndex` currently references identities, locations and criteria; `StorageManager` handles access to and persistence of the data, indexes included, including the searches needed to reach them; `IndexOrchestrator` coordinates index modifications; `IdIndex` and `ReferenceIndex` exist; tag searches currently traverse the physical hierarchy.
 
 These observations serve to **audit gaps**, rather than mandate wholesale renaming or rewriting. Any alignment must start with behavioral tests and preserve RON data; a format change requires a verified migration.
 

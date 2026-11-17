@@ -1,9 +1,9 @@
 use crate::{
     conformance_intent::ConformanceIntent,
     criterion::Criterion,
-    graph_store::GraphStore,
     graph_system::{Edge, EdgeId, Interpretation, Node, NodeId},
     operation::Operation,
+    persistence_manager::StorageManager,
     tag_registry::TagRegistry,
     tool::Tool,
 };
@@ -23,7 +23,7 @@ impl RoutingGraph {
     /// Loads the graph by tag: the global index orients toward the physical
     /// hierarchy of each domain, whose aggregated tags then lead to the records.
     pub(crate) fn load(directory: &Path) -> Result<Self, Box<dyn Error>> {
-        let store = GraphStore::load(directory)?;
+        let store = StorageManager::load(directory)?;
         let mut nodes = BTreeMap::new();
         let criteria = |domain: &str| Criterion::set(&[domain, "physical"]);
         for node in store.records_tagged::<Node>(&criteria("node")?, &store.tags().find("node")?)? {

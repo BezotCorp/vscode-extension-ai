@@ -1,4 +1,4 @@
-use crate::{graph_store::GraphStore, store_initializer::StoreInitializer};
+use crate::persistence_manager::{StorageManager, StoreInitializer};
 use std::{error::Error, ffi::OsString, fs, path::PathBuf};
 
 /// Explicit operations on the store life cycle, distinct from conformance.
@@ -47,7 +47,7 @@ impl StoreCommand {
                 ("initialized", directory)
             }
             Self::Adopt => {
-                let directory = GraphStore::default_directory();
+                let directory = StorageManager::default_directory();
                 StoreInitializer::adopt(&directory)?;
                 ("adopted", directory)
             }

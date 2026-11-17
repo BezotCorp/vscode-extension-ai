@@ -1,11 +1,12 @@
+use super::{
+    GLOBAL_INDEX_FILE, IndexChanges, InitializationState, RecordFile, RonFile, WriteTransaction,
+};
 use crate::{
     criterion::Criterion,
     graph_system::{GlobalIndex, INDEX_FILE_NAME, Index, IndexId, Indexable},
     id_uuid_v7::IdUuidV7,
-    initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
     location::Location,
     partition::Partition,
-    ron_file::RonFile,
     tag_id::TagId,
     tag_registry::TagRegistry,
     write_locations::WriteLocations,
@@ -19,9 +20,10 @@ use std::{
 pub(crate) const TAG_REGISTRY_FILE: &str = "tag_registry.ron";
 pub(crate) const WRITE_LOCATIONS_FILE: &str = "write_locations.ron";
 
-/// The persisted graph: tag registry, write configuration and global index,
-/// plus access to every index and record the global index leads to.
-pub(crate) struct GraphStore {
+/// Access to and persistence of every stored datum, indexes included: tag registry,
+/// write configuration, global index, index files and records, plus the searches
+/// needed to reach them.
+pub(crate) struct StorageManager {
     directory: PathBuf,
     tags: TagRegistry,
     global: GlobalIndex,
@@ -29,7 +31,7 @@ pub(crate) struct GraphStore {
     initialized: bool,
 }
 
-impl GraphStore {
+impl StorageManager {
     /// The store of this repository.
     pub(crate) fn default_directory() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../data/standardizer")
@@ -73,10 +75,6 @@ impl GraphStore {
             return Ok(());
         }
         Err("the store is not initialized: adopt it explicitly before writing".into())
-    }
-
-    pub(crate) fn directory(&self) -> &Path {
-        &self.directory
     }
 
     pub(crate) fn tags(&self) -> &TagRegistry {
@@ -242,6 +240,52 @@ impl GraphStore {
             Index::Id(_) | Index::Reference(_) => {}
         }
         Ok(())
+    }
+
+    /// Record first, global index last: the global index is the commit point.
+    /// On failure every applied change is reverted.
+    pub(crate) fn commit(
+        &mut self,
+        file: RecordFile,
+        changes: IndexChanges,
+    ) -> Result<(), Box<dyn Error>> {
+        let directory = self.directory.clone();
+        let mut transaction = WriteTransaction::begin();
+        let outcome = (|| -> Result<(), Box<dyn Error>> {
+            let (location, bytes, create) = file.parts();
+            let path = location.resolve(&directory);
+            transaction.create_directories(path.parent().ok_or("record without folder")?)?;
+            for (index, _) in changes.indexes() {
+                let index_path = index.resolve(&directory);
+                transaction
+                    .create_directories(index_path.parent().ok_or("index without folder")?)?;
+            }
+            if create {
+                transaction.create_file(&path, bytes)?;
+            } else {
+                transaction.replace_file(&path, bytes)?;
+            }
+            for (index, bytes) in changes.indexes() {
+                transaction.replace_file(&index.resolve(&directory), bytes)?;
+            }
+            transaction.replace_file(&self.global_index_path(), changes.global_bytes())
+        })();
+        match outcome {
+            Ok(()) => {
+                transaction.commit();
+                self.replace_global(changes.into_global());
+                Ok(())
+            }
+            Err(error) => match transaction.rollback() {
+                Ok(()) => Err(error),
+                Err(failures) => Err(format!("{error}; rollback incomplete: {failures}").into()),
+            },
+        }
+    }
+
+    /// Whether a file already exists at `location`.
+    pub(crate) fn contains(&self, location: &Location) -> bool {
+        location.resolve(&self.directory).exists()
     }
 
     fn check_registered(&self, tags: &BTreeSet<TagId>) -> Result<(), Box<dyn Error>> {

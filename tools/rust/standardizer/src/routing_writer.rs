@@ -1,6 +1,5 @@
 use crate::{
     criterion::Criterion,
-    graph_store::GraphStore,
     graph_system::{
         Edge, EdgeBase, EdgeId, Indexable, Interpretation, InterpretationBase, Node, NodeBase,
         NodeId,
@@ -10,6 +9,7 @@ use crate::{
     mutation::Mutation,
     mutation_base::MutationBase,
     mutation_operation::MutationOperation,
+    persistence_manager::StorageManager,
     record_writer::RecordWriter,
     tag_id::TagId,
 };
@@ -19,12 +19,12 @@ use std::{collections::BTreeSet, error::Error};
 /// added automatically and never propagated from one object to another.
 #[allow(dead_code, reason = "authoring API without a CLI caller yet")]
 pub(crate) struct RoutingWriter {
-    store: GraphStore,
+    store: StorageManager,
 }
 
 #[allow(dead_code, reason = "authoring API without a CLI caller yet")]
 impl RoutingWriter {
-    pub(crate) fn new(store: GraphStore) -> Self {
+    pub(crate) fn new(store: StorageManager) -> Self {
         Self { store }
     }
 

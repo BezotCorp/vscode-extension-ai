@@ -35,7 +35,7 @@ Le sens d'une **recherche** est du haut vers les index concernés puis les donn�
 | Stockage                             | Lire et écrire à un emplacement donné ; ne pas décider quelle stratégie de recherche utiliser.                                                                                                                                                                                                 |
 | Contrôle de cohérence / récupération | Vérifier et réparer selon des mécanismes explicitement définis, sans transformer toute recherche en scan exhaustif.                                                                                                                                                                            |
 
-Une structure Rust peut évoluer pour porter l'une de ces responsabilités, mais un nom existant (`GraphStore`, `IndexOrchestrator`, etc.) ne fait **pas** autorité sur ce contrat. On doit vérifier ses appels et ses effets réels avant de la renommer ou de la déplacer.
+Une structure Rust peut évoluer pour porter l'une de ces responsabilités, mais un nom existant (`StorageManager`, `IndexOrchestrator`, etc.) ne fait **pas** autorité sur ce contrat. On doit vérifier ses appels et ses effets réels avant de la renommer ou de la déplacer.
 
 ## 3. Identité, emplacement, critères et tags
 
@@ -118,7 +118,7 @@ Une garantie de transaction ne se déduit pas d'un rollback en mémoire : distin
 
 ## 9. Rapport à l'implémentation actuelle
 
-Ce contrat **ne valide pas automatiquement** les classes existantes. Dans `standardizer`, `GlobalIndex` référence actuellement identités, locations et critères ; `GraphStore` mêle accès au stockage et stratégies de recherche ; `IndexOrchestrator` coordonne des modifications d'index ; `IdIndex` et `ReferenceIndex` existent ; la recherche par tags passe aujourd'hui par la hiérarchie physique.
+Ce contrat **ne valide pas automatiquement** les classes existantes. Dans `standardizer`, `GlobalIndex` référence actuellement identités, locations et critères ; `StorageManager` gère l'accès aux données et leur persistance, index compris, y compris les recherches nécessaires pour y accéder ; `IndexOrchestrator` coordonne des modifications d'index ; `IdIndex` et `ReferenceIndex` existent ; la recherche par tags passe aujourd'hui par la hiérarchie physique.
 
 Ces constats servent à **auditer les écarts**, non à imposer un renommage ou une réécriture générale. Toute remise en conformité doit commencer par des tests de comportement et préserver les données RON ; un changement de format exige une migration vérifiée.
 
