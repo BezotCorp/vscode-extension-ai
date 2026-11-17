@@ -148,9 +148,9 @@ fn persist(projection: &Projection) -> io::Result<()> {
     ))
 }
 
-// Check all projections before writing anything.
-// Check mode never creates output files or directories.
-pub fn synchronize(projections: &[Projection], check: bool) -> Result<Summary, Box<dyn Error>> {
+// Compare every final projection before writing.
+// Unchanged outputs never touch the filesystem.
+pub fn synchronize(projections: &[Projection]) -> Result<Summary, Box<dyn Error>> {
     let mut changed = Vec::new();
     let mut unchanged = 0;
 
@@ -162,24 +162,8 @@ pub fn synchronize(projections: &[Projection], check: bool) -> Result<Summary, B
         }
     }
 
-    if check && !changed.is_empty() {
-        let paths = changed
-            .iter()
-            .map(|projection| format!("  {}", projection.path.display()))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        return Err(format!(
-            "{} generated output(s) missing or different:\n{paths}",
-            changed.len()
-        )
-        .into());
-    }
-
-    if !check {
-        for projection in &changed {
-            persist(projection)?;
-        }
+    for projection in &changed {
+        persist(projection)?;
     }
 
     Ok(Summary {

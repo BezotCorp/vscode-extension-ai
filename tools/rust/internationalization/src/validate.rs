@@ -8,7 +8,7 @@ pub fn validate(locales: &[Locale]) -> Vec<String> {
 
     let Some(reference) = locales.iter().find(|locale| locale.name == DEFAULT_LOCALE) else {
         return vec![format!(
-            "the default locale \"{DEFAULT_LOCALE}\" has no data/i18n/{DEFAULT_LOCALE}.ron"
+            "the default locale \"{DEFAULT_LOCALE}\" has no data/i18n/sources/{DEFAULT_LOCALE}.ron"
         )];
     };
 
@@ -26,7 +26,7 @@ pub fn validate(locales: &[Locale]) -> Vec<String> {
             Some(base) => match locales.iter().find(|candidate| candidate.name == base) {
                 Some(base) => check_regional(locale, base, &mut problems),
                 None => problems.push(format!(
-                    "{}: its base language \"{base}\" has no data/i18n/{base}.ron",
+                    "{}: its base language \"{base}\" has no data/i18n/sources/{base}.ron",
                     locale.name
                 )),
             },

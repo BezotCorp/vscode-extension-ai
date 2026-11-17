@@ -327,11 +327,13 @@ function historyMessages(message: ChatHistoryMessage, withTools: boolean): Ollam
         function: { name: call.name, arguments: call.arguments },
       })),
     },
-    ...round.calls.map((call): OllamaMessage => ({
-      role: 'tool',
-      tool_name: call.name,
-      content: call.result,
-    })),
+    ...round.calls.map(
+      (call): OllamaMessage => ({
+        role: 'tool',
+        tool_name: call.name,
+        content: call.result,
+      }),
+    ),
   ]);
 
   return [...rounds, ...closing];

@@ -1,4 +1,4 @@
-// The translation sources: data/i18n/<locale>.ron, and what can be derived from them.
+// The translation sources: data/i18n/sources/<locale>.ron, and what can be derived from them.
 use crate::id::Id;
 use crate::locale::Locale;
 use crate::messages::Messages;

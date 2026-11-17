@@ -1,0 +1,272 @@
+(
+    indexes: {
+        "01a1e6d4-c4dc-70ef-a1ac-09f22f2daaa4": (
+            location: Local("interpretations/index.ron"),
+            criteria: [
+                "interpretation",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7148-9cd1-955bd0f460a9": (
+            location: Local("nodes/by-id/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "node",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7205-ac99-b6c5ccf3cee6": (
+            location: Local("edges/index.ron"),
+            criteria: [
+                "edge",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7207-bba1-a78e9cf33202": (
+            location: Local("interpretations/2026/index.ron"),
+            criteria: [
+                "2026",
+                "interpretation",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7209-a206-ef357e99186f": (
+            location: Local("edges/by-id/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "edge",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7230-b58e-1d34f7f570fd": (
+            location: Local("nodes/2026/index.ron"),
+            criteria: [
+                "2026",
+                "node",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-73eb-b5fb-0065737a8b09": (
+            location: Local("nodes/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "node",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7415-ad1d-3ef27a851884": (
+            location: Local("edges/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "edge",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7562-a774-43c4349e54bb": (
+            location: Local("edges/by-id/2026/index.ron"),
+            criteria: [
+                "2026",
+                "edge",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7655-8304-1f8a3b182019": (
+            location: Local("nodes/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "node",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7675-9f76-ccc218ce4a0e": (
+            location: Local("interpretations/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "interpretation",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7732-aee5-e359f1d50710": (
+            location: Local("nodes/by-id/index.ron"),
+            criteria: [
+                "node",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7a4f-8000-d31b63c78179": (
+            location: Local("nodes/index.ron"),
+            criteria: [
+                "node",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7b63-961f-97806fb4adf9": (
+            location: Local("interpretations/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "interpretation",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7c23-97bf-76a63d68f5e3": (
+            location: Local("nodes/by-id/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "node",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7c45-843c-b675af93cbf3": (
+            location: Local("edges/by-id/index.ron"),
+            criteria: [
+                "edge",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7cd1-bb19-9dc0ddb365d1": (
+            location: Local("edges/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "edge",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7cea-8145-238660a84a16": (
+            location: Local("edges/2026/index.ron"),
+            criteria: [
+                "2026",
+                "edge",
+                "physical",
+                "tag",
+            ],
+        ),
+        "01a1e6d4-c4dc-7d54-86c8-999c1303410d": (
+            location: Local("nodes/by-id/2026/index.ron"),
+            criteria: [
+                "2026",
+                "node",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dc-7eaf-a302-f916042c9cc9": (
+            location: Local("edges/by-id/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "edge",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dd-7219-a96a-aad2a49a9f2d": (
+            location: Local("edges/by-node/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "edge",
+                "node",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4dd-723e-8407-8f7e045d54fe": (
+            location: Local("edges/by-node/2026/index.ron"),
+            criteria: [
+                "2026",
+                "edge",
+                "node",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4dd-7c57-9b6f-f75909f99b9d": (
+            location: Local("interpretations/by-id/index.ron"),
+            criteria: [
+                "interpretation",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dd-7c8a-ab85-048366b8498d": (
+            location: Local("interpretations/by-id/2026/index.ron"),
+            criteria: [
+                "2026",
+                "interpretation",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dd-7e3c-924c-5f01cc84deae": (
+            location: Local("interpretations/by-id/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "interpretation",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dd-7e80-86ac-640820ad5ed1": (
+            location: Local("edges/by-node/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "edge",
+                "node",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4dd-7ef1-a405-6e622342a797": (
+            location: Local("interpretations/by-id/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "interpretation",
+                "uuid",
+            ],
+        ),
+        "01a1e6d4-c4dd-7f1b-b296-d173d464a752": (
+            location: Local("edges/by-node/index.ron"),
+            criteria: [
+                "edge",
+                "node",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4de-75c5-8eed-d07f3e9b8b8b": (
+            location: Local("interpretations/by-edge/2026/11/16/index.ron"),
+            criteria: [
+                "2026-11-16",
+                "edge",
+                "interpretation",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4de-765f-9baf-5a5ab40af506": (
+            location: Local("interpretations/by-edge/index.ron"),
+            criteria: [
+                "edge",
+                "interpretation",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4de-7abc-a646-b7105c268563": (
+            location: Local("interpretations/by-edge/2026/11/index.ron"),
+            criteria: [
+                "2026-11",
+                "edge",
+                "interpretation",
+                "reference",
+            ],
+        ),
+        "01a1e6d4-c4de-7e85-a1d4-9278642fd5ca": (
+            location: Local("interpretations/by-edge/2026/index.ron"),
+            criteria: [
+                "2026",
+                "edge",
+                "interpretation",
+                "reference",
+            ],
+        ),
+    },
+)

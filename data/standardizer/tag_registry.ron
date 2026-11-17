@@ -1,0 +1,12 @@
+(tags: {
+    "intent": "01a1e4af-687a-71ba-b9ac-687e438eef73",
+    "operation": "01a1e4af-687b-7879-bb58-5e3692e60250",
+    "tool": "01a1e4af-687b-7a28-ba27-4860f6eea224",
+    "file-type": "01a1e4af-687b-7ca5-818c-de12f2ccd1cd",
+    "node": "01a1e678-ffb5-73d8-a616-56f20efc6980",
+    "edge": "01a1e678-ffb5-74f8-8ba4-47a5a828b026",
+    "interpretation": "01a1e678-ffb5-7bd2-b899-4eb20094f2d3",
+    "mutation": "01a1e6d4-c4d9-7125-9ecd-d6df1b06f26e",
+    "pending": "01a1e6d4-c4d9-765e-8c0e-255d44a2870c",
+    "done": "01a1e6d4-c4d9-76d7-8cc0-67053da2d37d",
+})

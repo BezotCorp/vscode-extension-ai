@@ -1,11 +1,11 @@
-// Reads data/i18n/<locale>.ron, validates it and the TypeScript code that uses it, and generates:
+// Reads data/i18n/sources/<locale>.ron, validates it and the TypeScript code that uses it, and generates:
 //   package.nls.json, package.nls.<locale>.json   what package.json shows (common + package)
-//   dist/i18n/<locale>.bin                         the runtime catalog (common as "global" + extension)
+//   data/i18n/output/<locale>.bin                  the runtime catalog (common as "global" + extension)
 //
 // Nothing is generated for TypeScript: the .bin files carry their own namespaces and keys.
 //
-// Usage: internationalization [--check | --write] [repository-root]
-// Default mode: --write. Default root: current directory.
+// Usage: internationalization [repository-root]
+// Default root: current directory.
 mod audit;
 mod id;
 mod literal;
@@ -28,25 +28,18 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let mut check = false;
     let mut root = None;
-    let mut mode_set = false;
 
     for argument in env::args().skip(1) {
-        match argument.as_str() {
-            "--check" | "--write" if !mode_set => {
-                check = argument == "--check";
-                mode_set = true;
-            }
-            "--check" | "--write" => {
-                return Err("generation mode specified more than once".into());
-            }
-            _ if argument.starts_with('-') => {
-                return Err(format!("unknown argument: {argument}").into());
-            }
-            _ if root.is_none() => root = Some(PathBuf::from(argument)),
-            _ => return Err("repository root specified more than once".into()),
+        if argument.starts_with('-') {
+            return Err(format!("unknown argument: {argument}").into());
         }
+
+        if root.is_some() {
+            return Err("repository root specified more than once".into());
+        }
+
+        root = Some(PathBuf::from(argument));
     }
 
     let root = match root {
@@ -54,7 +47,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         None => env::current_dir()?,
     };
 
-    let locales = source::load(&root.join("data/i18n"))?;
+    let locales = source::load(&root.join("data/i18n/sources"))?;
     let mut problems = validate::validate(&locales);
 
     // Keep validation and TypeScript usage audit unchanged.
@@ -76,21 +69,17 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     for locale in &locales {
         projections.push(output::package_nls(&root, &locales, locale)?);
-        projections.push(output::catalog(&root.join("dist/i18n"), locale)?);
+        projections.push(output::catalog(&root.join("data/i18n/output"), locale)?);
     }
 
-    let summary = output::synchronize(&projections, check)?;
+    let summary = output::synchronize(&projections)?;
 
-    if check {
-        println!("i18n check: {} output(s) identical.", summary.unchanged);
-    } else {
-        println!(
-            "i18n: {} locale(s), {} written, {} unchanged.",
-            locales.len(),
-            summary.changed,
-            summary.unchanged
-        );
-    }
+    println!(
+        "i18n: {} locale(s), {} written, {} unchanged.",
+        locales.len(),
+        summary.changed,
+        summary.unchanged
+    );
 
     Ok(())
 }

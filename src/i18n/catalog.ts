@@ -8,15 +8,16 @@ const MAGIC = Buffer.from('BZTI18N', 'ascii');
 const VERSION = 2;
 const HEADER_SIZE = MAGIC.length + 2 + 4;
 const EXTENSION = '.bin';
+const CATALOG_DIRECTORY = path.resolve(__dirname, '../../data/i18n/output');
 
 type Namespaces = ReadonlyMap<string, ReadonlyMap<string, string>>;
 
 const catalogs = new Map<string, Namespaces>();
 let localeCache: string[] | undefined;
 
-// The catalogs sit next to this file once compiled (dist/i18n).
+// Runtime catalogs are generated independently from the TypeScript output.
 export function availableLocales(): string[] {
-  localeCache ??= readdirSync(__dirname)
+  localeCache ??= readdirSync(CATALOG_DIRECTORY)
     .filter((file) => file.endsWith(EXTENSION))
     .map((file) => file.slice(0, -EXTENSION.length))
     .sort();
@@ -38,7 +39,7 @@ function load(locale: string): Namespaces {
     return cached;
   }
 
-  const catalog = parse(path.resolve(__dirname, `${locale}${EXTENSION}`));
+  const catalog = parse(path.resolve(CATALOG_DIRECTORY, `${locale}${EXTENSION}`));
 
   catalogs.set(locale, catalog);
 

@@ -1,0 +1,14 @@
+Intermediate((
+    id: "01a1e6d4-c4dc-70ef-a1ac-09f22f2daaa4",
+    tags: [
+        "01a1e678-ffb5-7bd2-b899-4eb20094f2d3",
+    ],
+    children: {
+        "01a1e6d4-c4dc-7207-bba1-a78e9cf33202": (
+            location: Local("interpretations/2026/index.ron"),
+            tags: [
+                "01a1e678-ffb5-7bd2-b899-4eb20094f2d3",
+            ],
+        ),
+    },
+))

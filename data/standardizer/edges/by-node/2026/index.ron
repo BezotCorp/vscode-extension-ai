@@ -1,0 +1,10 @@
+Intermediate((
+    id: "01a1e6d4-c4dd-723e-8407-8f7e045d54fe",
+    tags: [],
+    children: {
+        "01a1e6d4-c4dd-7e80-86ac-640820ad5ed1": (
+            location: Local("edges/by-node/2026/11/index.ron"),
+            tags: [],
+        ),
+    },
+))

@@ -8,6 +8,25 @@ Keep each contribution focused on a clear change.
 
 Avoid unrelated modifications in the same contribution.
 
+## Conformity
+
+The pre-commit hook runs `cargo run --release --quiet --locked --package standardizer -- fix`.
+The standardizer selects all tracked regular files whose working copy matches the index
+at startup. Files with unstaged changes are excluded entirely, including partially staged
+files. Untracked files, symlinks, submodules and deleted working copies are excluded.
+Unresolved conflicts stop the run.
+
+`fix` applies available corrections to the real files and stages changed candidates only
+when all tools succeed. If a tool fails, corrections remain in the working tree without
+being staged. `check` verifies the same candidates without changing files or the index;
+CI uses this mode. Run it with `cargo run --locked --package standardizer -- check`.
+
+Rust files use rustfmt directly, with the package edition from Cargo metadata and module
+traversal disabled to preserve the selection. Biome receives candidate paths directly;
+each tool retains its native configuration and exclusions. Conformity currently covers
+formatting and linting where supported; Rust linting is not run through Cargo because
+it cannot be restricted to the selected files.
+
 ## Commit Messages
 
 Only these commit prefixes are accepted:

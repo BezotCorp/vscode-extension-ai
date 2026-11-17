@@ -4,7 +4,7 @@
 //   - a message nobody uses is reported;
 //   - package.json can only reference messages that exist in common or package.
 //
-// Optional data/i18n/namespaces.ron maps a source path prefix to the namespaces it may use, for example
+// Optional data/i18n/sources/namespaces.ron maps a source path prefix to the namespaces it may use, for example
 //   { "src/chat/": ["chat", "global"], "src/permissions/": ["permissions", "global"] }
 
 use crate::id::Id;
@@ -23,7 +23,7 @@ pub fn audit(root: &Path, reference: &Locale) -> Result<Vec<String>, Box<dyn Err
         .iter()
         .map(|(namespace, _)| namespace.as_str())
         .collect();
-    let rules = load_rules(&root.join("data/i18n/namespaces.ron"))?;
+    let rules = load_rules(&root.join("data/i18n/sources/namespaces.ron"))?;
     let mut used: BTreeSet<(String, String)> = BTreeSet::new();
     let mut problems = Vec::new();
 

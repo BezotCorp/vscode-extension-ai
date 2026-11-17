@@ -7,3 +7,6 @@ coverage/
 # Python cache
 __pycache__/
 *.py[cod]
+/data/i18n/output/
+
+/dump.local.sh
