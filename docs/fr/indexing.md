@@ -1,5 +1,7 @@
 # Architecture — Guichet unique des index
 
+[Documentation](../docs_index.md) · [English](../en/indexing.md)
+
 > **Statut : contrat d'architecture.** Ce document fixe les responsabilités et les invariants attendus, indépendamment de l'état du code Rust. Il ne décrit pas automatiquement chaque comportement de l'implémentation actuelle.
 >
 > **Analogie France Travail :** le guichet reçoit une demande, identifie tous les services compétents et les oriente. Il ne devient ni le service spécialisé, ni les archives, ni l'agent qui réalise chacune des opérations.
@@ -22,16 +24,16 @@ Le sens d'une **recherche** est du haut vers les index concernés puis les donn�
 
 ## 2. Responsabilités, sans confusion
 
-| Responsabilité | Contrat |
-| --- | --- |
-| Réception / traitement d'une requête | Comprendre la demande, solliciter le guichet, exploiter les index retournés et réunir les résultats sans doublons. Ne pas supposer à l'avance qu'un seul index est « le bon ». |
-| `GlobalIndex` — guichet unique | Référencer **tous** les index existants, physiques et catégoriels ; connaître leur identité, leur emplacement et les métadonnées nécessaires pour déterminer s'ils peuvent répondre. Retourner **toutes** les correspondances pertinentes, sans réaliser lui-même les recherches spécialisées. |
-| Index catégoriels | Répondre à une forme de recherche précise : identité UUID, références inverses, tags ou autre capacité déclarée. Ils peuvent être partitionnés. |
-| Index physiques intermédiaires | Référencer les index enfants et leurs informations de sélection pour éviter d'ouvrir les branches non pertinentes. |
-| Index physiques terminaux | Référencer les enregistrements physiquement stockés, avec les métadonnées permettant de choisir les fichiers à ouvrir. |
-| Coordination des écritures | Mettre à jour les données, les index concernés et leurs métadonnées de sélection de façon cohérente. |
-| Stockage | Lire et écrire à un emplacement donné ; ne pas décider quelle stratégie de recherche utiliser. |
-| Contrôle de cohérence / récupération | Vérifier et réparer selon des mécanismes explicitement définis, sans transformer toute recherche en scan exhaustif. |
+| Responsabilité                       | Contrat                                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Réception / traitement d'une requête | Comprendre la demande, solliciter le guichet, exploiter les index retournés et réunir les résultats sans doublons. Ne pas supposer à l'avance qu'un seul index est « le bon ».                                                                                                                 |
+| `GlobalIndex` — guichet unique       | Référencer **tous** les index existants, physiques et catégoriels ; connaître leur identité, leur emplacement et les métadonnées nécessaires pour déterminer s'ils peuvent répondre. Retourner **toutes** les correspondances pertinentes, sans réaliser lui-même les recherches spécialisées. |
+| Index catégoriels                    | Répondre à une forme de recherche précise : identité UUID, références inverses, tags ou autre capacité déclarée. Ils peuvent être partitionnés.                                                                                                                                                |
+| Index physiques intermédiaires       | Référencer les index enfants et leurs informations de sélection pour éviter d'ouvrir les branches non pertinentes.                                                                                                                                                                             |
+| Index physiques terminaux            | Référencer les enregistrements physiquement stockés, avec les métadonnées permettant de choisir les fichiers à ouvrir.                                                                                                                                                                         |
+| Coordination des écritures           | Mettre à jour les données, les index concernés et leurs métadonnées de sélection de façon cohérente.                                                                                                                                                                                           |
+| Stockage                             | Lire et écrire à un emplacement donné ; ne pas décider quelle stratégie de recherche utiliser.                                                                                                                                                                                                 |
+| Contrôle de cohérence / récupération | Vérifier et réparer selon des mécanismes explicitement définis, sans transformer toute recherche en scan exhaustif.                                                                                                                                                                            |
 
 Une structure Rust peut évoluer pour porter l'une de ces responsabilités, mais un nom existant (`GraphStore`, `IndexOrchestrator`, etc.) ne fait **pas** autorité sur ce contrat. On doit vérifier ses appels et ses effets réels avant de la renommer ou de la déplacer.
 
@@ -120,4 +122,4 @@ Ce contrat **ne valide pas automatiquement** les classes existantes. Dans `stand
 
 Ces constats servent à **auditer les écarts**, non à imposer un renommage ou une réécriture générale. Toute remise en conformité doit commencer par des tests de comportement et préserver les données RON ; un changement de format exige une migration vérifiée.
 
-Référence complémentaire : [README du Standardizer](../../tools/rust/standardizer/README.md), qui décrit les formats et le fonctionnement actuel. [Version anglaise du contrat](../en/indexing.md).
+Référence complémentaire : [README du Standardizer](../../tools/rust/standardizer/README.md), qui décrit les formats et le fonctionnement actuel.

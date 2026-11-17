@@ -1,5 +1,7 @@
 # BezotCorp AI — Architecture
 
+[Documentation](../docs_index.md) · [Français](../fr/architecture.md)
+
 This document describes the current technical architecture of BezotCorp AI.
 
 Historical dated working-point documents are snapshots and are not updated when the implementation evolves.

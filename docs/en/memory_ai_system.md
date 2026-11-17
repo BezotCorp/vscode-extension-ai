@@ -1,1785 +1,1787 @@
-# BezotCorp AI — Spécification générale du système de mémoire persistante, structurée et évolutive
+# BezotCorp AI — General specification for a persistent, structured and evolving memory system
 
-## Objet du document
+[Documentation](../docs_index.md) · [Français](../fr/memory_ai_system.md)
 
-Ce document constitue la spécification de référence pour l'implémentation d'un système de mémoire persistante au sein de l'extension VS Code **BezotCorp AI**.
+## Purpose of this document
 
-L'objectif est de créer une mémoire capable de conserver, structurer, enrichir, retrouver et réinjecter les informations issues des interactions entre un développeur, une IA et ses outils.
+This document is the reference specification for implementing a persistent memory system within the **BezotCorp AI** VS Code extension.
 
-La conception doit concilier cinq exigences :
+The goal is to build memory capable of retaining, structuring, enriching, retrieving and reinjecting information from interactions between a developer, an AI and its tools.
 
-1. Une **traçabilité rigoureuse** des données et de leurs relations.
-2. Une **mémoire enrichissable**, sans falsification des données originelles conservées.
-3. Une **consommation disque maîtrisée**, configurable et transparente.
-4. Une **exploitation immédiate en cours de conversation**, sans attendre la fin d'une session.
-5. Une architecture suffisamment évolutive pour accueillir ultérieurement des moteurs d'analyse spécialisés, notamment neurosymboliques.
+The design must reconcile five requirements:
 
-La mémoire doit devenir une infrastructure de connaissance fiable, sans transformer l'extension VS Code en une architecture distribuée inutilement complexe.
+1. **Rigorous traceability** of data and its relationships.
+2. **Enrichable memory**, without falsifying retained original data.
+3. **Controlled disk usage**, configurable and transparent.
+4. **Immediate use during conversations**, without waiting for a session to end.
+5. An architecture extensible enough to accommodate specialized analysis engines later, including neurosymbolic engines.
 
-### Périmètre immédiat
+Memory must become reliable knowledge infrastructure without turning the VS Code extension into an unnecessarily complex distributed architecture.
 
-Le travail concerne l'extension existante et son évolution cohérente.
+### Immediate scope
 
-Il comprend :
+The work concerns the existing extension and its coherent evolution.
 
-- L'intégration de la mémoire dans l'extension.
-- La persistance durable.
-- Les objets métier et leurs relations.
-- Les branches et révisions.
-- Les quatre niveaux de mémoire.
-- La consolidation incrémentale.
-- Le rappel contextuel.
-- L'intégration aux outils locaux et MCP.
-- Le contrôle des ressources disque.
-- Les interfaces de consultation et de configuration.
+It includes:
 
-Il ne comprend pas :
+- Integrating memory into the extension.
+- Durable persistence.
+- Domain objects and their relationships.
+- Branches and revisions.
+- The four memory levels.
+- Incremental consolidation.
+- Contextual recall.
+- Integration with local and MCP tools.
+- Control of disk resources.
+- Browsing and configuration interfaces.
 
-- La création d'une application externe `memory_ai`.
-- L'installation de services `systemd`.
-- La création d'un superviseur.
-- L'exécution de traitements après fermeture complète de VS Code.
-- Le développement immédiat d'une IA neurosymbolique.
-- L'introduction obligatoire d'une seconde IA.
+It does not include:
 
-Ces possibilités peuvent être étudiées ultérieurement sans constituer des prérequis.
+- Creating an external `memory_ai` application.
+- Installing `systemd` services.
+- Creating a supervisor.
+- Running processing after VS Code has completely closed.
+- Immediately developing a neurosymbolic AI.
+- Requiring a second AI.
+
+These possibilities may be studied later without becoming prerequisites.
 
 ---
 
-## 1. Principes architecturaux impératifs
+## 1. Mandatory architectural principles
 
-### 1.1. Identité des objets
+### 1.1. Object identity
 
-Tous les nouveaux objets métier persistants doivent posséder un identifiant unique de type **UUIDv7**.
+All new persistent domain objects must have a unique **UUIDv7** identifier.
 
-Cela concerne notamment :
+This includes, in particular:
 
-- Les sessions.
-- Les branches.
-- Les messages.
-- Les demandes et étapes de travail de l'IA, lorsqu'elles correspondent à des objets distincts.
-- Les appels d'outils.
-- Les résultats d'outils.
-- Les décisions d'autorisation lorsqu'elles sont conservées.
-- Les révisions.
-- Les enrichissements.
-- Les connaissances consolidées.
-- Les chemins de travail.
-- Les relations persistantes lorsqu'elles portent elles-mêmes des attributs métier ou une identité propre.
-- Les demandes différées de changement de configuration.
+- Sessions.
+- Branches.
+- Messages.
+- AI requests and work steps when they correspond to distinct objects.
+- Tool calls.
+- Tool results.
+- Permission decisions when retained.
+- Revisions.
+- Enrichments.
+- Consolidated knowledge.
+- Working paths.
+- Persistent relationships when they carry domain attributes or their own identity.
+- Deferred configuration change requests.
 
-Les UUIDv7 constituent les identités métier.
+UUIDv7 identifiers are domain identities.
 
-Les empreintes cryptographiques utilisées pour la déduplication des contenus ne les remplacent jamais.
+Cryptographic hashes used for content deduplication never replace them.
 
-Un objet ne doit pas recevoir plusieurs identifiants inutiles pour représenter la même identité.
+An object must not receive multiple unnecessary identifiers representing the same identity.
 
-### 1.2. Relations explicites
+### 1.2. Explicit relationships
 
-Tout objet doit pouvoir référencer les objets dont il dépend.
+Every object must be able to reference the objects on which it depends.
 
-Les relations doivent permettre de remonter une chaîne de provenance et de retrouver ses conséquences.
+Relationships must allow a provenance chain to be traced backward and its consequences to be found.
 
-Exemple conceptuel :
+Conceptual example:
 
 ```text
-Demande utilisateur U1
+User request U1
   |
-  +-- Travail IA A1
+  +-- AI work A1
        |
-       +-- Appel d'outil T1 : read_file
-       |    +-- Résultat R1
+       +-- Tool call T1: read_file
+       |    +-- Result R1
        |
-       +-- Appel d'outil T2 : read_web
-       |    +-- Résultat R2
+       +-- Tool call T2: read_web
+       |    +-- Result R2
        |
-       +-- Appel d'outil T3 : read_api_meteo
-       |    +-- Résultat R3
+       +-- Tool call T3: read_api_meteo
+       |    +-- Result R3
        |
-       +-- Réponse finale M1
+       +-- Final response M1
 ```
 
-Les appels T1, T2 et T3 possèdent trois UUIDv7 distincts.
+Calls T1, T2 and T3 have three distinct UUIDv7 identifiers.
 
-Le résultat R2 référence explicitement T2, pas simplement « le dernier outil appelé ».
+Result R2 explicitly references T2, rather than simply “the last tool called”.
 
-Une même demande peut déclencher plusieurs outils, plusieurs étapes de raisonnement ou plusieurs réponses.
+One request may trigger several tools, several reasoning steps or several responses.
 
-Il ne faut pas imposer une structure artificiellement linéaire lorsque les relations réelles sont multiples.
+Do not impose an artificially linear structure when actual relationships are multiple.
 
-Une relation causale ne doit jamais être inventée pour combler une donnée manquante.
+Never invent a causal relationship to fill a gap in the data.
 
-### 1.3. Temporalité
+### 1.3. Time and ordering
 
-La mémoire ne doit pas se limiter à conserver des dates.
+Memory must do more than retain dates.
 
-Elle doit permettre de retrouver :
+It must make it possible to retrieve:
 
-- La date de création d'un objet.
-- L'ordre réel des opérations.
-- La succession des messages.
-- L'appartenance à une session.
-- Le parcours d'une branche.
-- Les relations entre versions.
-- Le moment où une observation a été obtenue.
-- Le moment où un enrichissement a été créé.
-- Le moment où une connaissance a été corrigée ou invalidée.
+- An object's creation date.
+- The actual order of operations.
+- Message sequence.
+- Session membership.
+- The path through a branch.
+- Relationships between versions.
+- When an observation was obtained.
+- When an enrichment was created.
+- When knowledge was corrected or invalidated.
 
-L'ordre doit être déterministe.
+Ordering must be deterministic.
 
-Un horodatage seul ne suffit pas nécessairement, notamment pour plusieurs opérations effectuées presque simultanément.
+A timestamp alone is not necessarily sufficient, particularly for operations performed almost simultaneously.
 
-Utiliser une représentation d'ordre adaptée au stockage et à TypeScript, sans confondre ordre chronologique et causalité.
+Use an ordering representation suitable for storage and TypeScript without confusing chronological order with causality.
 
-### 1.4. Nature des objets
+### 1.4. Nature of objects
 
-Ne pas imposer un modèle événementiel artificiel.
+Do not impose an artificial event model.
 
-Une session est un objet conteneur.
+A session is a container object.
 
-Un message est un objet représentant un message.
+A message is an object representing a message.
 
-Un appel d'outil représente l'appel réel d'un outil.
+A tool call represents an actual tool invocation.
 
-Un résultat d'outil représente son résultat réel.
+A tool result represents its actual result.
 
-Un enrichissement représente une connaissance ou une annotation ajoutée.
+An enrichment represents added knowledge or annotation.
 
-Un journal chronologique est autorisé lorsqu'il apporte une valeur technique.
+A chronological log is permitted when it provides technical value.
 
-En revanche, il ne doit pas provoquer une duplication systématique de chaque objet sous forme d'un second objet événementiel artificiel.
+However, it must not systematically duplicate each object as a second artificial event object.
 
-La priorité est de conserver les objets réels, leurs identités, leur ordre et leurs relations.
+The priority is to retain actual objects, their identities, order and relationships.
 
-### 1.5. Typage et validation
+### 1.5. Typing and validation
 
-Utiliser des types TypeScript explicites.
+Use explicit TypeScript types.
 
-Les catégories fermées doivent être représentées par des unions discriminées ou des mécanismes équivalents.
+Closed categories must be represented by discriminated unions or equivalent mechanisms.
 
-Un message possède obligatoirement un auteur.
+Every message must have an author.
 
-Ne pas déduire l'auteur de sa position dans la conversation.
+Do not infer authorship from position in the conversation.
 
-Deux messages utilisateur peuvent se suivre.
+Two user messages may follow one another.
 
-Une réponse de l'IA peut être interrompue ou ne jamais être produite.
+An AI response may be interrupted or never produced.
 
-Les objets persistants doivent être validés lors de leur lecture.
+Persistent objects must be validated when read.
 
-Aucune donnée externe ou ancienne ne doit être considérée comme structurellement valide sans vérification.
+No external or old data may be treated as structurally valid without verification.
 
 ---
 
-## 2. Sessions, messages, branches et révisions
+## 2. Sessions, messages, branches and revisions
 
-### 2.1. Session comme racine
+### 2.1. Session as the root
 
-La session constitue la racine de l'historique conversationnel.
+The session is the root of conversation history.
 
-Ne pas imposer une hiérarchie de projets au-dessus des sessions.
+Do not impose a project hierarchy above sessions.
 
-Une même session peut traiter plusieurs projets, plusieurs répertoires, plusieurs fichiers et plusieurs domaines.
+One session may address several projects, directories, files and domains.
 
-La mémoire ne doit donc pas supposer qu'une session appartient obligatoirement à un projet unique.
+Memory must therefore not assume that a session necessarily belongs to a single project.
 
 ### 2.2. Messages
 
-Un message doit conserver, selon le niveau de mémoire :
+Depending on the memory level, a message must retain:
 
-- Son UUIDv7.
-- Son auteur.
-- Son contenu originel.
-- Sa temporalité.
-- Son appartenance à une session.
-- Ses liens avec les branches concernées.
-- Ses relations avec les demandes, outils et réponses associées.
-- Son éventuel état d'interruption ou d'inachèvement.
+- Its UUIDv7.
+- Its author.
+- Its original content.
+- Its timing and order.
+- Its session membership.
+- Its links to the relevant branches.
+- Its relationships with associated requests, tools and responses.
+- Any interrupted or incomplete state.
 
-Un message conservé ne doit pas être silencieusement réécrit par un enrichissement.
+A retained message must not be silently rewritten by an enrichment.
 
 ### 2.3. Branches
 
-Les branches permettent plusieurs parcours conversationnels dans une même session.
+Branches enable multiple conversation paths within a single session.
 
-Exemple :
+Example:
 
 ```text
 Message M1
    |
 Message M2
    |
-   +------ Branche B1
+   +------ Branch B1
    |         |
    |         M3
    |         |
    |         M4
    |
-   +------ Branche B2
+   +------ Branch B2
              |
              M5
              |
              M6
 ```
 
-Les objets communs ne doivent pas être copiés inutilement.
+Shared objects must not be copied unnecessarily.
 
-Une branche possède son propre UUIDv7 et référence les objets composant son parcours.
+A branch has its own UUIDv7 and references the objects forming its path.
 
-L'ordre des messages dans chaque branche doit rester déterministe.
+Message order within each branch must remain deterministic.
 
-Les branches anciennes peuvent être conservées ou supprimées selon le niveau mémoriel.
+Old branches may be retained or deleted according to the memory level.
 
-Une branche supprimée ne doit jamais être présentée comme récupérable lorsqu'elle ne l'est plus.
+A deleted branch must never be presented as recoverable when it no longer is.
 
-### 2.4. Révisions
+### 2.4. Revisions
 
-Modifier un ancien message ne doit pas altérer silencieusement la version conservée.
+Editing an old message must not silently alter the retained version.
 
-Une révision doit disposer d'une identité et de relations explicites avec sa version précédente.
+A revision must have an identity and explicit relationships with its previous version.
 
-Lorsqu'une modification crée un nouveau parcours conversationnel, celui-ci est représenté par une branche.
+When an edit creates a new conversation path, that path is represented by a branch.
 
-Les contenus partagés doivent être mutualisés physiquement lorsque cela est avantageux.
+Shared content must be physically shared when beneficial.
 
 ### 2.5. Interruption
 
-Une interaction peut être interrompue à n'importe quel moment :
+An interaction may be interrupted at any time:
 
-- Avant un appel d'outil.
-- Pendant un appel.
-- Après un résultat.
-- Pendant une génération.
-- Avant la réponse finale.
+- Before a tool call.
+- During a call.
+- After a result.
+- During generation.
+- Before the final response.
 
-Le système doit conserver les opérations réellement effectuées dans les limites du niveau choisi.
+The system must retain the operations actually performed within the chosen level's limits.
 
-Il ne doit jamais inventer une réponse finale ou un résultat d'outil pour compléter artificiellement l'historique.
+It must never invent a final response or tool result to artificially complete the history.
 
 ---
 
-## 3. Mémoire originelle et mémoire enrichie
+## 3. Original memory and enriched memory
 
-### 3.1. Mémoire originelle
+### 3.1. Original memory
 
-La mémoire originelle correspond au vécu enregistré par l'IA.
+Original memory is the AI's recorded experience.
 
-Elle peut contenir :
+It may contain:
 
-- Les messages.
-- Les demandes de l'IA.
-- Les appels d'outils.
-- Les résultats.
-- Les décisions d'autorisation.
-- Les contenus observés.
-- Les branches.
-- Les versions.
-- Les relations et leur temporalité.
+- Messages.
+- AI requests.
+- Tool calls.
+- Results.
+- Permission decisions.
+- Observed content.
+- Branches.
+- Versions.
+- Relationships and their timing and order.
 
-Le niveau mémoriel détermine combien de ces informations sont conservées durablement.
+The memory level determines how much of this information is retained durably.
 
-**Un original encore conservé reste intact.**
+**A retained original remains intact.**
 
-Une politique de rétention peut autoriser sa suppression, mais pas sa falsification.
+A retention policy may authorize its deletion, but never its falsification.
 
-### 3.2. Mémoire enrichie
+### 3.2. Enriched memory
 
-L'enrichissement consiste à produire des objets supplémentaires reliés aux objets originaux.
+Enrichment produces additional objects linked to original objects.
 
-Exemple :
+Example:
 
 ```text
 Message M1
-  contenu : "Bonjour Rémi, comment tu vas aujourd'hui ?"
+  content: "Hello Rémi, how are you today?"
 
-Enrichissement E1
-  source : M1
-  émotion supposée : joyeux
-  intention : salutation
+Enrichment E1
+  source: M1
+  inferred emotion: happy
+  intent: greeting
 ```
 
-L'enrichissement ne remplace jamais le contenu de M1.
+The enrichment never replaces M1's content.
 
-Au rappel, le système peut composer :
+During recall, the system may compose:
 
 ```text
-Message original M1
+Original message M1
 +
-Enrichissement E1
+Enrichment E1
 ```
 
-Il ne doit pas transformer le message original pour y incorporer l'interprétation.
+It must not transform the original message to incorporate the interpretation.
 
-Ainsi, une réinjection ne doit pas transformer une salutation originale en une autre formulation simplement parce qu'un moteur de consolidation l'a réinterprétée.
+Reinjection must therefore not transform an original greeting into another formulation simply because a consolidation engine reinterpreted it.
 
-### 3.3. Enrichissements possibles
+### 3.3. Possible enrichments
 
-Le système doit pouvoir accueillir des enrichissements de natures diverses :
+The system must accommodate different kinds of enrichment:
 
 - Tags.
-- Catégories.
+- Categories.
 - Intentions.
-- Émotions supposées.
-- Préférences exprimées.
-- Contraintes de développement.
-- Décisions.
-- Faits observés.
-- Hypothèses.
+- Inferred emotions.
+- Expressed preferences.
+- Development constraints.
+- Decisions.
+- Observed facts.
+- Hypotheses.
 - Corrections.
 - Contradictions.
-- Relations entre connaissances.
-- Règles générales.
-- Invariants transversaux.
-- Indications de validité temporelle.
+- Relationships between knowledge items.
+- General rules.
+- Cross-cutting invariants.
+- Temporal validity information.
 - Provenance.
-- Niveau de confiance ou statut de vérification.
+- Confidence level or verification status.
 
-La structure doit rester extensible sans imposer tous ces enrichissements à chaque message.
+The structure must remain extensible without requiring all these enrichments for every message.
 
-### 3.4. Provenance et incertitude
+### 3.4. Provenance and uncertainty
 
-Une interprétation n'est pas une observation certaine.
+An interpretation is not a certain observation.
 
-Exemple :
-
-```text
-Émotion supposée : joyeux
-```
-
-ne doit pas être confondu avec :
+Example:
 
 ```text
-Émotion explicitement déclarée : joyeux
+Inferred emotion: happy
 ```
 
-La mémoire doit distinguer :
-
-- Ce que l'utilisateur a explicitement déclaré.
-- Ce que l'outil a réellement observé.
-- Ce que l'IA a déduit.
-- Ce qui a été confirmé.
-- Ce qui reste hypothétique.
-- Ce qui a été corrigé ou invalidé.
-
-Une information issue d'une ancienne branche doit également conserver son contexte historique.
-
-### 3.5. Évolution des enrichissements
-
-Un enrichissement peut être complété, corrigé, contredit ou invalidé.
-
-Cette évolution doit être traçable.
-
-Les nouvelles versions ou corrections doivent avoir leurs identités et relations propres lorsque nécessaires.
-
-La donnée originelle n'est jamais modifiée pour refléter une nouvelle interprétation.
-
-### 3.6. Enrichissements issus de plusieurs sources
-
-Une connaissance peut découler de plusieurs objets.
-
-Exemple :
+must not be confused with:
 
 ```text
-Message M1 : préférence déclarée
-Message M8 : confirmation
-Message M15 : précision
-
-Connaissance K1
-  sources : M1, M8, M15
+Explicitly declared emotion: happy
 ```
 
-La structure doit permettre plusieurs références sources.
+Memory must distinguish:
 
-Une connaissance peut elle-même servir de source à une consolidation ultérieure.
+- What the user explicitly stated.
+- What the tool actually observed.
+- What the AI inferred.
+- What was confirmed.
+- What remains hypothetical.
+- What was corrected or invalidated.
 
-Cela ne doit toutefois pas créer des duplications artificielles ou des chaînes sans valeur.
+Information from an old branch must also retain its historical context.
+
+### 3.5. Evolution of enrichments
+
+An enrichment may be extended, corrected, contradicted or invalidated.
+
+This evolution must be traceable.
+
+New versions or corrections must have their own identities and relationships when needed.
+
+Original data is never modified to reflect a new interpretation.
+
+### 3.6. Enrichments from multiple sources
+
+A knowledge item may derive from several objects.
+
+Example:
+
+```text
+Message M1: stated preference
+Message M8: confirmation
+Message M15: clarification
+
+Knowledge K1
+  sources: M1, M8, M15
+```
+
+The structure must support multiple source references.
+
+A knowledge item may itself serve as a source for subsequent consolidation.
+
+However, this must not create artificial duplication or chains without value.
 
 ---
 
-## 4. Quatre niveaux de mémoire
+## 4. Four memory levels
 
-Le développeur choisit explicitement le niveau qui correspond à son besoin et à son budget disque.
+The developer explicitly chooses the level matching their needs and disk budget.
 
-Les niveaux représentent des contrats de conservation et de consolidation.
+Levels represent retention and consolidation contracts.
 
-Ils ne doivent pas être présentés comme quatre niveaux d'intelligence du modèle.
+They must not be presented as four levels of model intelligence.
 
-### 4.1. Niveau 1 — Restreinte
+### 4.1. Level 1 — Restricted
 
-**Niveau par défaut.**
+**Default level.**
 
-Objectif : empreinte disque minimale, tout en conservant une mémoire utile et fiable dans les limites annoncées.
+Goal: minimal disk footprint while retaining useful, reliable memory within the stated limits.
 
-Caractéristiques :
+Characteristics:
 
-- Conservation minimale de la session et de son parcours actif.
-- Les anciennes branches peuvent devenir définitivement irrécupérables.
-- Pas d'archivage durable exhaustif des appels et résultats d'outils.
-- Enrichissement léger.
-- Conservation possible de règles et invariants transversaux importants.
-- Suppression des informations selon la politique de rétention acceptée.
+- Minimal retention of the session and its active path.
+- Old branches may become permanently unrecoverable.
+- No exhaustive durable archiving of tool calls and results.
+- Lightweight enrichment.
+- Important cross-cutting rules and invariants may be retained.
+- Information deleted according to the accepted retention policy.
 
-La mémoire restreinte peut oublier.
+Restricted memory may forget.
 
-Cette perte doit être assumée et clairement expliquée.
+This loss must be acknowledged and clearly explained.
 
-Les règles essentielles ne doivent pas devenir inaccessibles uniquement parce que ce niveau est minimal.
+Essential rules must not become inaccessible solely because this level is minimal.
 
-### 4.2. Niveau 2 — Étendue
+### 4.2. Level 2 — Extended
 
-Objectif : conserver davantage de continuité conversationnelle sans archiver les outils.
+Goal: retain more conversation continuity without archiving tools.
 
-Caractéristiques :
+Characteristics:
 
-- Toutes les branches conversationnelles sont conservées, tant que la politique de conservation et les décisions explicites du développeur le permettent.
-- Historique des messages plus complet.
-- Pas d'archivage durable des contenus d'outils.
-- Enrichissement plus poussé.
-- Conservation des invariants transversaux.
-- Relations entre messages, branches et connaissances.
+- All conversation branches are retained as long as the retention policy and the developer's explicit decisions permit.
+- More complete message history.
+- No durable archiving of tool content.
+- More extensive enrichment.
+- Retention of cross-cutting invariants.
+- Relationships between messages, branches and knowledge.
 
-Une limite de stockage ne doit pas entraîner une suppression silencieuse qui contredirait la garantie annoncée de conservation des branches.
+A storage limit must not cause silent deletion contradicting the stated branch-retention guarantee.
 
-### 4.3. Niveau 3 — Avancée
+### 4.3. Level 3 — Advanced
 
-Objectif : conserver les informations conversationnelles et les observations d'outils réellement utiles.
+Goal: retain conversation information and genuinely useful tool observations.
 
-Caractéristiques :
+Characteristics:
 
-- Toutes les garanties du niveau Étendue.
-- Conservation sélective d'appels et de résultats d'outils.
-- Sélection des observations pertinentes.
-- Provenance détaillée des éléments retenus.
-- Enrichissement approfondi.
-- Relations plus riches entre connaissances et observations.
+- All Extended-level guarantees.
+- Selective retention of tool calls and results.
+- Selection of relevant observations.
+- Detailed provenance for retained items.
+- In-depth enrichment.
+- Richer relationships between knowledge and observations.
 
-Il faut distinguer clairement les observations d'outils réellement conservées de celles qui ne le sont pas.
+Clearly distinguish tool observations actually retained from those not retained.
 
-Ne jamais prétendre disposer du contenu complet d'un résultat si seule une représentation sélectionnée a été retenue.
+Never claim to have a complete result's content if only a selected representation was retained.
 
-### 4.4. Niveau 4 — Universelle
+### 4.4. Level 4 — Universal
 
-Objectif : **conserver 100 % du vécu enregistré et le consolider au maximum**.
+Goal: **retain 100% of recorded experience and consolidate it as fully as possible**.
 
-Caractéristiques :
+Characteristics:
 
-- Tous les messages.
-- Toutes les branches.
-- Toutes les révisions.
-- Tous les appels d'outils.
-- Tous les résultats d'outils.
-- Tous les contenus effectivement observés et transférés au système mémoriel.
-- Toutes les relations et temporalités.
-- Toutes les décisions et interruptions pertinentes.
-- Conservation sans perte des originaux.
-- Enrichissement et structuration maximaux.
-- Relations transversales entre sessions.
-- Consolidations successives.
-- Possibilité d'accueillir ultérieurement des mécanismes neurosymboliques.
+- All messages.
+- All branches.
+- All revisions.
+- All tool calls.
+- All tool results.
+- All content actually observed and transferred to the memory system.
+- All relationships, timing and ordering.
+- All relevant decisions and interruptions.
+- Lossless retention of originals.
+- Maximum enrichment and structuring.
+- Cross-session relationships.
+- Successive consolidations.
+- Support for future neurosymbolic mechanisms.
 
-Les contenus volumineux doivent pouvoir être reconstruits intégralement.
+Large content must be fully reconstructible.
 
-L'objectif de conservation universelle n'autorise aucune suppression automatique silencieuse.
+Universal retention does not authorize any silent automatic deletion.
 
-La consommation peut atteindre plusieurs gigaoctets, voire davantage sur le long terme.
+Usage may reach several gigabytes or more over time.
 
-Ce niveau doit être clairement signalé comme potentiellement très coûteux en stockage et non recommandé par défaut.
+This level must be clearly identified as potentially very costly in storage and not recommended by default.
 
-L'exhaustivité concerne les informations réellement reçues par le système : elle n'autorise pas à prétendre connaître des données qu'il n'a jamais observées.
+Exhaustiveness concerns information actually received by the system: it does not authorize claims to know data never observed.
 
-### 4.5. Règle commune
+### 4.5. Common rule
 
-**La qualité et l'honnêteté de la mémoire doivent exister dans tous les niveaux.**
+**Memory quality and honesty must exist at every level.**
 
-Une mémoire restreinte peut disposer d'informations enrichies fiables.
+Restricted memory may contain reliable enriched information.
 
-Une mémoire universelle peut contenir des hypothèses erronées.
+Universal memory may contain incorrect hypotheses.
 
-Le volume conservé et la qualité des raisonnements sont deux dimensions différentes.
-
----
-
-## 5. Invariants transversaux
-
-Les invariants importants doivent pouvoir être conservés dès le niveau Restreinte.
-
-Exemples :
-
-- Une règle de développement explicitement fixée.
-- Une préférence générale de l'utilisateur.
-- Une convention de nommage.
-- Une contrainte applicable à plusieurs projets.
-- Une interdiction explicitement formulée.
-- Une décision globale confirmée.
-
-Ils doivent être représentés par des objets traçables possédant leur UUIDv7.
-
-Ils peuvent posséder :
-
-- Une portée globale.
-- Une portée liée à un ou plusieurs chemins.
-- Une portée liée à une session.
-- Une portée conditionnelle.
-- Une validité temporelle.
-- Des sources.
-- Un statut de validité.
-
-Ne pas transformer automatiquement une décision locale en règle globale.
-
-Ne pas présenter un invariant ancien comme actuellement applicable s'il a été contredit ou remplacé.
-
-Les invariants ne doivent pas constituer une excuse pour saturer le contexte du modèle : leur sélection pour une demande donnée reste pertinente et contrôlée.
+Retained volume and reasoning quality are two different dimensions.
 
 ---
 
-## 6. Chemins de travail et contexte de développement
+## 5. Cross-cutting invariants
 
-### 6.1. Pas de projet parent obligatoire
+Important invariants must be retainable starting at the Restricted level.
 
-Ne pas créer une hiérarchie imposant :
+Examples:
+
+- An explicitly established development rule.
+- A general user preference.
+- A naming convention.
+- A constraint applying to several projects.
+- An explicitly stated prohibition.
+- A confirmed global decision.
+
+They must be represented by traceable objects with their own UUIDv7.
+
+They may have:
+
+- Global scope.
+- Scope linked to one or more paths.
+- Scope linked to a session.
+- Conditional scope.
+- Temporal validity.
+- Sources.
+- Validity status.
+
+Do not automatically turn a local decision into a global rule.
+
+Do not present an old invariant as currently applicable if it has been contradicted or replaced.
+
+Invariants must not be an excuse to saturate model context: selection for a given request remains relevant and controlled.
+
+---
+
+## 6. Working paths and development context
+
+### 6.1. No mandatory parent project
+
+Do not create a hierarchy imposing:
 
 ```text
-Projet
+Project
   └── Sessions
 ```
 
-Une conversation peut concerner cinquante projets.
+A conversation may concern fifty projects.
 
-Le contexte doit être associé aux opérations effectivement concernées.
+Context must be associated with the operations actually concerned.
 
-### 6.2. Objets de chemin
+### 6.2. Path objects
 
-Un chemin de travail reconnu peut constituer un objet persistant disposant d'un UUIDv7.
+A recognized working path may be a persistent object with a UUIDv7.
 
-Il doit conserver les informations nécessaires à son identification et à sa contextualisation.
+It must retain the information needed for identification and contextualization.
 
-Les messages, outils, observations et enrichissements peuvent référencer un ou plusieurs chemins.
+Messages, tools, observations and enrichments may reference one or more paths.
 
-Ne pas inventer une appartenance à un projet sur la seule base du dossier actuellement ouvert dans VS Code.
+Do not invent project membership solely from the folder currently open in VS Code.
 
-### 6.3. Chemins disparus
+### 6.3. Missing paths
 
-Un chemin ancien peut devenir introuvable parce que :
+An old path may become unavailable because:
 
-- Le projet a été supprimé.
-- Il a été déplacé.
-- Il a été renommé.
-- Un disque a été débranché.
-- Le développeur travaille sur une autre machine.
+- The project was deleted.
+- It was moved.
+- It was renamed.
+- A drive was disconnected.
+- The developer is working on another machine.
 
-Le système peut signaler qu'un chemin est actuellement introuvable.
+The system may report that a path is currently unavailable.
 
-Il ne doit pas en déduire automatiquement que la session correspondante est inutile ou supprimable.
+It must not automatically infer that the corresponding session is useless or eligible for deletion.
 
-### 6.4. Autorisations
+### 6.4. Permissions
 
-Une mémoire ancienne indiquant qu'un fichier était accessible ne constitue pas une autorisation actuelle de le modifier ou de le relire.
+An old memory indicating that a file was accessible is not current permission to modify or reread it.
 
-Les permissions d'exécution restent régies par le système d'autorisations existant.
+Execution permissions remain governed by the existing permission system.
 
 ---
 
-## 7. Persistance et architecture de stockage
+## 7. Persistence and storage architecture
 
-### 7.1. Localisation
+### 7.1. Location
 
-La mémoire doit être stockée localement.
+Memory must be stored locally.
 
-Aucun service cloud de synchronisation n'est requis.
+No cloud synchronization service is required.
 
-Aucune application indépendante n'est requise.
+No independent application is required.
 
-Le stockage doit être géré par un composant clairement identifié au sein de l'extension.
+Storage must be managed by a clearly identified component within the extension.
 
-Éviter que plusieurs modules écrivent librement et simultanément dans les mêmes données persistantes.
+Avoid allowing several modules to write freely and simultaneously to the same persistent data.
 
-### 7.2. Durabilité
+### 7.2. Durability
 
-Une donnée déclarée enregistrée doit réellement être persistée.
+Data reported as saved must actually be persisted.
 
-Prévoir :
+Provide:
 
-- Écritures atomiques ou transactionnelles selon le support.
-- Reprise après interruption.
-- Protection contre les écritures partielles.
-- Validation des objets à la lecture.
-- Gestion des erreurs disque.
-- Gestion des migrations de schéma.
-- Prévention des doublons lors des reprises.
-- Reconstruction des index dérivés lorsque nécessaire.
+- Atomic or transactional writes depending on the storage medium.
+- Recovery after interruption.
+- Protection against partial writes.
+- Object validation on read.
+- Disk error handling.
+- Schema migration handling.
+- Duplicate prevention during recovery.
+- Reconstruction of derived indexes when necessary.
 
-La fermeture de VS Code peut être brutale.
+VS Code may close abruptly.
 
-Il ne faut donc pas dépendre d'un unique événement de fermeture pour sauvegarder les données importantes.
+Therefore, saving important data must not depend on a single shutdown event.
 
-### 7.3. Séparation logique et physique
+### 7.3. Logical and physical separation
 
-**L'identité métier d'un objet est distincte de la représentation physique de son contenu.**
+**An object's domain identity is distinct from the physical representation of its content.**
 
-Exemple :
+Example:
 
 ```text
 ToolResult R1
-  UUIDv7 : ...
-  appel : T1
-  contenu : référence vers bloc X
+  UUIDv7: ...
+  call: T1
+  content: reference to block X
 
 ToolResult R2
-  UUIDv7 : ...
-  appel : T2
-  contenu : référence vers bloc X
+  UUIDv7: ...
+  call: T2
+  content: reference to block X
 ```
 
-Deux résultats distincts peuvent référencer un même bloc de contenu lorsque leurs octets sont strictement identiques.
+Two distinct results may reference the same content block when their bytes are strictly identical.
 
-Leurs identités, contextes et temporalités restent distincts.
+Their identities, contexts, timing and order remain distinct.
 
-### 7.4. Optimisations recherchées
+### 7.4. Target optimizations
 
-Étudier une combinaison de :
+Study a combination of:
 
-- Représentation binaire compacte.
-- Compression sans perte.
-- Déduplication des contenus.
-- Empreintes cryptographiques, par exemple SHA-256.
-- Stockage différentiel par deltas lorsque pertinent.
-- Références vers les blocs communs.
-- Index efficaces.
-- Écritures incrémentales.
-- Limitation des réécritures physiques inutiles.
+- Compact binary representation.
+- Lossless compression.
+- Content deduplication.
+- Cryptographic hashes, for example SHA-256.
+- Differential storage using deltas when relevant.
+- References to shared blocks.
+- Efficient indexes.
+- Incremental writes.
+- Limiting unnecessary physical rewrites.
 
-Ces optimisations doivent être évaluées selon leur coût réel.
+These optimizations must be assessed against their actual cost.
 
-Le format binaire ne garantit pas à lui seul une réduction importante.
+Binary format alone does not guarantee a substantial reduction.
 
-Une empreinte SHA-256 n'est pas un algorithme de compression.
+A SHA-256 hash is not a compression algorithm.
 
-Un delta n'est pas forcément plus petit qu'un contenu complet compressé.
+A delta is not necessarily smaller than compressed full content.
 
-### 7.5. Exemple de versions d'un fichier
+### 7.5. File version example
 
 ```text
-Lecture 1 : fichier de 1 000 lignes
-Lecture 2 : fichier de 500 lignes
-Lecture 3 : retour à 1 000 lignes
-Lecture 4 : modification de 10 lignes
+Read 1: 1,000-line file
+Read 2: 500-line file
+Read 3: back to 1,000 lines
+Read 4: 10 lines modified
 ```
 
-L'objectif est de pouvoir reconstruire exactement chaque version conservée sans stocker systématiquement quatre copies intégrales.
+The goal is to reconstruct every retained version exactly without systematically storing four full copies.
 
-Le moteur physique peut utiliser :
+The physical engine may use:
 
-- Un contenu complet compressé.
-- Un delta.
-- Un bloc déjà existant.
-- Une combinaison de ces mécanismes.
+- Compressed full content.
+- A delta.
+- An existing block.
+- A combination of these mechanisms.
 
-Il doit choisir une représentation cohérente avec les garanties de reconstruction et les performances.
+It must choose a representation consistent with reconstruction guarantees and performance.
 
-Limiter les chaînes de dépendance excessives : retrouver une version ne doit pas exiger de rejouer indéfiniment des milliers d'opérations.
+Limit excessive dependency chains: retrieving a version must not require endlessly replaying thousands of operations.
 
-### 7.6. Gestion des références partagées
+### 7.6. Shared reference management
 
-Si plusieurs sessions ou branches utilisent un même bloc physique, supprimer l'une d'elles ne doit pas détruire le contenu encore nécessaire aux autres.
+If several sessions or branches use the same physical block, deleting one must not destroy content still needed by others.
 
-La récupération d'espace doit tenir compte des références réellement restantes.
+Space reclamation must account for actual remaining references.
 
-Il faut distinguer :
+Distinguish:
 
-- Taille logique des données.
-- Occupation physique réelle.
-- Espace effectivement récupérable après suppression.
+- Logical data size.
+- Actual physical usage.
+- Space actually reclaimable after deletion.
 
-### 7.7. Mesures
+### 7.7. Measurements
 
-Le moteur doit permettre d'évaluer :
+The engine must support assessment of:
 
-- Volume brut théorique.
-- Volume réellement occupé.
-- Gain de compression.
-- Gain de déduplication.
-- Gain des deltas.
-- Coût des index.
-- Coût des enrichissements.
-- Coût des écritures et reconstructions.
+- Theoretical raw volume.
+- Actual occupied volume.
+- Compression savings.
+- Deduplication savings.
+- Delta savings.
+- Index cost.
+- Enrichment cost.
+- Write and reconstruction cost.
 
-Ne pas annoncer de taux de compression garanti sans mesures.
+Do not claim a guaranteed compression ratio without measurements.
 
 ---
 
-## 8. Budget disque et recommandations
+## 8. Disk budget and recommendations
 
-### 8.1. Principe
+### 8.1. Principle
 
-Le développeur décide du budget mémoire.
+The developer decides the memory budget.
 
-L'extension recommande une valeur en fonction de l'espace réellement disponible sur le volume de stockage concerné.
+The extension recommends a value based on space actually available on the relevant storage volume.
 
-Ne pas calculer le budget uniquement à partir de la capacité totale du SSD.
+Do not calculate the budget solely from the SSD's total capacity.
 
-### 8.2. Recommandations automatiques
+### 8.2. Automatic recommendations
 
-Pour les trois premiers niveaux :
+For the first three levels:
 
-| Niveau     | Pourcentage de l'espace libre |
-| ---------- | ----------------------------: |
-| Restreinte |                        0,01 % |
-| Étendue    |                           1 % |
-| Avancée    |                           5 % |
+| Level      | Percentage of free space |
+| ---------- | -----------------------: |
+| Restricted |                    0.01% |
+| Extended   |                       1% |
+| Advanced   |                       5% |
 
-Le résultat du calcul automatique est plafonné à **10 Go** pour chacun de ces trois niveaux.
+The automatic calculation is capped at **10 GB** for each of these three levels.
 
-Formule conceptuelle :
+Conceptual formula:
 
 ```text
-budget_recommande =
-    min(espace_libre * coefficient_du_niveau, 10 Go)
+recommended_budget =
+    min(free_space * level_coefficient, 10 GB)
 ```
 
-Pour le niveau Universelle :
+For the Universal level:
 
-- Pas de plafond automatique de 10 Go.
-- Recommandation adaptée à l'espace disponible.
-- Réserve de sécurité indispensable pour le système.
-- Avertissement explicite concernant les consommations potentiellement massives.
+- No automatic 10 GB cap.
+- Recommendation adapted to available space.
+- A safety reserve for the system is essential.
+- Explicit warning about potentially massive usage.
 
-### 8.3. Liberté du développeur
+### 8.3. Developer freedom
 
-Ces valeurs sont des recommandations.
+These values are recommendations.
 
-Le développeur peut choisir moins ou plus.
+The developer may choose less or more.
 
-Une fois un budget explicitement choisi, il ne doit pas être silencieusement remplacé chaque fois que l'espace disque évolue.
+Once a budget has been explicitly chosen, it must not be silently replaced whenever disk space changes.
 
-La baisse de l'espace libre peut déclencher une alerte et une nouvelle recommandation.
+Reduced free space may trigger an alert and a new recommendation.
 
-### 8.4. Gestion des limites
+### 8.4. Limit management
 
-Le système doit connaître :
+The system must know:
 
-- Le budget autorisé.
-- L'occupation réelle.
-- L'espace libre restant.
-- Les données pouvant être purgées.
-- Les données protégées par le niveau choisi.
-- Les conséquences des suppressions.
+- The authorized budget.
+- Actual usage.
+- Remaining free space.
+- Data eligible for purging.
+- Data protected by the selected level.
+- Deletion consequences.
 
-Un budget atteint ne doit pas provoquer une perte arbitraire de données.
+Reaching a budget must not cause arbitrary data loss.
 
-En niveau Universelle, il faut suspendre les nouvelles captures impossibles à garantir, avertir le développeur et ne pas prétendre avoir enregistré des données absentes.
+At the Universal level, suspend new captures that cannot be guaranteed, notify the developer and do not claim to have recorded absent data.
 
-Ne pas laisser une erreur de persistance passer pour une sauvegarde réussie.
-
----
-
-## 9. Gestionnaire des sessions et du stockage
-
-L'extension doit proposer une interface permettant au développeur de comprendre et gérer sa mémoire.
-
-### 9.1. Informations générales
-
-Afficher notamment :
-
-- Niveau actuellement actif.
-- Niveau demandé, s'il existe.
-- Budget autorisé.
-- Occupation physique.
-- Espace disque libre.
-- Avertissements.
-- État de la consolidation.
-
-### 9.2. Liste des sessions
-
-Pour chaque session :
-
-- Identité.
-- Titre ou description disponible.
-- Date de création.
-- Dernière activité.
-- Nombre de branches.
-- Niveau ou garanties de conservation applicables aux données.
-- Taille logique estimée.
-- Espace réellement récupérable.
-- Chemins associés.
-- État de disponibilité de ces chemins.
-- Éventuels avertissements.
-
-### 9.3. Suggestions de nettoyage
-
-Le système peut signaler :
-
-- Sessions très anciennes.
-- Sessions volumineuses.
-- Branches anciennes.
-- Chemins introuvables.
-- Données d'outils volumineuses.
-- Archives dont le développeur pourrait ne plus avoir besoin.
-
-Ces indications sont des suggestions, jamais des preuves d'inutilité.
-
-### 9.4. Suppressions
-
-Le développeur doit pouvoir examiner :
-
-- Les sessions supprimables.
-- Les branches supprimables.
-- Les contenus secondaires supprimables.
-- L'espace récupérable.
-- Les informations et relations qui seront perdues.
-- Les enrichissements affectés.
-- Les invariants transversaux concernés.
-
-Les suppressions manuelles nécessitent un accord explicite.
-
-Les suppressions automatiques ne sont permises que dans les limites du contrat mémoriel préalablement accepté.
-
-Une session supprimée doit être réellement supprimée selon la politique choisie, et non conservée clandestinement dans un autre index ou enrichissement.
-
-Les références partagées doivent être traitées correctement.
+Do not let a persistence error pass as a successful save.
 
 ---
 
-## 10. Consolidation de la mémoire
+## 9. Session and storage manager
 
-### 10.1. Principe
+The extension must provide an interface allowing the developer to understand and manage memory.
 
-La consolidation enrichit progressivement les données disponibles.
+### 9.1. General information
 
-Elle ne doit pas remplacer ni falsifier les originaux conservés.
+Display, in particular:
 
-La consolidation n'est jamais un prérequis à l'utilisation d'une donnée.
+- Currently active level.
+- Requested level, if any.
+- Authorized budget.
+- Physical usage.
+- Free disk space.
+- Warnings.
+- Consolidation status.
 
-Une information brute est immédiatement consultable dès qu'elle est enregistrée.
+### 9.2. Session list
 
-### 10.2. Consolidation incrémentale
+For each session:
 
-**Une information déjà correctement enrichie ne doit pas être réanalysée sans raison.**
+- Identity.
+- Available title or description.
+- Creation date.
+- Last activity.
+- Branch count.
+- Retention level or guarantees applying to the data.
+- Estimated logical size.
+- Actually reclaimable space.
+- Associated paths.
+- Availability of these paths.
+- Any warnings.
 
-Exemple :
+### 9.3. Cleanup suggestions
+
+The system may flag:
+
+- Very old sessions.
+- Large sessions.
+- Old branches.
+- Missing paths.
+- Large tool data.
+- Archives the developer may no longer need.
+
+These indicators are suggestions, never proof of uselessness.
+
+### 9.4. Deletions
+
+The developer must be able to inspect:
+
+- Sessions eligible for deletion.
+- Branches eligible for deletion.
+- Secondary content eligible for deletion.
+- Reclaimable space.
+- Information and relationships that will be lost.
+- Affected enrichments.
+- Affected cross-cutting invariants.
+
+Manual deletions require explicit agreement.
+
+Automatic deletions are permitted only within the previously accepted memory contract.
+
+A deleted session must actually be deleted according to the chosen policy, rather than secretly retained in another index or enrichment.
+
+Shared references must be handled correctly.
+
+---
+
+## 10. Memory consolidation
+
+### 10.1. Principle
+
+Consolidation progressively enriches available data.
+
+It must not replace or falsify retained originals.
+
+Consolidation is never a prerequisite for using data.
+
+Raw information is immediately available for consultation once saved.
+
+### 10.2. Incremental consolidation
+
+**Information already correctly enriched must not be reanalyzed without a reason.**
+
+Example:
 
 ```text
 Message M1
-  "Bonjour Rémi, comment vas-tu ?"
+  "Hello Rémi, how are you?"
 
-Enrichissement E1
-  émotion supposée : joyeux
+Enrichment E1
+  inferred emotion: happy
 ```
 
-Après la création d'E1, il n'y a aucune raison de retraiter continuellement M1.
+After E1 is created, there is no reason to continually reprocess M1.
 
-Un réexamen peut être justifié par :
+Reexamination may be justified by:
 
-- Une nouvelle information pertinente.
-- Une contradiction.
-- Une correction.
-- Une nouvelle relation à établir.
-- Une demande explicite de réexamen.
-- Une amélioration du moteur nécessitant une réévaluation autorisée.
+- Relevant new information.
+- A contradiction.
+- A correction.
+- A new relationship to establish.
+- An explicit reexamination request.
+- An engine improvement requiring authorized reevaluation.
 
-La simple réouverture de VS Code ne constitue pas une raison de retraiter toute la mémoire.
+Simply reopening VS Code is not a reason to reprocess all memory.
 
-### 10.3. Dépendances
+### 10.3. Dependencies
 
-Les enrichissements connaissent leurs sources.
+Enrichments know their sources.
 
-Lorsqu'une nouvelle donnée apparaît, le moteur recherche les connaissances potentiellement concernées.
+When new data appears, the engine searches for potentially affected knowledge.
 
-Il ne doit pas réexaminer toute la mémoire sans nécessité.
+It must not reexamine all memory unnecessarily.
 
-Les dépendances doivent permettre des réévaluations ciblées.
+Dependencies must support targeted reevaluations.
 
-### 10.4. Pendant une conversation
+### 10.4. During a conversation
 
-La consolidation peut fonctionner pendant une session active.
+Consolidation may run during an active session.
 
-L'IA principale peut consulter les enrichissements déjà disponibles.
+The main AI may consult enrichments already available.
 
-Une donnée reçue quelques instants auparavant peut être enrichie et réutilisée au cours de la même session.
+Data received moments earlier may be enriched and reused within the same session.
 
-Une session n'a pas besoin d'être terminée pour que ses informations soient consolidables.
+A session need not be finished before its information can be consolidated.
 
-La consolidation peut également traiter des données plus anciennes pendant que l'IA principale travaille sur une nouvelle demande.
+Consolidation may also process older data while the main AI works on a new request.
 
-### 10.5. Pendant l'inactivité
+### 10.5. During inactivity
 
-Lorsque l'extension est active mais que l'IA principale n'effectue pas de tâche prioritaire, le système peut effectuer les travaux de consolidation en attente.
+When the extension is active but the main AI is not performing a priority task, the system may perform pending consolidation work.
 
-L'inactivité est une opportunité d'exécution, pas un déclencheur de réanalyse générale.
+Inactivity is an execution opportunity, not a trigger for general reanalysis.
 
-### 10.6. Charge de travail
+### 10.6. Workload
 
-La consolidation doit rester légère.
+Consolidation must remain lightweight.
 
-Elle ne doit pas :
+It must not:
 
-- Bloquer la conversation.
-- Monopoliser le CPU ou le GPU.
-- Déclencher des analyses complètes répétitives.
-- Faire relire inutilement l'intégralité des sessions.
-- Imposer systématiquement une seconde inférence lourde.
+- Block the conversation.
+- Monopolize the CPU or GPU.
+- Trigger repetitive full analyses.
+- Unnecessarily reread entire sessions.
+- Systematically require a second expensive inference.
 
-Privilégier des unités de travail courtes, incrémentales et interrompables.
+Prefer short, incremental, interruptible work units.
 
-La priorité reste l'expérience du développeur et les opérations de l'IA principale.
+The developer's experience and the main AI's operations remain the priority.
 
-### 10.7. Interruption et reprise
+### 10.7. Interruption and recovery
 
-Si VS Code ferme :
+If VS Code closes:
 
-- Les traitements en cours s'arrêtent.
-- Les données déjà confirmées restent persistées.
-- Les travaux incomplets doivent pouvoir reprendre plus tard.
-- Aucune duplication d'enrichissement ne doit résulter d'une reprise.
-- Les originaux restent utilisables.
+- Ongoing processing stops.
+- Already committed data remains persisted.
+- Incomplete work must be resumable later.
+- Recovery must not duplicate enrichments.
+- Originals remain usable.
 
-### 10.8. Consolidation non disponible
+### 10.8. Unavailable consolidation
 
-Si un enrichissement n'est pas encore disponible, le rappel retourne simplement la donnée originelle et les enrichissements existants.
+If an enrichment is not yet available, recall simply returns the original data and existing enrichments.
 
-Ne pas bloquer le rappel.
+Do not block recall.
 
-Ne pas inventer un enrichissement manquant.
+Do not invent a missing enrichment.
 
-### 10.9. Moteur d'enrichissement
+### 10.9. Enrichment engine
 
-Ne pas imposer immédiatement une IA spécialisée.
+Do not immediately require a specialized AI.
 
-Prévoir une abstraction permettant plusieurs stratégies :
+Provide an abstraction allowing several strategies:
 
-- Extraction déterministe.
-- Analyse par règles.
-- Analyse contextuelle par le modèle existant, lorsque pertinente.
-- Moteur spécialisé futur.
-- Mécanisme neurosymbolique futur.
+- Deterministic extraction.
+- Rule-based analysis.
+- Contextual analysis by the existing model when relevant.
+- A future specialized engine.
+- A future neurosymbolic mechanism.
 
-Les capacités réellement disponibles doivent être distinguées des extensions futures.
+Actually available capabilities must be distinguished from future extensions.
 
 ---
 
-## 11. Rappel et réinjection de mémoire
+## 11. Memory recall and reinjection
 
-### 11.1. Principe
+### 11.1. Principle
 
-Le modèle ne doit pas recevoir automatiquement l'intégralité de l'historique des sessions.
+The model must not automatically receive all session history.
 
-Le rappel doit être pertinent, sélectif et contrôlé.
+Recall must be relevant, selective and controlled.
 
-L'objectif est d'augmenter la qualité du contexte transmis sans gaspiller la fenêtre de contexte.
+The goal is to improve the quality of transmitted context without wasting the context window.
 
-### 11.2. Recherche mémorielle
+### 11.2. Memory search
 
-Prévoir une capacité de recherche, notamment via un outil accessible à l'IA.
+Provide search capability, including through a tool accessible to the AI.
 
-Nom indicatif :
+Illustrative name:
 
 ```text
 memory.search
 ```
 
-Les critères peuvent inclure :
+Criteria may include:
 
-- Recherche textuelle.
-- Recherche par identifiant UUIDv7.
+- Text search.
+- UUIDv7 identifier search.
 - Session.
-- Branche.
-- Auteur.
-- Période.
-- Chemin de travail.
-- Catégorie.
+- Branch.
+- Author.
+- Time range.
+- Working path.
+- Category.
 - Tags.
-- Décisions.
+- Decisions.
 - Invariants.
-- Statut de validité.
-- Relations.
-- Sources originales.
-- Enrichissements.
+- Validity status.
+- Relationships.
+- Original sources.
+- Enrichments.
 
-La recherche doit pouvoir retrouver le contexte autour d'un résultat, pas uniquement un texte isolé.
+Search must be able to retrieve context around a result, rather than only isolated text.
 
-### 11.3. Remontée de provenance
+### 11.3. Tracing provenance
 
-Exemple :
+Example:
 
-L'IA retrouve un ancien résultat de `read_file`.
+The AI retrieves an old `read_file` result.
 
-Si les données sont encore conservées, elle doit pouvoir retrouver :
+If the data is still retained, it must be able to retrieve:
 
-- L'UUID du résultat.
-- L'UUID de l'appel.
-- L'outil concerné.
-- Les paramètres pertinents.
-- La demande utilisateur d'origine.
-- La session.
-- La branche.
-- La temporalité.
-- Les autres opérations liées.
-- La réponse finale éventuelle.
-- Les enrichissements associés.
+- The result's UUID.
+- The call's UUID.
+- The relevant tool.
+- Relevant parameters.
+- The original user request.
+- The session.
+- The branch.
+- Timing and order.
+- Other related operations.
+- Any final response.
+- Associated enrichments.
 
-Il doit également être possible de partir d'une demande utilisateur et de retrouver les opérations qui en ont découlé.
+It must also be possible to start from a user request and find the operations resulting from it.
 
-### 11.4. Réinjection
+### 11.4. Reinjection
 
-La réinjection est une composition contrôlée.
+Reinjection is controlled composition.
 
-Elle peut contenir :
+It may contain:
 
-- Des extraits originaux.
-- Des enrichissements.
-- Des invariants applicables.
-- Des observations d'outils.
-- Des informations de provenance.
-- Des indications de validité ou d'incertitude.
+- Original excerpts.
+- Enrichments.
+- Applicable invariants.
+- Tool observations.
+- Provenance information.
+- Validity or uncertainty indicators.
 
-Les originaux ne sont jamais modifiés pour fabriquer le contexte injecté.
+Originals are never modified to manufacture injected context.
 
-Une information issue d'une branche abandonnée ou ancienne doit être identifiée comme telle lorsque cette distinction est pertinente.
+Information from an abandoned or old branch must be identified as such when that distinction matters.
 
-### 11.5. Lacunes mémorielles
+### 11.5. Memory gaps
 
-Si une ancienne branche ou un résultat d'outil a été supprimé, l'IA ne doit pas prétendre le retrouver.
+If an old branch or tool result was deleted, the AI must not claim to retrieve it.
 
-Une synthèse sans original encore disponible ne doit pas être présentée comme une citation vérifiable.
+A summary without an available original must not be presented as a verifiable quotation.
 
-Les réponses doivent distinguer :
+Responses must distinguish:
 
-- Source originale disponible.
-- Connaissance enrichie avec source disponible.
-- Connaissance conservée sans source originale.
-- Information manquante.
-- Information potentiellement obsolète.
+- Available original source.
+- Enriched knowledge with an available source.
+- Knowledge retained without its original source.
+- Missing information.
+- Potentially outdated information.
 
-### 11.6. Limites de contexte
+### 11.6. Context limits
 
-Le moteur de rappel doit respecter les budgets de contexte.
+The recall engine must respect context budgets.
 
-Éviter les retours massifs non demandés.
+Avoid unsolicited massive returns.
 
-Permettre de récupérer davantage de détails lorsque nécessaire.
+Allow more details to be retrieved when necessary.
 
-La pertinence et les garanties de provenance priment sur la quantité brute injectée.
+Relevance and provenance guarantees take precedence over the raw quantity injected.
 
 ---
 
-## 12. Intégration aux outils existants
+## 12. Integration with existing tools
 
-### 12.1. Préserver l'architecture actuelle
+### 12.1. Preserve the current architecture
 
-L'extension possède déjà des outils locaux, distants et MCP, ainsi qu'un système d'autorisations.
+The extension already has local, remote and MCP tools, as well as a permission system.
 
-Ne pas les réécrire inutilement.
+Do not rewrite them unnecessarily.
 
-Intégrer la mémoire à leur fonctionnement existant.
+Integrate memory into their existing operation.
 
-Le système actuel comporte notamment des capacités de :
+The current system includes capabilities for:
 
-- Lecture et écriture de fichiers.
-- Recherche.
-- Exploration des répertoires.
-- Exécution de commandes.
-- Sélection de texte.
-- Accès distant HTTP selon les outils disponibles.
-- Appels MCP.
+- Reading and writing files.
+- Searching.
+- Exploring directories.
+- Executing commands.
+- Selecting text.
+- Remote HTTP access according to available tools.
+- MCP calls.
 
-Le code réel du dépôt fait autorité pour les noms exacts et les interfaces.
+Actual repository code is authoritative for exact names and interfaces.
 
-### 12.2. Traçabilité des outils
+### 12.2. Tool traceability
 
-Lorsqu'un appel est conservé :
+When a call is retained:
 
-- Il possède son UUIDv7.
-- Son identité d'outil est connue.
-- Ses paramètres réellement transmis sont identifiables.
-- Sa demande d'origine est référencée.
-- Son exécution possède un état explicite.
-- Son résultat éventuel possède son propre UUIDv7.
-- Le résultat référence l'appel exact.
-- Sa temporalité est conservée.
+- It has its own UUIDv7.
+- Its tool identity is known.
+- Its actually transmitted parameters are identifiable.
+- Its originating request is referenced.
+- Its execution has an explicit state.
+- Any result has its own UUIDv7.
+- The result references the exact call.
+- Its timing and order are retained.
 
-Chaque invocation distincte possède sa propre identité, même si elle concerne le même outil ou les mêmes paramètres.
+Every distinct invocation has its own identity, even for the same tool or parameters.
 
-### 12.3. États des résultats
+### 12.3. Result states
 
-Préserver les distinctions existantes entre :
+Preserve existing distinctions between:
 
-- Succès.
-- Erreur.
-- Refus explicite de l'utilisateur.
-- Annulation.
+- Success.
+- Error.
+- Explicit user refusal.
+- Cancellation.
 - Interruption.
-- Résultat inconnu ou incertain.
+- Unknown or uncertain result.
 
-Une permission refusée ne doit pas être assimilée à une erreur technique.
+A denied permission must not be treated as a technical error.
 
-Une absence de réponse de l'utilisateur ne doit pas devenir artificiellement un refus.
+A missing user response must not artificially become a refusal.
 
-Un outil potentiellement exécuté avant une interruption ne doit pas être relancé aveuglément.
+A tool that may have executed before an interruption must not be blindly rerun.
 
-### 12.4. Autorisations
+### 12.4. Permissions
 
-Conserver les modes et mécanismes d'autorisation existants.
+Retain existing permission modes and mechanisms.
 
-Le niveau mémoriel n'accorde pas de nouvelles permissions sur les fichiers, commandes, ressources réseau ou outils.
+The memory level grants no new permissions over files, commands, network resources or tools.
 
-La mémoire d'une autorisation ancienne n'est pas une autorisation actuelle.
+Memory of an old authorization is not current authorization.
 
-Le système mémoriel doit respecter les protections et décisions existantes.
+The memory system must respect existing protections and decisions.
 
-### 12.5. Enrichissement des résultats d'outils
+### 12.5. Tool result enrichment
 
-L'enrichissement contextuel destiné à l'IA est transversal.
+Contextual enrichment intended for the AI is cross-cutting.
 
-Il ne se limite pas à l'interface graphique.
+It is not limited to the graphical interface.
 
-Un résultat peut fournir :
+A result may provide:
 
-- Son opération.
-- Sa ressource.
-- Son statut réel.
-- Les données obtenues.
-- Son contexte de provenance.
-- Les limites de l'observation.
-- Les informations pertinentes pour la suite du raisonnement.
+- Its operation.
+- Its resource.
+- Its actual status.
+- Obtained data.
+- Its provenance context.
+- Observation limits.
+- Information relevant to subsequent reasoning.
 
-L'IA doit pouvoir exploiter ces informations sans confondre une observation, une supposition et une autorisation.
+The AI must be able to use this information without confusing observation, supposition and authorization.
 
-### 12.6. Niveaux de conservation des outils
+### 12.6. Tool retention levels
 
-Le niveau de mémoire détermine leur archivage durable :
+The memory level determines durable archiving:
 
-- Restreinte : pas d'archivage durable des appels et résultats complets.
-- Étendue : pas d'archivage durable des outils, mais informations consolidées pertinentes possibles.
-- Avancée : sélection et conservation des appels/résultats utiles.
-- Universelle : conservation exhaustive des appels et résultats observés.
+- Restricted: no durable archiving of full calls and results.
+- Extended: no durable tool archiving, but relevant consolidated information is possible.
+- Advanced: selection and retention of useful calls/results.
+- Universal: exhaustive retention of observed calls and results.
 
-Cela ne doit pas empêcher l'exécution normale des outils ni leur utilisation dans le contexte immédiat de la conversation.
-
----
-
-## 13. Interface utilisateur
-
-L'interface doit rester cohérente avec l'extension VS Code existante.
-
-Ne pas développer une application graphique externe.
-
-### 13.1. Configuration de la mémoire
-
-Permettre de consulter et choisir :
-
-- Niveau Restreinte.
-- Niveau Étendue.
-- Niveau Avancée.
-- Niveau Universelle.
-- Budget disque recommandé.
-- Budget personnalisé.
-- Occupation actuelle.
-- Conséquences du niveau choisi.
-
-La Restreinte est le niveau par défaut.
-
-Les engagements de conservation doivent être compréhensibles avant activation.
-
-### 13.2. Transparence
-
-Informer le développeur de manière claire :
-
-- Ce qui est conservé.
-- Ce qui ne l'est pas.
-- Ce qui peut être supprimé automatiquement.
-- Ce qui est définitivement perdu lors d'une purge.
-- Ce qui peut encore être reconstitué.
-- Ce que coûte le niveau choisi.
-- Ce qui relève d'un enrichissement plutôt que d'une observation originelle.
-
-La fiabilité ne doit pas être vendue comme une garantie de mémoire infinie.
-
-### 13.3. Gestion des archives
-
-Prévoir la consultation des sessions et branches, avec les informations de stockage définies précédemment.
-
-Le développeur doit pouvoir identifier les archives anciennes ou volumineuses.
-
-Il doit pouvoir prendre des décisions ciblées sans être obligé de supprimer toute sa mémoire.
-
-### 13.4. État de consolidation
-
-L'interface peut indiquer sobrement :
-
-- Données en attente d'enrichissement.
-- Consolidation en cours.
-- Dernière consolidation validée.
-- Erreur éventuelle.
-- Traitement interrompu ou repris.
-
-Ne pas transformer cette activité en une interface envahissante.
+This must not prevent normal tool execution or their use in the immediate conversation context.
 
 ---
 
-## 14. Changement de niveau mémoriel
+## 13. User interface
 
-### 14.1. Intention différée
+The interface must remain consistent with the existing VS Code extension.
 
-Le développeur peut demander un changement à tout moment.
+Do not develop an external graphical application.
 
-Le système distingue :
+### 13.1. Memory configuration
+
+Allow inspection and selection of:
+
+- Restricted level.
+- Extended level.
+- Advanced level.
+- Universal level.
+- Recommended disk budget.
+- Custom budget.
+- Current usage.
+- Consequences of the selected level.
+
+Restricted is the default level.
+
+Retention commitments must be understandable before activation.
+
+### 13.2. Transparency
+
+Clearly inform the developer about:
+
+- What is retained.
+- What is not retained.
+- What may be deleted automatically.
+- What is permanently lost during a purge.
+- What can still be reconstructed.
+- The selected level's cost.
+- What is enrichment rather than an original observation.
+
+Reliability must not be sold as a guarantee of infinite memory.
+
+### 13.3. Archive management
+
+Provide browsing of sessions and branches with the storage information defined earlier.
+
+The developer must be able to identify old or large archives.
+
+They must be able to make targeted decisions without having to delete all memory.
+
+### 13.4. Consolidation status
+
+The interface may unobtrusively indicate:
+
+- Data awaiting enrichment.
+- Consolidation in progress.
+- Last committed consolidation.
+- Any error.
+- Interrupted or resumed processing.
+
+Do not turn this activity into an intrusive interface.
+
+---
+
+## 14. Changing memory levels
+
+### 14.1. Deferred intent
+
+The developer may request a change at any time.
+
+The system distinguishes:
 
 ```text
-niveau_actif
-niveau_demande
-etat_transition
+active_level
+requested_level
+transition_state
 ```
 
-Une demande n'implique pas une application immédiate.
+A request does not imply immediate application.
 
-### 14.2. Cohérence
+### 14.2. Consistency
 
-Si une conversation, un appel d'outil, une écriture ou une consolidation incompatible avec la transition est en cours, le changement attend un point de cohérence.
+If a conversation, tool call, write or consolidation incompatible with the transition is underway, the change waits for a consistent point.
 
-Le système peut suspendre temporairement le lancement de nouveaux travaux de consolidation pour atteindre ce point.
+The system may temporarily suspend new consolidation work to reach that point.
 
-Il ne doit pas attendre indéfiniment la fin de tous les travaux futurs.
+It must not wait indefinitely for all future work to end.
 
-### 14.3. Passage à un niveau supérieur
+### 14.3. Moving to a higher level
 
-L'augmentation :
+An increase:
 
-- Applique les nouvelles garanties aux données futures.
-- Conserve les données déjà disponibles.
-- Ne recrée pas les données supprimées auparavant.
-- Peut permettre de nouveaux enrichissements à partir des sources existantes.
-- Ne doit pas provoquer de suppression.
+- Applies the new guarantees to future data.
+- Retains already available data.
+- Does not recreate previously deleted data.
+- May enable new enrichments from existing sources.
+- Must not cause deletion.
 
-La demande est appliquée lorsque l'état devient cohérent.
+The request is applied when the state becomes consistent.
 
-### 14.4. Passage à un niveau inférieur
+### 14.4. Moving to a lower level
 
-Le développeur choisit explicitement ce qu'il souhaite faire des archives existantes :
+The developer explicitly chooses what to do with existing archives:
 
-1. Conserver les archives déjà enregistrées.
-2. Examiner les données à supprimer pour réduire l'occupation.
-3. Effectuer un nettoyage ciblé de sessions, branches ou contenus.
+1. Retain already saved archives.
+2. Inspect data eligible for deletion to reduce usage.
+3. Perform targeted cleanup of sessions, branches or content.
 
-La baisse de niveau ne constitue pas automatiquement une autorisation de supprimer les archives historiques.
+Lowering the level does not automatically authorize deletion of historical archives.
 
-### 14.5. Contexte disque
+### 14.5. Disk context
 
-Le système doit examiner l'espace libre et les archives existantes.
+The system must examine free space and existing archives.
 
-Exemple :
+Example:
 
 ```text
-Mémoire occupée : 50 Go
-Espace disque libre : 50 Go
-Nouveau niveau demandé : Restreinte
+Memory usage: 50 GB
+Free disk space: 50 GB
+New requested level: Restricted
 ```
 
-Dans ce cas, il est pertinent de mettre en avant les options permettant de libérer de l'espace.
+In this case, highlighting options to free space is relevant.
 
-La recommandation ne doit pas être une suppression automatique.
+The recommendation must not become automatic deletion.
 
-### 14.6. Transition différée et reprise
+### 14.6. Deferred transition and recovery
 
-La demande doit être persistée.
+The request must be persisted.
 
-Si VS Code s'arrête avant son application, elle doit pouvoir être reprise à la prochaine activation.
+If VS Code stops before application, it must be resumable at the next activation.
 
-Le niveau actif ne change qu'après application cohérente.
+The active level changes only after consistent application.
 
-Une transition échouée doit rester identifiable.
+A failed transition must remain identifiable.
 
-Le développeur doit connaître l'état réel, pas seulement le niveau souhaité.
+The developer must know the actual state, rather than only the desired level.
 
-### 14.7. Annulation
+### 14.7. Cancellation
 
-Une demande encore en attente peut être annulée.
+A request still pending may be cancelled.
 
-Une transition déjà engagée dans une opération critique doit atteindre un état cohérent avant d'être considérée comme terminée ou échouée.
-
----
-
-## 15. Suppression, cohérence et provenance
-
-### 15.1. Suppression d'une session
-
-La suppression complète d'une session doit examiner :
-
-- Les branches.
-- Les messages.
-- Les appels et résultats conservés.
-- Les enrichissements.
-- Les relations.
-- Les références croisées.
-- Les blocs physiques partagés.
-- Les connaissances éventuellement dérivées.
-
-Ne pas laisser des objets orphelins présentés comme des informations vérifiées.
-
-### 15.2. Informations dérivées
-
-Lorsqu'une source originale est supprimée :
-
-- Les informations dérivées exclusivement de cette source doivent être traitées selon les règles de rétention et les choix du développeur.
-- Une information conservée sans sa source doit signaler cette perte de vérifiabilité.
-- Les invariants transversaux importants ne doivent pas être détruits par inadvertance.
-- Une connaissance partagée entre plusieurs sources ne doit pas être supprimée sans examiner ses autres dépendances.
-
-### 15.3. Références physiques
-
-Les contenus physiques mutualisés ne sont supprimables que lorsqu'aucune donnée conservée ne les référence encore.
-
-La récupération d'espace doit être cohérente et vérifiable.
-
-### 15.4. Suppression automatique
-
-Elle n'est autorisée que pour les niveaux et situations où elle fait explicitement partie du contrat accepté.
-
-Aucune suppression arbitraire de l'historique exhaustif Universel.
-
-Les actions destructrices manuelles doivent être précédées d'une présentation intelligible de leurs conséquences.
+A transition already engaged in a critical operation must reach a consistent state before being considered finished or failed.
 
 ---
 
-## 16. Cycle de vie dans VS Code
+## 15. Deletion, consistency and provenance
 
-### 16.1. Architecture retenue
+### 15.1. Deleting a session
 
-Le moteur mémoriel appartient à l'extension.
+Complete deletion of a session must examine:
 
-Il ne dépend pas d'une application installée séparément.
+- Branches.
+- Messages.
+- Retained calls and results.
+- Enrichments.
+- Relationships.
+- Cross-references.
+- Shared physical blocks.
+- Any derived knowledge.
 
-Il n'exige pas de processus permanent.
+Do not leave orphan objects presented as verified information.
 
-Il ne nécessite pas de service système.
+### 15.2. Derived information
+
+When an original source is deleted:
+
+- Information derived exclusively from that source must be handled according to retention rules and developer choices.
+- Information retained without its source must indicate this loss of verifiability.
+- Important cross-cutting invariants must not be destroyed inadvertently.
+- Knowledge shared across multiple sources must not be deleted without examining its other dependencies.
+
+### 15.3. Physical references
+
+Shared physical content may be deleted only when no retained data references it anymore.
+
+Space reclamation must be consistent and verifiable.
+
+### 15.4. Automatic deletion
+
+It is authorized only for levels and situations where it explicitly forms part of the accepted contract.
+
+No arbitrary deletion of exhaustive Universal history.
+
+Manual destructive actions must be preceded by an intelligible presentation of their consequences.
+
+---
+
+## 16. Lifecycle in VS Code
+
+### 16.1. Chosen architecture
+
+The memory engine belongs to the extension.
+
+It does not depend on a separately installed application.
+
+It does not require a permanent process.
+
+It does not require a system service.
 
 ### 16.2. Activation
 
-À l'activation de l'extension :
+On extension activation:
 
-- Initialiser les composants nécessaires.
-- Vérifier le stockage.
-- Restaurer les états persistants.
-- Rendre la mémoire disponible.
-- Reprendre progressivement les travaux en attente.
-- Éviter une consolidation massive bloquante au démarrage.
+- Initialize necessary components.
+- Check storage.
+- Restore persistent states.
+- Make memory available.
+- Gradually resume pending work.
+- Avoid massive blocking consolidation at startup.
 
-### 16.3. Pendant l'exécution
+### 16.3. During execution
 
-La mémoire doit pouvoir :
+Memory must be able to:
 
-- Enregistrer les données nouvelles.
-- Répondre aux recherches.
-- Fournir du contexte enrichi.
-- Consolider progressivement des informations antérieures.
-- Surveiller son budget disque.
-- Traiter les changements de niveau en attente.
+- Save new data.
+- Answer searches.
+- Provide enriched context.
+- Gradually consolidate earlier information.
+- Monitor its disk budget.
+- Process pending level changes.
 
-Ces responsabilités ne doivent pas provoquer de blocages perceptibles de l'extension.
+These responsibilities must not cause perceptible extension freezes.
 
-### 16.4. Fermeture
+### 16.4. Shutdown
 
-Lorsque VS Code et l'extension s'arrêtent, les traitements mémoriels s'arrêtent.
+When VS Code and the extension stop, memory processing stops.
 
-Le système doit être conçu pour cette éventualité, y compris en cas de fermeture brutale.
+The system must be designed for this possibility, including abrupt shutdown.
 
-Il ne faut pas promettre une consolidation après fermeture sans infrastructure spécifique.
+Do not promise consolidation after closure without specific infrastructure.
 
-Cette infrastructure n'est pas demandée dans cette phase.
+That infrastructure is not requested in this phase.
 
 ---
 
-## 17. Architecture logicielle recommandée
+## 17. Recommended software architecture
 
-La structure exacte doit être adaptée au dépôt existant.
+The exact structure must be adapted to the existing repository.
 
-Ne pas réorganiser gratuitement les modules déjà fonctionnels.
+Do not reorganize already working modules without justification.
 
-Séparer clairement les responsabilités :
+Clearly separate responsibilities:
 
-### Domaine
+### Domain
 
-Définitions des objets persistants :
+Definitions of persistent objects:
 
 - Sessions.
 - Messages.
 - Branches.
-- Révisions.
-- Appels et résultats conservés.
-- Chemins.
-- Enrichissements.
-- Connaissances.
-- Relations.
-- Configurations mémorielles.
+- Revisions.
+- Retained calls and results.
+- Paths.
+- Enrichments.
+- Knowledge.
+- Relationships.
+- Memory configurations.
 
-### Stockage
+### Storage
 
-Responsable de :
+Responsible for:
 
-- Sérialisation.
+- Serialization.
 - Transactions.
-- Index.
-- Références physiques.
+- Indexes.
+- Physical references.
 - Compression.
-- Déduplication.
+- Deduplication.
 - Deltas.
-- Intégrité.
-- Récupération.
+- Integrity.
+- Recovery.
 - Migrations.
 
-### Conservation
+### Retention
 
-Responsable de :
+Responsible for:
 
-- Niveaux mémoriels.
-- Politiques de rétention.
+- Memory levels.
+- Retention policies.
 - Budgets.
-- Suppressions autorisées.
-- Protection des données.
-- Transitions de niveau.
+- Authorized deletions.
+- Data protection.
+- Level transitions.
 
 ### Consolidation
 
-Responsable de :
+Responsible for:
 
-- Identification des nouvelles données pertinentes.
-- Création des enrichissements.
-- Dépendances.
-- Réexamen ciblé.
-- Reprise après interruption.
-- Priorités de traitement.
+- Identifying relevant new data.
+- Creating enrichments.
+- Dependencies.
+- Targeted reexamination.
+- Recovery after interruption.
+- Processing priorities.
 
-### Rappel
+### Recall
 
-Responsable de :
+Responsible for:
 
-- Recherche.
-- Sélection des informations.
-- Résolution des relations.
+- Search.
+- Information selection.
+- Relationship resolution.
 - Provenance.
-- Composition des originaux et enrichissements.
-- Budgets de contexte.
-- Réinjection.
+- Composing originals and enrichments.
+- Context budgets.
+- Reinjection.
 
-### Intégration
+### Integration
 
-Responsable des liens avec :
+Responsible for connections with:
 
-- Les sessions de conversation existantes.
-- Les fournisseurs de modèles.
-- Les outils.
-- Les permissions.
-- Les MCP.
-- Les Webviews et commandes VS Code.
+- Existing conversation sessions.
+- Model providers.
+- Tools.
+- Permissions.
+- MCP.
+- VS Code webviews and commands.
 
-Ces séparations sont logiques. Elles ne constituent pas une obligation de créer autant de processus, ni autant de structures que possible.
+These separations are logical. They do not require creating that many processes or as many structures as possible.
 
-Chaque abstraction doit avoir une responsabilité concrète.
-
----
-
-## 18. Compatibilité et migration de l'existant
-
-Le dépôt possède déjà un fonctionnement conversationnel et des mécanismes de persistance.
-
-Avant toute modification, examiner le code réel.
-
-Préserver :
-
-- Les sessions utilisateur existantes.
-- Les configurations.
-- Les modes d'autonomie.
-- Le système d'autorisations.
-- Les outils locaux.
-- Les outils MCP.
-- Les fournisseurs de modèles.
-- Les messages d'erreur et résultats structurés existants.
-- Les modifications non liées présentes dans le dépôt.
-
-Si une migration de données est nécessaire :
-
-- La rendre explicite.
-- Préserver les données disponibles.
-- Gérer les anciens formats.
-- Ne pas inventer des liens de provenance que l'ancien format ne possédait pas.
-- Ne pas prétendre que l'ancien historique contient des observations d'outils qui n'avaient jamais été archivées.
-- Prévoir une reprise cohérente en cas d'interruption.
-
-Les UUIDv7 s'appliquent aux nouvelles identités métier et aux identités créées lors des migrations, sans falsifier la provenance des anciennes données.
+Every abstraction must have a concrete responsibility.
 
 ---
 
-## 19. Exigences de fiabilité
+## 18. Compatibility and migration of existing data
 
-Le système doit garantir les propriétés suivantes dans les limites du niveau mémoriel sélectionné.
+The repository already has conversation functionality and persistence mechanisms.
 
-### 19.1. Traçabilité
+Examine actual code before any modification.
 
-Les relations réellement enregistrées doivent être fiables et vérifiables.
+Preserve:
 
-### 19.2. Intégrité
+- Existing user sessions.
+- Configurations.
+- Autonomy modes.
+- The permission system.
+- Local tools.
+- MCP tools.
+- Model providers.
+- Existing error messages and structured results.
+- Unrelated changes present in the repository.
 
-Un original conservé ne doit pas être modifié par une consolidation.
+If data migration is necessary:
 
-### 19.3. Cohérence
+- Make it explicit.
+- Preserve available data.
+- Handle old formats.
+- Do not invent provenance links absent from the old format.
+- Do not claim old history contains tool observations that were never archived.
+- Provide consistent recovery after interruption.
 
-Une interruption ne doit pas laisser la mémoire dans un état considéré à tort comme valide.
-
-### 19.4. Reprise
-
-Une opération interrompue doit pouvoir être identifiée et reprise lorsqu'une reprise est sûre.
-
-### 19.5. Déduplication
-
-La mutualisation physique ne doit pas fusionner les identités métier.
-
-### 19.6. Rétention
-
-Aucune suppression incompatible avec le niveau choisi et les autorisations données.
-
-### 19.7. Transparence
-
-Le développeur doit pouvoir connaître les limites du niveau sélectionné et les conséquences de ses choix.
-
-### 19.8. Non-blocage
-
-La consolidation ne doit pas ralentir lourdement l'utilisation de l'extension.
-
-### 19.9. Honnêteté mémorielle
-
-L'IA ne doit pas présenter une synthèse, une hypothèse ou une source supprimée comme une observation originale vérifiée.
-
-### 19.10. Respect des autorisations
-
-La mémoire ne doit pas servir à contourner une permission d'outil, une interdiction utilisateur ou une limite d'accès.
+UUIDv7 applies to new domain identities and identities created during migrations, without falsifying the provenance of old data.
 
 ---
 
-## 20. Stratégie de réalisation
+## 19. Reliability requirements
 
-L'objectif est une implémentation cohérente de la mémoire dans l'extension actuelle.
+The system must guarantee the following properties within the selected memory level's limits.
 
-Ne pas ajouter de service autonome ni repousser artificiellement la fonctionnalité pour préparer une architecture distribuée future.
+### 19.1. Traceability
 
-Ne pas construire une IA neurosymbolique complète dès cette phase.
+Actually recorded relationships must be reliable and verifiable.
 
-Ne pas se limiter non plus à un faux système de mémoire qui ne ferait qu'enregistrer quelques résumés sans relations, provenance ni gestion des branches.
+### 19.2. Integrity
 
-L'implémentation doit respecter les garanties du modèle.
+A retained original must not be modified by consolidation.
 
-### Impératif
+### 19.3. Consistency
 
-- Intégration directe à BezotCorp AI.
-- UUIDv7 pour les nouvelles identités métier.
-- Objets et relations traçables.
-- Branches et révisions cohérentes.
-- Enrichissements séparés des originaux.
-- Quatre niveaux aux contrats distincts.
-- Persistance fiable.
-- Consolidation incrémentale, légère et non bloquante.
-- Rappel exploitable pendant les sessions.
-- Intégration correcte aux outils existants.
-- Budget disque configurable.
-- Gestion des archives et suppressions.
-- Transitions de niveau différées et cohérentes.
-- Préservation des autorisations existantes.
+An interruption must not leave memory in a state incorrectly considered valid.
 
-### Recommandé
+### 19.4. Recovery
 
-- Stockage physique optimisé.
-- Compression sans perte.
-- Déduplication par empreinte.
-- Deltas lorsque réellement avantageux.
-- Traitement ciblé par dépendances.
-- Index reconstruisibles.
-- Estimation précise de l'espace récupérable.
-- Possibilité d'évolution du moteur de consolidation.
-- Mesures permettant d'améliorer les performances et l'empreinte disque.
+An interrupted operation must be identifiable and resumable when recovery is safe.
 
-### Évolutions futures non obligatoires
+### 19.5. Deduplication
 
-- Moteur neurosymbolique.
-- IA spécialisée pour la mémoire.
-- Recherche sémantique avancée.
-- Synchronisation entre machines.
-- Service mémoriel indépendant.
-- Exploitation par d'autres IDE.
-- Stockage universel sur volumes de plusieurs téraoctets.
+Physical sharing must not merge domain identities.
 
-Ces possibilités ne doivent pas justifier une complexité prématurée.
+### 19.6. Retention
+
+No deletion incompatible with the chosen level and granted authorizations.
+
+### 19.7. Transparency
+
+The developer must be able to understand the selected level's limits and the consequences of their choices.
+
+### 19.8. Nonblocking operation
+
+Consolidation must not heavily slow extension use.
+
+### 19.9. Memory honesty
+
+The AI must not present a summary, hypothesis or deleted source as a verified original observation.
+
+### 19.10. Respect for permissions
+
+Memory must not be used to bypass a tool permission, user prohibition or access limit.
 
 ---
 
-## 21. Consignes de travail pour Claude
+## 20. Implementation strategy
 
-1. Examiner l'architecture réelle du dépôt avant de modifier le code.
+The goal is coherent memory implementation within the current extension.
 
-2. Identifier les composants déjà existants qui peuvent être réutilisés.
+Do not add a standalone service or artificially postpone the feature to prepare a future distributed architecture.
 
-3. Préserver les modifications utilisateur non liées au travail demandé, notamment les changements existants dans les fichiers de configuration et de dépendances.
+Do not build a complete neurosymbolic AI in this phase.
 
-4. Travailler dans la branche courante sans créer de branche, commit, push ou pull request non demandés.
+Do not settle for a fake memory system that merely saves a few summaries without relationships, provenance or branch management.
 
-5. Ne pas remplacer inutilement des composants fonctionnels par une nouvelle architecture artificielle.
+The implementation must respect the model's guarantees.
 
-6. Ne pas imposer un modèle événementiel universel si des objets métier correctement liés satisfont les exigences.
+### Mandatory
 
-7. Ne pas créer d'objets ou de structures redondants pour représenter la même réalité.
+- Direct integration with BezotCorp AI.
+- UUIDv7 for new domain identities.
+- Traceable objects and relationships.
+- Consistent branches and revisions.
+- Enrichments separate from originals.
+- Four levels with distinct contracts.
+- Reliable persistence.
+- Incremental, lightweight, nonblocking consolidation.
+- Recall usable during sessions.
+- Correct integration with existing tools.
+- Configurable disk budget.
+- Archive and deletion management.
+- Deferred, consistent level transitions.
+- Preservation of existing permissions.
 
-8. Ne pas modifier silencieusement les données historiques.
+### Recommended
 
-9. Ne pas inventer de données manquantes lors des migrations.
+- Optimized physical storage.
+- Lossless compression.
+- Hash-based deduplication.
+- Deltas when actually beneficial.
+- Dependency-targeted processing.
+- Rebuildable indexes.
+- Accurate reclaimable-space estimates.
+- Ability to evolve the consolidation engine.
+- Measurements to improve performance and disk footprint.
 
-10. Ne pas introduire de service permanent ni d'application supplémentaire.
+### Optional future developments
 
-11. Respecter le système de permissions existant.
+- Neurosymbolic engine.
+- Specialized memory AI.
+- Advanced semantic search.
+- Cross-machine synchronization.
+- Independent memory service.
+- Use by other IDEs.
+- Universal storage on volumes of several terabytes.
 
-12. Ne pas ajouter de tests permanents sans demande explicite. Effectuer les vérifications de compilation, de formatage et de cohérence possibles, en signalant précisément ce qui a été vérifié.
-
-13. Ne pas considérer une compilation réussie comme une preuve suffisante de fiabilité de la persistance.
-
-14. Signaler explicitement les limitations techniques et les garanties non encore satisfaites.
-
-15. Privilégier une réalisation cohérente et intégrée plutôt qu'une succession de modifications fragmentaires et contradictoires.
-
-16. Ne pas affirmer qu'une fonctionnalité est terminée si son comportement réel n'a pas été vérifié.
-
-17. Documenter les décisions techniques qui ont un impact sur la durabilité des données.
+These possibilities must not justify premature complexity.
 
 ---
 
-## 22. Critères de validation fonctionnelle
+## 21. Working instructions for Claude
 
-L'architecture sera considérée cohérente si elle peut satisfaire notamment les scénarios suivants.
+1. Examine the repository's actual architecture before modifying code.
 
-### Scénario A — Plusieurs outils
+2. Identify existing components that can be reused.
 
-Une demande utilisateur déclenche trois appels distincts.
+3. Preserve user changes unrelated to the requested work, particularly existing configuration and dependency changes.
 
-Chaque appel possède son propre UUIDv7.
+4. Work on the current branch without creating unrequested branches, commits, pushes or pull requests.
 
-Chaque résultat retrouve exactement son appel.
+5. Do not unnecessarily replace working components with a new artificial architecture.
 
-La demande initiale et l'éventuelle réponse finale restent reliées aux opérations concernées.
+6. Do not impose a universal event model if properly linked domain objects satisfy the requirements.
 
-### Scénario B — Branche révisée
+7. Do not create redundant objects or structures representing the same reality.
 
-L'utilisateur modifie une ancienne demande.
+8. Do not silently modify historical data.
 
-Un nouveau parcours conversationnel est créé.
+9. Do not invent missing data during migrations.
 
-L'ancien parcours n'est pas réécrit.
+10. Do not introduce a permanent service or additional application.
 
-Les objets communs sont mutualisés plutôt que copiés inutilement.
+11. Respect the existing permission system.
 
-### Scénario C — Enrichissement
+12. Do not add permanent tests without an explicit request. Perform available compilation, formatting and consistency checks, stating precisely what was verified.
 
-Un message possède une catégorie et une émotion supposée.
+13. Do not consider successful compilation sufficient proof of persistence reliability.
 
-Le contenu du message reste inchangé.
+14. Explicitly report technical limitations and guarantees not yet satisfied.
 
-Une nouvelle information permet d'ajouter une seconde émotion ou de corriger la première.
+15. Prefer a coherent, integrated implementation over a succession of fragmented, contradictory changes.
 
-L'historique de cette évolution reste traçable.
+16. Do not claim a feature is complete if its actual behavior has not been verified.
 
-### Scénario D — Consolidation en cours
+17. Document technical decisions affecting data durability.
 
-L'IA demande un souvenir alors que son enrichissement est encore en traitement.
+---
 
-Le système retourne immédiatement l'original et les enrichissements déjà validés.
+## 22. Functional validation criteria
 
-Aucune attente de consolidation n'est imposée.
+The architecture will be considered coherent if it can satisfy, in particular, the following scenarios.
 
-### Scénario E — Nouvelle contradiction
+### Scenario A — Multiple tools
 
-Une règle ancienne est contredite par une déclaration ultérieure.
+One user request triggers three distinct calls.
 
-Seules les connaissances concernées sont réexaminées.
+Each call has its own UUIDv7.
 
-L'ancienne règle ne disparaît pas silencieusement de l'histoire.
+Every result resolves to its exact call.
 
-### Scénario F — Restreinte
+The initial request and any final response remain linked to the relevant operations.
 
-Une ancienne branche a été purgée conformément au niveau accepté.
+### Scenario B — Revised branch
 
-Le système ne prétend pas pouvoir la restaurer.
+The user edits an old request.
 
-Les invariants importants encore conservés restent exploitables, avec indication de provenance lorsque disponible.
+A new conversation path is created.
 
-### Scénario G — Universelle
+The old path is not rewritten.
 
-Un même fichier est lu de nombreuses fois avec des versions différentes.
+Common objects are shared rather than copied unnecessarily.
 
-Chaque observation reste identifiable.
+### Scenario C — Enrichment
 
-Les contenus conservés peuvent être reconstruits intégralement.
+A message has a category and an inferred emotion.
 
-Le stockage physique évite autant que possible les duplications inutiles.
+The message content remains unchanged.
 
-### Scénario H — Changement de niveau
+New information allows a second emotion to be added or the first corrected.
 
-Une transition est demandée pendant une opération.
+The history of this evolution remains traceable.
 
-Le niveau actif reste identifiable.
+### Scenario D — Consolidation in progress
 
-La transition attend un état cohérent.
+The AI requests a memory while its enrichment is still being processed.
 
-Le changement est appliqué ou signalé comme impossible, sans état partiellement validé.
+The system immediately returns the original and already committed enrichments.
 
-### Scénario I — Disque presque plein
+No wait for consolidation is imposed.
 
-Le système constate que l'espace libre devient faible.
+### Scenario E — New contradiction
 
-Il informe le développeur.
+An old rule is contradicted by a later statement.
 
-Il propose notamment les anciennes sessions, les données volumineuses et les chemins introuvables.
+Only affected knowledge is reexamined.
 
-Il estime l'espace récupérable.
+The old rule does not silently disappear from history.
 
-Il ne détruit pas arbitrairement des archives protégées.
+### Scenario F — Restricted
 
-### Scénario J — Fermeture brutale
+An old branch was purged according to the accepted level.
 
-VS Code s'arrête pendant une consolidation.
+The system does not claim it can restore it.
 
-Les données déjà validées restent utilisables.
+Important retained invariants remain usable, with provenance indicated when available.
 
-Les travaux incomplets sont identifiables.
+### Scenario G — Universal
 
-La reprise n'entraîne ni corruption ni duplication logique.
+The same file is read many times in different versions.
 
-### Scénario K — Suppression d'une session
+Each observation remains identifiable.
 
-Le développeur supprime une ancienne session.
+Retained content can be reconstructed completely.
 
-Les dépendances sont examinées.
+Physical storage avoids unnecessary duplication as much as possible.
 
-Les blocs partagés encore utilisés sont conservés.
+### Scenario H — Level change
 
-Les données propres à la session sont supprimées selon les garanties annoncées.
+A transition is requested during an operation.
 
-Les connaissances restantes ne présentent pas une provenance fictive.
+The active level remains identifiable.
 
-### Scénario L — Rappel transverse
+The transition waits for a consistent state.
 
-Une règle globale ancienne s'applique à une nouvelle demande dans une autre session.
+The change is applied or reported as impossible, without a partially committed state.
 
-Le système peut la retrouver sans injecter l'intégralité des anciennes conversations.
+### Scenario I — Disk nearly full
 
-Son champ d'application et son statut restent vérifiables.
+The system detects low free space.
+
+It informs the developer.
+
+It suggests, in particular, old sessions, large data and unavailable paths.
+
+It estimates reclaimable space.
+
+It does not arbitrarily destroy protected archives.
+
+### Scenario J — Abrupt shutdown
+
+VS Code stops during consolidation.
+
+Already committed data remains usable.
+
+Incomplete work is identifiable.
+
+Recovery causes neither corruption nor logical duplication.
+
+### Scenario K — Session deletion
+
+The developer deletes an old session.
+
+Dependencies are examined.
+
+Shared blocks still in use are retained.
+
+Session-specific data is deleted according to the stated guarantees.
+
+Remaining knowledge does not present fictitious provenance.
+
+### Scenario L — Cross-session recall
+
+An old global rule applies to a new request in another session.
+
+The system can retrieve it without injecting all old conversations.
+
+Its scope and status remain verifiable.
 
 ---
 
 ## Conclusion
 
-BezotCorp AI doit disposer d'une mémoire structurée autour d'un principe central :
+BezotCorp AI must have memory structured around a central principle:
 
-**Les données originelles constituent le vécu ; les enrichissements construisent la connaissance ; les relations et la temporalité permettent d'en retrouver la provenance.**
+**Original data constitutes experience; enrichments build knowledge; relationships, timing and ordering make provenance retrievable.**
 
-Les quatre niveaux de mémoire permettent au développeur de choisir le compromis qui lui convient entre conservation, enrichissement et consommation disque.
+The four memory levels allow the developer to choose the tradeoff between retention, enrichment and disk usage that suits them.
 
-La consolidation doit être incrémentale, légère et disponible pendant les conversations.
+Consolidation must be incremental, lightweight and available during conversations.
 
-Le rappel doit être sélectif, traçable et honnête quant aux limites de ce qui a réellement été conservé.
+Recall must be selective, traceable and honest about the limits of what was actually retained.
 
-L'ensemble doit fonctionner directement dans l'extension VS Code, sans dépendance à une application autonome.
+Everything must operate directly within the VS Code extension without depending on a standalone application.
 
-L'objectif n'est pas seulement de stocker des discussions : il est de construire une infrastructure de mémoire durable, évolutive et exploitable, capable de servir ultérieurement des formes de raisonnement plus avancées, tout en respectant les ressources, les permissions et les décisions du développeur.
+The goal is more than storing discussions: it is to build durable, extensible, usable memory infrastructure capable of supporting more advanced reasoning later while respecting the developer's resources, permissions and decisions.

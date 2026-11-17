@@ -224,9 +224,7 @@ Privacy information will be documented separately before those services are made
 
 Want to understand the implementation or contribute to BezotCorp AI?
 
-- [Architecture](docs/en/architecture.md) — current technical architecture and implementation boundaries
-- [Documentation / Français](docs/README.md) — language index, indexing architecture and French overview
-- [TODO](docs/en/todo.md) — remaining implementation and validation work
+Start with the [documentation index — English / Français](docs/docs_index.md) for the architecture, specifications and remaining work.
 
 The extension is written in TypeScript for VS Code.
 

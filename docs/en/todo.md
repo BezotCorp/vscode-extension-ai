@@ -1,5 +1,7 @@
 # BezotCorp AI — TODO
 
+[Documentation](../docs_index.md) · [Français](../fr/todo.md)
+
 This document tracks only work that remains open.
 
 ## Runtime Validation

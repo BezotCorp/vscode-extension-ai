@@ -1,6 +1,8 @@
 # Architecture de BezotCorp AI — guide de lecture
 
-> Ce document est une **vue d'ensemble en français**, pas une traduction intégrale de la [documentation technique anglaise](../en/architecture.md). La version anglaise reste la référence détaillée de l'état actuel de l'extension.
+[Documentation](../docs_index.md) · [English](../en/overview.md)
+
+> Ce document est une **vue d'ensemble**, pas la [documentation technique intégrale](architecture.md). Cette dernière décrit en détail l'état actuel de l'extension dans les deux langues.
 
 ## L'extension VS Code
 
@@ -37,4 +39,4 @@ Le système d'indexation du Standardizer est un sujet architectural distinct : s
 
 ## Ce que cette page ne remplace pas
 
-La version anglaise détaille notamment les outils Git exposés, les modes d'autonomie, les règles de protection des ressources, la gestion des chemins, les outils MCP et les limites de validation actuelles. Pour vérifier une fonctionnalité précise ou une règle de sécurité, consulter la [spécification technique complète](../en/architecture.md).
+La documentation détaillée décrit notamment les outils Git exposés, les modes d'autonomie, les règles de protection des ressources, la gestion des chemins, les outils MCP et les limites de validation actuelles. Pour vérifier une fonctionnalité précise ou une règle de sécurité, consulter la [documentation technique complète](architecture.md).

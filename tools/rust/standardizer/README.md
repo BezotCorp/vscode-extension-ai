@@ -54,7 +54,8 @@ idempotent so `RoutingWriter::resume_pending` can finish a crashed one, found th
 tag without scanning the storage. Loading verifies the declared indexes but never scans for
 unreferenced files.
 
+## Documentation
 
-## Architecture contract
+Start with the [documentation index — English / Français](../../../docs/docs_index.md).
 
-The [single entry point index architecture](../../../docs/en/indexing.md) defines the intended responsibilities independently of the current implementation. [French version](../../../docs/fr/indexing.md). Use it to audit behavior; this README describes the current Rust layout and RON formats.
+The Standardizer index architecture contract is available in [English](../../../docs/en/indexing.md) and [French](../../../docs/fr/indexing.md). It defines expected indexing responsibilities; this README describes the current Rust layout and RON formats.

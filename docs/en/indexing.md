@@ -1,110 +1,125 @@
-# Index architecture — Single entry point
+# Architecture — Single entry point for indexes
 
-> **Status: architecture contract, not a certification of the current Rust implementation.**
+[Documentation](../docs_index.md) · [Français](../fr/indexing.md)
+
+> **Status: architecture contract.** This document defines expected responsibilities and invariants independently of the Rust code's state. It does not automatically describe every behavior of the current implementation.
 >
-> **France Travail analogy:** a single reception desk identifies the services capable of handling a request. It neither performs the specialized work nor searches every archive to discover which service to contact.
+> **France Travail analogy:** the reception desk receives a request, identifies all competent services and directs it to them. It does not become the specialized service, the archives or the agent performing every operation.
 
-## Purpose and request flow
+## 1. Purpose
 
-The goal is to retrieve relevant records without opening unrelated indexes or storage locations, whether local or remote. A new domain, index type, or location must not require adding business-specific branches to the global entry point.
+Retrieve relevant data **without unnecessarily opening other indexes or storage locations**, whether local or remote. Routing must remain extensible: adding a domain, index type, category or location must not require coding new domain-specific branches in the entry point.
+
+The principle is:
 
 ```text
-Request → query handling → GlobalIndex (routing) → matching indexes (execution) → records if needed
+Request
+  → query handling
+    → GlobalIndex (entry point: select all relevant indexes)
+      → selected indexes (execute their own search)
+        → persisted data, only if needed
 ```
 
-A **query** starts at the top. **Index maintenance** during writes is separate: it may update metadata at several levels, but a query must not have to reconstruct summaries by walking upward from records.
+A **search** proceeds from the top to relevant indexes, then data. **Metadata maintenance** during creation or modification is a different process; it may propagate changes between levels without requiring reverse traversal during searches.
 
-## Responsibilities
+## 2. Clear responsibilities
 
-| Role | Responsibility |
-| --- | --- |
-| Query handling | Receives search parameters, asks the global entry point for candidates, executes the selected index capabilities and assembles results without duplicates. |
-| `GlobalIndex` | Registers **every** physical and categorical index, knows its identity, location, search capabilities and metadata needed to eliminate impossible candidates. Returns **all** relevant candidates; does not execute their specialized searches. |
-| Categorical indexes | Resolve precise lookups: UUID, reverse references, tags, or other declared capabilities; can be partitioned. |
-| Intermediate physical indexes | Reference child indexes with enough metadata to skip irrelevant subtrees before opening them. |
-| Terminal physical indexes | Reference persisted record files with the metadata needed to select files. |
-| Write coordination | Keeps records, specialized indexes, aggregates, and global routing metadata coherent as one managed change. |
-| Storage | Reads and writes at an identified location without deciding which search strategy to use. |
-| Verification and recovery | Check and recover consistency without making ordinary searches eagerly scan all indexes. |
+| Responsibility                     | Contract                                                                                                                                                                                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Receiving / handling a query       | Understand the request, consult the entry point, use returned indexes and combine results without duplicates. Do not assume in advance that only one index is “the right one”.                                                           |
+| `GlobalIndex` — single entry point | Register **all** existing indexes, physical and categorical; know their identity, location and the metadata needed to determine whether they can answer. Return **all** relevant matches without performing specialized searches itself. |
+| Categorical indexes                | Answer a specific search form: UUID identity, reverse references, tags or another declared capability. They may be partitioned.                                                                                                          |
+| Intermediate physical indexes      | Reference child indexes and their selection information to avoid opening irrelevant branches.                                                                                                                                            |
+| Terminal physical indexes          | Reference physically stored records with metadata allowing files to be selected for opening.                                                                                                                                             |
+| Write coordination                 | Consistently update data, affected indexes and their selection metadata.                                                                                                                                                                 |
+| Storage                            | Read and write at a given location; do not decide which search strategy to use.                                                                                                                                                          |
+| Consistency checking / recovery    | Verify and repair through explicitly defined mechanisms without turning every search into an exhaustive scan.                                                                                                                            |
 
-Current Rust names such as `GraphStore` or `IndexOrchestrator` do not define these architectural responsibilities. Verify their actual use before choosing to reuse, rename, or split them.
+A Rust structure may evolve to carry one of these responsibilities, but an existing name (`GraphStore`, `IndexOrchestrator`, etc.) does **not** define this contract. Check its actual calls and effects before renaming or moving it.
 
-## Identity, criteria and tags
+## 3. Identity, location, criteria and tags
 
-Every index owns a stable `IndexId` (UUIDv7), **independent of its `Location`**. `Location` describes how and where it is accessed, not its identity or search behavior.
+- Every index has **its own stable `IndexId`**, independent of its `Location`. Changing location does not change identity.
+- `Location` specifies where and through which storage to access the index; it is neither its identity nor its behavior.
+- **Criteria / keywords** describe searches an index can answer: for example `node`, `uuid`, `edge`, `reference`, `physical` or a partition coordinate.
+- **Data tags** actually describe records (`node`, `edge`, `rust`, `pending`, etc.). **A criterion is not a domain tag**, even when their labels are identical.
+- Index references at levels where selection decisions are made must retain **the metadata useful for that decision**, including aggregate covered tags when a search filters by tags. This information must be available **before opening** the referenced index.
 
-**Criteria** are search capability keywords (for example `node`, `uuid`, `edge`, `reference`, `physical` or a partition coordinate). **Record tags** describe the underlying records (`node`, `edge`, `rust`, `pending`, etc.). Even identical spellings do not make these the same concept.
+The entry point must be able to reject an index that cannot contain a requested result and retain all indexes that might. A filter may keep too many candidates, **never lose a valid candidate**. Criteria express a capability; aggregate tags express possible presence: their roles complement one another.
 
-References to indexes must carry the metadata needed at their decision level, including **aggregated tags** where tags filter a search. This information must be available **before** the referenced index is opened.
+### Selection examples
 
-Capability criteria say what an index can answer; aggregate tags say what its covered records may contain. Filtering must never discard a valid candidate. If multiple indexes match, return them all, with deduplication performed as needed by query execution.
+- `node`: all indexes compatible with this search, without arbitrarily choosing a single hierarchy.
+- `node + uuid`: categorical indexes compatible with node identity lookup.
+- `edge + node`: indexes compatible with edge lookup from a node.
+- Tags `node` and/or `rust`: consult only indexes whose declared coverage may provide results. The exact semantics of combined tags (all / at least one) belong to the query, rather than an entry-point assumption.
+- `pending`: identify pending mutations through indexes and their metadata, **without scanning persisted data**.
 
-Examples:
-- `node` → every index capable of answering that search.
-- `node + uuid` → compatible node UUID lookup indexes.
-- `edge + node` → indexes supporting edge lookup from a referenced node.
-- `pending` → locate incomplete mutations through indexed metadata, not by scanning record storage.
-- Tag-based queries such as `rust` → skip any index whose known coverage makes a match impossible. Whether a multi-tag query means ALL or ANY must be explicit in the query contract.
+More discriminating criteria narrow the selection. If several indexes remain compatible, the entry point returns them all. Execution must handle potential overlaps.
 
-More discriminating criteria narrow the candidates; the global index never arbitrarily chooses one.
+## 4. Categorical and physical indexes complement one another
 
-## Why both categorical and physical indexes exist
+Categorical indexes are not decorative copies of physical indexes.
 
-- **UUID:** find a record via its categorical lookup, without scanning record files.
-- **Reverse reference:** find edges containing a node via the reference index, not by reading every edge.
-- **Tags:** filter at the highest available level, then use appropriate categorical or physical indexes; a dedicated inverted tag index can provide a more direct route.
-- **Physical organization:** intermediate indexes navigate partitions and terminal indexes list actual files.
+- **By UUID:** the appropriate index directly indicates where to find the record.
+- **By reverse reference:** find edges associated with a node through the dedicated index, **without traversing edges**.
+- **By tags:** selection must eliminate indexes and branches without matches as early as possible; an inverted categorical tag index may provide more direct access without removing physical indexes' own metadata.
+- **By physical location:** intermediate indexes navigate partitions; terminal indexes list actual files.
 
-Categorical indexes must be partitionable too; no universal monolithic file is required. Physical indexes remain useful: the presence of categorical indexes does not make them redundant.
+No categorical index must become a single worldwide file: it must support partitioning according to volume and storage constraints. The exact index chosen depends on actually declared capabilities, rather than a hardcoded domain name.
 
-## Aggregate tags and removal correctness
+## 5. Aggregation and removal: an essential invariant
 
-An aggregate tag means **at least one** covered record has that tag, not all of them.
+An aggregate tag on an index reference means: “**at least one covered record** carries this tag”.
 
-A terminal index determines coverage from its referenced record entries; an intermediate index from child coverage. References used for routing—including the global entry where relevant—must be kept consistent with that coverage.
+It does **not** mean “all records carry it”.
 
-Removing a tag from one record must **not** blindly remove it from every aggregate: retain it while another covered record still has it. Remove it from the corresponding aggregates only after the **last** covered record loses it. The same consistency rule applies to maintained categorical lookup capabilities.
+For a terminal index, referenced files' tags provide the source for determining coverage. For an intermediate index, child coverage determines its own. References used to route a search must reflect actual coverage, up to the entry point's selection metadata when necessary.
 
-Aggregates are updated **during a write/mutation**. Subsequent queries use the already persisted metadata and must not reconstruct it by reading lower layers.
+**Removing a tag never means blindly erasing it from every aggregate.** Retain it while another covered record carries it. Conversely, once no covered record carries it, the aggregate must disappear from the affected references. This applies to physical indexes and maintained categorical capabilities.
 
-## Data semantics
+Updates occur **during the write / mutation operation**, with transactional consistency and a recovery strategy. A later search uses already established metadata; it must not reconstruct the aggregate by exploring lower indexes.
 
-- **Node:** owns its tags.
-- **Edge:** neutral link across **N nodes**, no mandatory source/target; carries `edge` plus the union of linked nodes' non-structural tags.
-- **Structural tags** (`node`, `edge`, `interpretation`, `mutation`, and any other configured structural domain tags) never propagate between objects.
-- **Interpretation:** a separate persisted object preserving durable contextual meaning for an edge. Do **not** discard existing meaning on the unsupported assumption that it can always be derived from node types; the precise new model needs explicit specification.
-- **Mutation:** a UUIDv7-identified, persisted and indexed intent, marked `pending` until completion, then `done`; partitioning must remain possible.
+## 6. Data model and propagation
 
-### Removing `rust` from a node
+- **Node:** carries its own tags.
+- **Edge:** neutral relationship between **N nodes**, without mandatory source / target. Its tags are `edge` **plus the union of linked nodes' non-structural tags**.
+- **Structural tags:** `node`, `edge`, `interpretation`, `mutation` and other tags declared structural never propagate between domains.
+- **Interpretation:** a distinct object preserving durable meaning or context associated with reading an edge. **Do not erase semantic information on the grounds that it currently seems derivable from nodes**; precise modeling choices remain to be specified.
+- **Mutation:** a persisted, identified (UUIDv7), indexed and partitionable intent. Its `pending` state makes unfinished work discoverable after interruption; `done` indicates completion.
 
-1. Persist a `pending` mutation intent.
-2. Update the node and affected indexes.
-3. Use the reverse-reference categorical index to find **only** the edges containing this node.
-4. Recompute each edge's non-structural tag union across **all** of its nodes. Another node still carrying `rust` keeps the tag on the edge.
-5. Maintain all affected index entries and aggregate metadata; remove `rust` from a coverage summary only when there is no remaining carrier.
-6. Mark the mutation `done` once the required state is coherent.
+### Example: removing `rust` from a node
 
-Recovery must be idempotent and must not require every index to be perfectly consistent before repair can start.
+1. Persist the `pending` mutation intent.
+2. Modify node tags and update its indexes.
+3. Query the reverse-reference categorical index to find **only** edges linked to the node.
+4. For each affected edge, recompute the union of non-structural tags across **all** its nodes. If another node still carries `rust`, the edge retains `rust`.
+5. Update indexes and their selection metadata; remove `rust` from an aggregate only if it is no longer represented.
+6. Mark the mutation `done` only when the operation has reached its consistent state.
 
-## Partitioning, remoteness and reliability
+Recovery must be **idempotent**. It must not require every index to be perfectly consistent first when the purpose is precisely to repair an interruption.
 
-Routing should reject irrelevant candidates before opening remote storage. Both physical and categorical indexes need partitioning support. Index identity and query semantics must not rely on local filesystem paths.
+## 7. Local, remote, partitioning and robustness
 
-An in-memory rollback does **not** establish crash safety. Distinguish recoverable errors, abrupt process termination and concurrent writes. Protect consistency across records, categorical indexes, physical indexes and the global index. Ordinary loading should not require opening every registered index.
+Routing must identify candidates **before** any unnecessary remote opening. Partitions must work with physical **and** categorical indexes. Index identity, queries and propagation rules must not depend exclusively on local paths.
 
-## Acceptance criteria
+An in-memory rollback does not establish a transactional guarantee: distinguish recoverable error, abrupt process termination and concurrent writes. Recovery must also protect consistency between records, categorical indexes, physical indexes and the entry point. Consistency validation may be explicit or progressive; it must not require opening every index by default at each ordinary load.
 
-1. Start every search with global candidate selection, without opening all indexes.
-2. Preserve all valid matches despite overlaps and partitioning.
-3. Provide appropriate lookup paths for UUID, reverse references and tags.
-4. Test additions, moves and removals, including removal of the **last** carrier and removal of one carrier among several.
-5. Propagate node changes via reverse edge references; preserve tags still carried by other nodes.
-6. Preserve durable interpretation meaning across migrations.
-7. Persist and resume interrupted mutations; retain automated regression tests for partial failures.
-8. Migrate existing RON data explicitly and verify invariants before and after.
+## 8. Acceptance criteria for any change
 
-## Current implementation is not the contract
+1. A query selects candidates through the entry point **without first opening every index**.
+2. All compatible indexes are accessible; no valid result is lost, even with partitioning or overlap.
+3. UUID, reverse-reference and tag searches use paths suited to their search form, without scanning data when specialized indexes exist.
+4. Adding, removing or moving data correctly maintains references and aggregates; **removal of the last carrier** and **removal of one carrier among several** are covered.
+5. Node → edge operations use reverse references and preserve tags still present on other nodes.
+6. Interpretation information remains durable and is not implicitly eliminated during migration.
+7. An interrupted mutation is discoverable and resumable; partial-failure cases are covered by retained automated tests.
+8. Migrations preserve existing data and verify invariants before and after, without unnecessary writes.
 
-At the time of writing, `GlobalIndex` records index IDs, locations and criteria; `GraphStore` combines storage and search strategies; `IndexOrchestrator` coordinates index writes; `IdIndex` and `ReferenceIndex` exist; tag searches navigate the physical hierarchy. These observations identify potential **gaps to audit**, not a mandate to rewrite or rename everything.
+## 9. Relationship to the current implementation
 
-For current storage formats and behavior, see the [Standardizer README](../../tools/rust/standardizer/README.md). The [French architecture contract](../fr/indexing.md) covers the same design principles with additional explanation.
+This contract **does not automatically validate** existing classes. In `standardizer`, `GlobalIndex` currently references identities, locations and criteria; `GraphStore` mixes storage access and search strategies; `IndexOrchestrator` coordinates index modifications; `IdIndex` and `ReferenceIndex` exist; tag searches currently traverse the physical hierarchy.
+
+These observations serve to **audit gaps**, rather than mandate wholesale renaming or rewriting. Any alignment must start with behavioral tests and preserve RON data; a format change requires a verified migration.
+
+Additional reference: the [Standardizer README](../../tools/rust/standardizer/README.md), which describes current formats and behavior.

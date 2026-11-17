@@ -2,6 +2,8 @@
 
 This document is the entry point for developers working on the BezotCorp AI codebase.
 
+[Documentation in English and French →](docs/docs_index.md)
+
 ## Getting Started
 
 Development requires:
