@@ -7,7 +7,7 @@ pub(crate) struct OperationNode {
     operation: Operation,
 }
 impl OperationNode {
-    #[expect(dead_code, reason = "authoring API without a CLI caller yet")]
+    #[allow(dead_code, reason = "authoring API without a CLI caller yet")]
     pub(crate) fn new(base: NodeBase, operation: Operation) -> Self {
         Self { base, operation }
     }

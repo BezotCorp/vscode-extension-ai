@@ -122,4 +122,18 @@ Ce contrat **ne valide pas automatiquement** les classes existantes. Dans `stand
 
 Ces constats servent à **auditer les écarts**, non à imposer un renommage ou une réécriture générale. Toute remise en conformité doit commencer par des tests de comportement et préserver les données RON ; un changement de format exige une migration vérifiée.
 
+## 10. Initialisation et témoin `.lock`
+
+Distinguer ce que fait réellement le code : **seules** les commandes explicites `init` et `adopt` amènent un système à l'état initialisé. Les créations d'index à la demande (nouveaux index, nouvelles partitions) sont des **extensions** d'un système déjà initialisé, pas une initialisation.
+
+- **Témoin :** `data/standardizer/.lock`, fichier vide, créé une seule fois, **en dernier**, après qu'un système complet se charge et se vérifie. Jamais modifié, remplacé ni supprimé en fonctionnement normal ; ce n'est pas un verrou de concurrence et il n'est pas stocké dans `global_index.ron`.
+- **État du dossier** (`InitializationState`) : `Virgin` (rien, y compris dans l'historique Git accessible), `Initialized` (`.lock` et `global_index.ron`), `AdoptionPending` (système existant sans `.lock` ni preuve Git qu'il en ait eu un), `Anomaly` sinon : global perdu avec `.lock`, `.lock` perdu alors que Git prouve son existence, données sans aucun des deux fichiers, dossier vide mais historique d'un système.
+- **L'absence de `.lock` ne suffit jamais à initialiser.** `init` exige `Virgin`, c'est-à-dire un emplacement réellement vierge. `adopt` exige `AdoptionPending`. Toute autre situation est refusée avec la raison.
+- **`init <dossier> <tag_registry.ron> <write_locations.ron>`** crée un système vide (global vide) à partir des deux fichiers fournis ; en cas d'échec avant `.lock`, seuls les fichiers créés par cet appel sont retirés.
+- **`adopt`** vérifie l'état existant (chargement complet), puis crée `.lock` : aucun index recréé, aucun UUID modifié, aucun enregistrement réécrit.
+- **Fonctionnement normal :** un index enregistré dont le fichier manque est une **erreur**. Un fichier d'index présent mais absent du `GlobalIndex` n'est **jamais recréé**. Un système sans `.lock` (adoption en attente) reste lisible mais **les écritures sont refusées**.
+- **Protection Git** (`LockProtection`) : commit dédié `chore: mark standardizer as initialized` ne contenant que `.lock` (`git add` + `git commit --only`, staging et modifications existants préservés). `--no-verify` est utilisé car le hook `pre-commit` exécute le standardizer, qui stage et reformate d'autres fichiers. Vérifie que `.lock` n'est pas ignoré. Publication seulement si la branche a un upstream, n'est pas en retard, et que ce commit est le **seul** en avance : un `push` simple de ce commit, jamais de force, jamais d'autres commits.
+- **Git en échec :** `.lock` n'est jamais supprimé et rien n'est réinitialisé. `standardizer protect` termine séparément le commit puis la publication, et indique explicitement ce qui n'est pas acquis.
+- **Limites :** l'historique Git peut être incomplet (clone superficiel) ; hors dépôt Git, aucune preuve d'historique ni protection n'existe ; un `.lock` supprimé *et* absent de l'historique accessible ne peut pas être distingué d'une adoption.
+
 Référence complémentaire : [README du Standardizer](../../tools/rust/standardizer/README.md), qui décrit les formats et le fonctionnement actuel.

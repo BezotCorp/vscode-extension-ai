@@ -21,6 +21,7 @@ impl RecordWriter {
         tags: BTreeSet<TagId>,
         build: impl FnOnce(IdUuidV7, BTreeSet<TagId>) -> R,
     ) -> Result<IdUuidV7, Box<dyn Error>> {
+        store.require_initialized()?;
         let id = IdUuidV7::generate();
         let mut tags = tags;
         tags.insert(*domain);
@@ -92,6 +93,7 @@ impl RecordWriter {
         record: &R,
         location: &Location,
     ) -> Result<(), Box<dyn Error>> {
+        store.require_initialized()?;
         let destination = store.destinations().select(record.tags())?;
         let mut workspace = IndexOrchestrator::new(store);
         let segments = destination.partition().segments(record.id())?;

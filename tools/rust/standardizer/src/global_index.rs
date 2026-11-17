@@ -16,6 +16,12 @@ pub(crate) struct GlobalIndex {
 }
 
 impl GlobalIndex {
+    pub(crate) fn empty() -> Self {
+        Self {
+            indexes: BTreeMap::new(),
+        }
+    }
+
     pub(crate) fn iter(&self) -> impl Iterator<Item = (IndexId, &GlobalEntry)> {
         self.indexes.iter().map(|(id, entry)| (*id, entry))
     }

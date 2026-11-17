@@ -7,7 +7,7 @@ pub(crate) struct ToolNode {
     tool: Tool,
 }
 impl ToolNode {
-    #[expect(dead_code, reason = "authoring API without a CLI caller yet")]
+    #[allow(dead_code, reason = "authoring API without a CLI caller yet")]
     pub(crate) fn new(base: NodeBase, tool: Tool) -> Self {
         Self { base, tool }
     }

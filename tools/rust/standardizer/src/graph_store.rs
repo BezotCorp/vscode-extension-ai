@@ -5,6 +5,7 @@ use crate::{
     index::{INDEX_FILE_NAME, Index},
     index_id::IndexId,
     indexable::Indexable,
+    initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
     location::Location,
     partition::Partition,
     ron_file::RonFile,
@@ -18,9 +19,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const GLOBAL_INDEX_FILE: &str = "global_index.ron";
-const TAG_REGISTRY_FILE: &str = "tag_registry.ron";
-const WRITE_LOCATIONS_FILE: &str = "write_locations.ron";
+pub(crate) const TAG_REGISTRY_FILE: &str = "tag_registry.ron";
+pub(crate) const WRITE_LOCATIONS_FILE: &str = "write_locations.ron";
 
 /// The persisted graph: tag registry, write configuration and global index,
 /// plus access to every index and record the global index leads to.
@@ -29,10 +29,32 @@ pub(crate) struct GraphStore {
     tags: TagRegistry,
     global: GlobalIndex,
     destinations: WriteLocations,
+    initialized: bool,
 }
 
 impl GraphStore {
+    /// The store of this repository.
+    pub(crate) fn default_directory() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../data/standardizer")
+    }
+
+    /// Opens an existing store. It never creates one: a new system is only made by
+    /// `StoreInitializer`. A store waiting for adoption can be read, not written.
     pub(crate) fn load(directory: &Path) -> Result<Self, Box<dyn Error>> {
+        let initialized = match InitializationState::inspect(directory)? {
+            InitializationState::Initialized => true,
+            InitializationState::AdoptionPending => false,
+            InitializationState::Virgin => {
+                return Err(format!(
+                    "no store at {}: initialize it explicitly",
+                    directory.display()
+                )
+                .into());
+            }
+            InitializationState::Anomaly(anomaly) => {
+                return Err(format!("{}: {anomaly}", directory.display()).into());
+            }
+        };
         let tags: TagRegistry = RonFile::read(&directory.join(TAG_REGISTRY_FILE))?;
         tags.validate()?;
         let destinations: WriteLocations = RonFile::read(&directory.join(WRITE_LOCATIONS_FILE))?;
@@ -42,9 +64,18 @@ impl GraphStore {
             tags,
             global: RonFile::read(&directory.join(GLOBAL_INDEX_FILE))?,
             destinations,
+            initialized,
         };
         store.verify()?;
         Ok(store)
+    }
+
+    /// Writes are refused until the store has its `.lock`.
+    pub(crate) fn require_initialized(&self) -> Result<(), Box<dyn Error>> {
+        if self.initialized {
+            return Ok(());
+        }
+        Err("the store is not initialized: adopt it explicitly before writing".into())
     }
 
     pub(crate) fn directory(&self) -> &Path {

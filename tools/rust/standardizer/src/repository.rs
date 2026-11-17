@@ -30,7 +30,76 @@ impl Repository {
         })
     }
 
-    fn git(&self) -> Command {
+    /// The repository containing `directory`, or `None` when there is none
+    /// (including when Git itself is unavailable).
+    pub(crate) fn containing(directory: &Path) -> Result<Option<Self>, Box<dyn Error>> {
+        let Ok(output) = Command::new("git")
+            .arg("-C")
+            .arg(directory)
+            .args(["rev-parse", "--show-toplevel"])
+            .output()
+        else {
+            return Ok(None);
+        };
+        if !output.status.success() {
+            return Ok(None);
+        }
+        let mut bytes = output.stdout;
+        if bytes.last() == Some(&b'\n') {
+            bytes.pop();
+        }
+        Ok(Some(Self {
+            root: PathBuf::from(Self::os_string(bytes)?),
+        }))
+    }
+
+    pub(crate) fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Output of a read-only query, or `None` when Git answers with a failure status.
+    pub(crate) fn query(&self, arguments: &[&str]) -> Result<Option<String>, Box<dyn Error>> {
+        let output = self.git().args(arguments).output()?;
+        if !output.status.success() {
+            return Ok(None);
+        }
+        Ok(Some(String::from_utf8(output.stdout)?.trim().to_owned()))
+    }
+
+    /// Whether any commit reachable from any ref ever touched one of the paths,
+    /// including paths deleted since.
+    pub(crate) fn history_touches(&self, paths: &[&Path]) -> Result<bool, Box<dyn Error>> {
+        for attempt in 0..2 {
+            let output = self
+                .git()
+                .args(["log", "--all", "-n", "1", "--format=%H", "--"])
+                .args(paths)
+                .output();
+
+            match output {
+                Ok(output) if output.status.success() => {
+                    return Ok(!output.stdout.is_empty());
+                }
+                Ok(output) if attempt == 1 => {
+                    return Err(format!(
+                        "cannot inspect Git history after two attempts: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    )
+                    .into());
+                }
+                Err(error) if attempt == 1 => {
+                    return Err(
+                        format!("cannot inspect Git history after two attempts: {error}").into(),
+                    );
+                }
+                _ => {}
+            }
+        }
+
+        unreachable!("the second Git history attempt must return or fail")
+    }
+
+    pub(crate) fn git(&self) -> Command {
         let mut command = Command::new("git");
         command.current_dir(&self.root);
         // Literal pathspecs preserve names containing wildcard/pathspec syntax.
@@ -38,7 +107,7 @@ impl Repository {
         command
     }
 
-    fn output(command: &mut Command) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub(crate) fn output(command: &mut Command) -> Result<Vec<u8>, Box<dyn Error>> {
         let output = command.output()?;
         if !output.status.success() {
             return Err(format!(

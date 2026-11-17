@@ -1,3 +1,4 @@
+mod anomaly;
 mod biome;
 mod cargo_metadata;
 mod conformance;
@@ -20,11 +21,13 @@ mod index_id;
 mod index_orchestrator;
 mod index_reference;
 mod indexable;
+mod initialization_state;
 mod intent_node;
 mod intermediate_index;
 mod interpretation;
 mod interpretation_base;
 mod location;
+mod lock_protection;
 mod lookup_destination;
 mod lookup_kind;
 mod mutation;
@@ -37,6 +40,8 @@ mod operation;
 mod operation_node;
 mod orchestrated_index;
 mod partition;
+mod protection;
+mod protection_step;
 mod record_file;
 mod record_writer;
 mod reference_index;
@@ -48,6 +53,9 @@ mod routing_writer;
 mod rust_edition;
 mod rust_package;
 mod rustfmt;
+mod store_command;
+mod store_initializer;
+mod store_lock;
 mod tag_id;
 mod tag_registry;
 mod terminal_index;
@@ -61,6 +69,7 @@ mod write_transaction;
 
 use crate::conformance_intent::ConformanceIntent;
 use crate::repository::Repository;
+use crate::store_command::StoreCommand;
 use std::{error::Error, process::ExitCode};
 
 fn main() -> ExitCode {
@@ -74,7 +83,11 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let intent = ConformanceIntent::from_arguments(std::env::args_os().skip(1))?;
+    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    if let Some(command) = StoreCommand::parse(&arguments)? {
+        return command.run();
+    }
+    let intent = ConformanceIntent::from_arguments(arguments.into_iter())?;
     let repository = Repository::discover()?;
     let files = repository.candidates()?;
     repository.conform(&files, intent)?;

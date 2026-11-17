@@ -85,6 +85,14 @@ impl<'a> IndexOrchestrator<'a> {
         let orchestrated = match self.store.global().id_at(location) {
             Some(id) => OrchestratedIndex::existing(id, self.store.open(id)?),
             None => {
+                // A new index is only legitimate where nothing exists: a file already
+                // there is a lost registration, not a new index.
+                if location.resolve(self.store.directory()).exists() {
+                    return Err(format!(
+                        "index file exists but is unknown to the global index, refusing to recreate it: {location}"
+                    )
+                    .into());
+                }
                 let id = IndexId::generate();
                 let index = if is_leaf {
                     leaf(id)

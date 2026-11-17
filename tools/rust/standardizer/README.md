@@ -59,3 +59,11 @@ unreferenced files.
 Start with the [documentation index — English / Français](../../../docs/docs_index.md).
 
 The Standardizer index architecture contract is available in [English](../../../docs/en/indexing.md) and [French](../../../docs/fr/indexing.md). It defines expected indexing responsibilities; this README describes the current Rust layout and RON formats.
+
+## Initialization
+
+A store is brought to the initialized state only by `standardizer init <directory> <tag_registry.ron> <write_locations.ron>`
+(virgin location) or `standardizer adopt` (existing system, once). Both create the empty witness `data/standardizer/.lock`
+last and protect it with a dedicated Git commit; `standardizer protect` finishes the commit or the publication separately.
+See `docs/en/indexing.md` section 10.
+

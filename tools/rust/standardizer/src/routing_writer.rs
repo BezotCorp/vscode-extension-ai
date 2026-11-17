@@ -9,12 +9,12 @@ use std::{collections::BTreeSet, error::Error};
 
 /// Creation and mutation of routing graph data. Each domain's structural tag is
 /// added automatically and never propagated from one object to another.
-#[expect(dead_code, reason = "authoring API without a CLI caller yet")]
+#[allow(dead_code, reason = "authoring API without a CLI caller yet")]
 pub(crate) struct RoutingWriter {
     store: GraphStore,
 }
 
-#[expect(dead_code, reason = "authoring API without a CLI caller yet")]
+#[allow(dead_code, reason = "authoring API without a CLI caller yet")]
 impl RoutingWriter {
     pub(crate) fn new(store: GraphStore) -> Self {
         Self { store }
