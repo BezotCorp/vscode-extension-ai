@@ -1,5 +1,13 @@
-use crate::persistence_manager::{StorageManager, StoreInitializer};
-use std::{error::Error, ffi::OsString, fs, path::PathBuf};
+use crate::{
+    data_placement::{DataPlacementOrchestrator, StoreInitializer},
+    graph_system::GraphReader,
+};
+use std::{
+    error::Error,
+    ffi::OsString,
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Explicit operations on the store life cycle, distinct from conformance.
 pub(crate) enum StoreCommand {
@@ -43,16 +51,22 @@ impl StoreCommand {
                     &directory,
                     &fs::read_to_string(tag_registry)?,
                     &fs::read_to_string(write_locations)?,
+                    Self::verify,
                 )?;
                 ("initialized", directory)
             }
             Self::Adopt => {
-                let directory = StorageManager::default_directory();
-                StoreInitializer::adopt(&directory)?;
+                let directory = DataPlacementOrchestrator::default_directory();
+                StoreInitializer::adopt(&directory, Self::verify)?;
                 ("adopted", directory)
             }
         };
         println!("standardizer store {action}: {}", directory.display());
         Ok(())
+    }
+
+    /// The graph rules a store must satisfy before it is declared initialized.
+    fn verify(directory: &Path) -> Result<(), Box<dyn Error>> {
+        GraphReader::open(directory).map(drop)
     }
 }

@@ -1,9 +1,9 @@
 use crate::{
+    data_placement::{DataPlacementOrchestrator, RecordFile},
     graph_system::{IdIndex, Index, IndexOrchestrator, Indexable, ReferenceIndex, TerminalIndex},
     id_uuid_v7::IdUuidV7,
     location::Location,
     lookup_kind::LookupKind,
-    persistence_manager::{RecordFile, RonFile, StorageManager},
     tag_id::TagId,
 };
 use std::{collections::BTreeSet, error::Error};
@@ -17,7 +17,7 @@ impl RecordWriter {
     /// its physical indexes, its categorical indexes and the global index, or
     /// nothing changed.
     pub(crate) fn add<R: Indexable>(
-        store: &mut StorageManager,
+        store: &mut DataPlacementOrchestrator,
         domain: &TagId,
         tags: BTreeSet<TagId>,
         build: impl FnOnce(IdUuidV7, BTreeSet<TagId>) -> R,
@@ -82,15 +82,19 @@ impl RecordWriter {
             }
         }
         let changes = workspace.finish()?;
-        let file = RecordFile::create(record_location, RonFile::render_compact(&record)?);
-        store.commit(file, changes)?;
+        let (indexes, global) = changes.into_parts();
+        store.persist(
+            RecordFile::create(record_location, &record),
+            &indexes,
+            global,
+        )?;
         Ok(id)
     }
 
     /// Rewrites an existing record after its tags changed and refreshes the
     /// aggregated tags of every index above it. References must not change.
     pub(crate) fn replace<R: Indexable>(
-        store: &mut StorageManager,
+        store: &mut DataPlacementOrchestrator,
         record: &R,
         location: &Location,
     ) -> Result<(), Box<dyn Error>> {
@@ -112,7 +116,11 @@ impl RecordWriter {
             _ => return Err("physical leaf is not a terminal index".into()),
         }
         let changes = workspace.finish()?;
-        let file = RecordFile::replace(location.clone(), RonFile::render_compact(record)?);
-        store.commit(file, changes)
+        let (indexes, global) = changes.into_parts();
+        store.persist(
+            RecordFile::replace(location.clone(), record),
+            &indexes,
+            global,
+        )
     }
 }

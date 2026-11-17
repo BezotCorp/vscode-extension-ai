@@ -1,9 +1,8 @@
 use crate::{
     conformance_intent::ConformanceIntent,
     criterion::Criterion,
-    graph_system::{Edge, EdgeId, Interpretation, Node, NodeId},
+    graph_system::{Edge, EdgeId, GraphReader, Interpretation, Node, NodeId},
     operation::Operation,
-    persistence_manager::StorageManager,
     tag_registry::TagRegistry,
     tool::Tool,
 };
@@ -23,16 +22,21 @@ impl RoutingGraph {
     /// Loads the graph by tag: the global index orients toward the physical
     /// hierarchy of each domain, whose aggregated tags then lead to the records.
     pub(crate) fn load(directory: &Path) -> Result<Self, Box<dyn Error>> {
-        let store = StorageManager::load(directory)?;
+        let store = GraphReader::open(directory)?;
+        let reader = GraphReader::new(&store);
         let mut nodes = BTreeMap::new();
         let criteria = |domain: &str| Criterion::set(&[domain, "physical"]);
-        for node in store.records_tagged::<Node>(&criteria("node")?, &store.tags().find("node")?)? {
+        for node in
+            reader.records_tagged::<Node>(&criteria("node")?, &store.tags().find("node")?)?
+        {
             if nodes.insert(node.base().id(), node).is_some() {
                 return Err("duplicate node identity".into());
             }
         }
         let mut edges = BTreeMap::new();
-        for edge in store.records_tagged::<Edge>(&criteria("edge")?, &store.tags().find("edge")?)? {
+        for edge in
+            reader.records_tagged::<Edge>(&criteria("edge")?, &store.tags().find("edge")?)?
+        {
             if edge.nodes().is_empty() || edge.nodes().iter().any(|node| !nodes.contains_key(node))
             {
                 return Err("edge links an unknown node or none".into());
@@ -43,7 +47,7 @@ impl RoutingGraph {
         }
         let tag = store.tags().find("interpretation")?;
         for interpretation in
-            store.records_tagged::<Interpretation>(&criteria("interpretation")?, &tag)?
+            reader.records_tagged::<Interpretation>(&criteria("interpretation")?, &tag)?
         {
             if !edges.contains_key(&interpretation.edge()) {
                 return Err("interpretation of an unknown edge".into());

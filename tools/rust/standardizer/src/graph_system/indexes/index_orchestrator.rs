@@ -1,12 +1,13 @@
 use crate::{
     criterion::Criterion,
+    data_placement::DataPlacementOrchestrator,
     global_entry::GlobalEntry,
     graph_system::{
-        INDEX_FILE_NAME, Index, IndexId, IndexReference, IntermediateIndex, OrchestratedIndex,
+        GraphReader, INDEX_FILE_NAME, Index, IndexChanges, IndexId, IndexReference,
+        IntermediateIndex, OrchestratedIndex,
     },
     location::Location,
     partition::Partition,
-    persistence_manager::{IndexChanges, RonFile, StorageManager},
 };
 use std::{
     cmp::Reverse,
@@ -16,13 +17,13 @@ use std::{
 
 /// Coordinates every index touched by one record operation before persistence.
 pub(crate) struct IndexOrchestrator<'a> {
-    store: &'a StorageManager,
+    store: &'a DataPlacementOrchestrator,
     indexes: BTreeMap<Location, OrchestratedIndex>,
     parents: BTreeMap<Location, Location>,
 }
 
 impl<'a> IndexOrchestrator<'a> {
-    pub(crate) fn new(store: &'a StorageManager) -> Self {
+    pub(crate) fn new(store: &'a DataPlacementOrchestrator) -> Self {
         Self {
             store,
             indexes: BTreeMap::new(),
@@ -79,7 +80,7 @@ impl<'a> IndexOrchestrator<'a> {
         }
 
         let orchestrated = match self.store.global().id_at(location) {
-            Some(id) => OrchestratedIndex::existing(id, self.store.open(id)?),
+            Some(id) => OrchestratedIndex::existing(id, GraphReader::new(self.store).index(id)?),
             None => {
                 // A new index is only legitimate where nothing exists: a file already
                 // there is a lost registration, not a new index.
@@ -144,7 +145,7 @@ impl<'a> IndexOrchestrator<'a> {
         let mut global = self.store.global().clone();
         let mut indexes = Vec::new();
 
-        for (location, orchestrated) in &self.indexes {
+        for (location, orchestrated) in self.indexes {
             if let Some(criteria) = orchestrated.registration() {
                 global.register(
                     orchestrated.id(),
@@ -152,14 +153,9 @@ impl<'a> IndexOrchestrator<'a> {
                 )?;
             }
 
-            indexes.push((
-                location.clone(),
-                RonFile::render_pretty(orchestrated.index())?,
-            ));
+            indexes.push((location, orchestrated.into_index()));
         }
 
-        let global_bytes = RonFile::render_pretty(&global)?;
-
-        Ok(IndexChanges::new(indexes, global, global_bytes))
+        Ok(IndexChanges::new(indexes, global))
     }
 }

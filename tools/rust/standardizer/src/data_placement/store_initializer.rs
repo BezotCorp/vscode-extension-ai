@@ -1,6 +1,6 @@
-use super::{
-    GLOBAL_INDEX_FILE, InitializationState, RonFile, StorageManager, StoreLock, TAG_REGISTRY_FILE,
-    WRITE_LOCATIONS_FILE, WriteTransaction,
+use super::storage::{
+    GLOBAL_INDEX_FILE, InitializationState, RonFile, StorageManager, TAG_REGISTRY_FILE,
+    WRITE_LOCATIONS_FILE,
 };
 use crate::{
     graph_system::GlobalIndex, tag_registry::TagRegistry, write_locations::WriteLocations,
@@ -8,7 +8,8 @@ use crate::{
 use std::{error::Error, path::Path};
 
 /// The only code allowed to bring a store to the initialized state, and only on
-/// explicit request. Normal operation never reaches it.
+/// explicit request. Normal operation never reaches it. The caller supplies the
+/// verification of the stored graph, which is a domain rule.
 pub(crate) struct StoreInitializer;
 
 impl StoreInitializer {
@@ -19,54 +20,43 @@ impl StoreInitializer {
         directory: &Path,
         tag_registry: &str,
         write_locations: &str,
+        verify: impl FnOnce(&Path) -> Result<(), Box<dyn Error>>,
     ) -> Result<(), Box<dyn Error>> {
-        Self::require(directory, InitializationState::Virgin, "initialize")?;
+        let storage = StorageManager::new(directory);
+        Self::require(&storage, InitializationState::Virgin, "initialize")?;
         let tags: TagRegistry = ron::from_str(tag_registry)?;
         tags.validate()?;
         let locations: WriteLocations = ron::from_str(write_locations)?;
         locations.validate(&tags)?;
 
-        let mut transaction = WriteTransaction::begin();
-        let outcome = (|| -> Result<(), Box<dyn Error>> {
-            transaction.create_directories(directory)?;
-            transaction.create_file(&directory.join(TAG_REGISTRY_FILE), tag_registry.as_bytes())?;
-            transaction.create_file(
-                &directory.join(WRITE_LOCATIONS_FILE),
-                write_locations.as_bytes(),
-            )?;
-            transaction.create_file(
-                &directory.join(GLOBAL_INDEX_FILE),
-                &RonFile::render_pretty(&GlobalIndex::empty())?,
-            )?;
-            StorageManager::load(directory)?;
-            StoreLock::create(directory)
-        })();
-        match outcome {
-            Ok(()) => {
-                transaction.commit();
-                Ok(())
-            }
-            Err(error) => match transaction.rollback() {
-                Ok(()) => Err(error),
-                Err(failures) => Err(format!("{error}; rollback incomplete: {failures}").into()),
-            },
-        }
+        let global = RonFile::render_pretty(&GlobalIndex::empty())?;
+        storage.create_store(
+            &[
+                (TAG_REGISTRY_FILE, tag_registry.as_bytes()),
+                (WRITE_LOCATIONS_FILE, write_locations.as_bytes()),
+                (GLOBAL_INDEX_FILE, &global),
+            ],
+            || verify(directory),
+        )
     }
 
     /// Declares an existing store initialized, once. It verifies the store as it
     /// is; no index is created, no identity changes, no record is rewritten.
-    pub(crate) fn adopt(directory: &Path) -> Result<(), Box<dyn Error>> {
-        Self::require(directory, InitializationState::AdoptionPending, "adopt")?;
-        StorageManager::load(directory)?;
-        StoreLock::create(directory)
+    pub(crate) fn adopt(
+        directory: &Path,
+        verify: impl FnOnce(&Path) -> Result<(), Box<dyn Error>>,
+    ) -> Result<(), Box<dyn Error>> {
+        let storage = StorageManager::new(directory);
+        Self::require(&storage, InitializationState::AdoptionPending, "adopt")?;
+        storage.seal(|| verify(directory))
     }
 
     fn require(
-        directory: &Path,
+        storage: &StorageManager,
         expected: InitializationState,
         action: &str,
     ) -> Result<(), Box<dyn Error>> {
-        let state = InitializationState::inspect(directory)?;
+        let state = storage.inspect()?;
         if state == expected {
             return Ok(());
         }

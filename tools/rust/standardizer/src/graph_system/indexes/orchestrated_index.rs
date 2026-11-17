@@ -37,6 +37,10 @@ impl OrchestratedIndex {
         &self.index
     }
 
+    pub(crate) fn into_index(self) -> Index {
+        self.index
+    }
+
     pub(crate) fn index_mut(&mut self) -> &mut Index {
         &mut self.index
     }

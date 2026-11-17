@@ -1,15 +1,15 @@
 use crate::{
     criterion::Criterion,
+    data_placement::DataPlacementOrchestrator,
     graph_system::{
-        Edge, EdgeBase, EdgeId, Indexable, Interpretation, InterpretationBase, Node, NodeBase,
-        NodeId,
+        Edge, EdgeBase, EdgeId, GraphReader, Indexable, Interpretation, InterpretationBase, Node,
+        NodeBase, NodeId,
     },
     id_uuid_v7::IdUuidV7,
     location::Location,
     mutation::Mutation,
     mutation_base::MutationBase,
     mutation_operation::MutationOperation,
-    persistence_manager::StorageManager,
     record_writer::RecordWriter,
     tag_id::TagId,
 };
@@ -19,12 +19,12 @@ use std::{collections::BTreeSet, error::Error};
 /// added automatically and never propagated from one object to another.
 #[allow(dead_code, reason = "authoring API without a CLI caller yet")]
 pub(crate) struct RoutingWriter {
-    store: StorageManager,
+    store: DataPlacementOrchestrator,
 }
 
 #[allow(dead_code, reason = "authoring API without a CLI caller yet")]
 impl RoutingWriter {
-    pub(crate) fn new(store: StorageManager) -> Self {
+    pub(crate) fn new(store: DataPlacementOrchestrator) -> Self {
         Self { store }
     }
 
@@ -95,8 +95,7 @@ impl RoutingWriter {
     /// Finds the pending mutations through the indexes and finishes them.
     pub(crate) fn resume_pending(&mut self) -> Result<usize, Box<dyn Error>> {
         let pending = self.store.tags().find("pending")?;
-        let found = self
-            .store
+        let found = GraphReader::new(&self.store)
             .records_tagged::<Mutation>(&Criterion::set(&["mutation", "physical"])?, &pending)?;
         let count = found.len();
         for mutation in found {
@@ -126,13 +125,13 @@ impl RoutingWriter {
         RecordWriter::replace(&mut self.store, &node, &node_location)?;
         let edge_tag = self.store.tags().find("edge")?;
         let partition = self.store.destinations().for_tag(&edge_tag)?.partition();
-        let referrers = self.store.referrers(
+        let referrers = GraphReader::new(&self.store).referrers(
             &Criterion::set(&["edge", "node", "reference"])?,
             partition,
             node_id.id_uuid_v7(),
         )?;
         for (edge_id, edge_location) in referrers {
-            let mut edge: Edge = self.store.read_record(&edge_location)?;
+            let mut edge: Edge = self.store.read(&edge_location)?;
             if edge.id() != edge_id || !edge.nodes().contains(&node_id) {
                 return Err("stale edge reference index".into());
             }
@@ -174,11 +173,10 @@ impl RoutingWriter {
     ) -> Result<(R, Location), Box<dyn Error>> {
         let tag = self.store.tags().find(domain)?;
         let partition = self.store.destinations().for_tag(&tag)?.partition();
-        let location = self
-            .store
+        let location = GraphReader::new(&self.store)
             .locate(&Criterion::set(&[domain, "uuid"])?, partition, id)?
             .ok_or_else(|| format!("unknown {domain}: {id}"))?;
-        let record: R = self.store.read_record(&location)?;
+        let record: R = self.store.read(&location)?;
         if record.id() != id {
             return Err(format!("stale id index for {domain}: {id}").into());
         }

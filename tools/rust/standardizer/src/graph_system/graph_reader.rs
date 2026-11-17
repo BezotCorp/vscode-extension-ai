@@ -1,113 +1,45 @@
-use super::{
-    GLOBAL_INDEX_FILE, IndexChanges, InitializationState, RecordFile, RonFile, WriteTransaction,
-};
 use crate::{
     criterion::Criterion,
-    graph_system::{GlobalIndex, INDEX_FILE_NAME, Index, IndexId, Indexable},
+    data_placement::DataPlacementOrchestrator,
+    graph_system::{INDEX_FILE_NAME, Index, IndexId, Indexable},
     id_uuid_v7::IdUuidV7,
     location::Location,
     partition::Partition,
     tag_id::TagId,
-    tag_registry::TagRegistry,
-    write_locations::WriteLocations,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
     error::Error,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
-pub(crate) const TAG_REGISTRY_FILE: &str = "tag_registry.ron";
-pub(crate) const WRITE_LOCATIONS_FILE: &str = "write_locations.ron";
-
-/// Access to and persistence of every stored datum, indexes included: tag registry,
-/// write configuration, global index, index files and records, plus the searches
-/// needed to reach them.
-pub(crate) struct StorageManager {
-    directory: PathBuf,
-    tags: TagRegistry,
-    global: GlobalIndex,
-    destinations: WriteLocations,
-    initialized: bool,
+/// Reads the graph through the placement orchestrator: which indexes to consult,
+/// how to traverse them, and the rules a stored graph must satisfy. It decides
+/// nothing about where or how data lives.
+pub(crate) struct GraphReader<'a> {
+    placement: &'a DataPlacementOrchestrator,
 }
 
-impl StorageManager {
-    /// The store of this repository.
-    pub(crate) fn default_directory() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../data/standardizer")
+impl<'a> GraphReader<'a> {
+    pub(crate) fn new(placement: &'a DataPlacementOrchestrator) -> Self {
+        Self { placement }
     }
 
-    /// Opens an existing store. It never creates one: a new system is only made by
-    /// `StoreInitializer`. A store waiting for adoption can be read, not written.
-    pub(crate) fn load(directory: &Path) -> Result<Self, Box<dyn Error>> {
-        let initialized = match InitializationState::inspect(directory)? {
-            InitializationState::Initialized => true,
-            InitializationState::AdoptionPending => false,
-            InitializationState::Virgin => {
-                return Err(format!(
-                    "no store at {}: initialize it explicitly",
-                    directory.display()
-                )
-                .into());
-            }
-            InitializationState::Anomaly(anomaly) => {
-                return Err(format!("{}: {anomaly}", directory.display()).into());
-            }
-        };
-        let tags: TagRegistry = RonFile::read(&directory.join(TAG_REGISTRY_FILE))?;
-        tags.validate()?;
-        let destinations: WriteLocations = RonFile::read(&directory.join(WRITE_LOCATIONS_FILE))?;
-        destinations.validate(&tags)?;
-        let store = Self {
-            directory: directory.to_path_buf(),
-            tags,
-            global: RonFile::read(&directory.join(GLOBAL_INDEX_FILE))?,
-            destinations,
-            initialized,
-        };
-        store.verify()?;
-        Ok(store)
+    /// Opens an existing store and verifies its graph before handing it over.
+    pub(crate) fn open(directory: &Path) -> Result<DataPlacementOrchestrator, Box<dyn Error>> {
+        let placement = DataPlacementOrchestrator::load(directory)?;
+        GraphReader::new(&placement).verify()?;
+        Ok(placement)
     }
 
-    /// Writes are refused until the store has its `.lock`.
-    pub(crate) fn require_initialized(&self) -> Result<(), Box<dyn Error>> {
-        if self.initialized {
-            return Ok(());
-        }
-        Err("the store is not initialized: adopt it explicitly before writing".into())
-    }
-
-    pub(crate) fn tags(&self) -> &TagRegistry {
-        &self.tags
-    }
-
-    pub(crate) fn global(&self) -> &GlobalIndex {
-        &self.global
-    }
-
-    pub(crate) fn destinations(&self) -> &WriteLocations {
-        &self.destinations
-    }
-
-    pub(crate) fn global_index_path(&self) -> PathBuf {
-        self.directory.join(GLOBAL_INDEX_FILE)
-    }
-
-    pub(crate) fn replace_global(&mut self, global: GlobalIndex) {
-        self.global = global;
-    }
-
-    pub(crate) fn into_tags(self) -> TagRegistry {
-        self.tags
-    }
-
-    /// Direct access to an index by identity through the global index.
-    pub(crate) fn open(&self, id: IndexId) -> Result<Index, Box<dyn Error>> {
+    /// An index by identity, through the global index.
+    pub(crate) fn index(&self, id: IndexId) -> Result<Index, Box<dyn Error>> {
         let entry = self
-            .global
+            .placement
+            .global()
             .get(id)
             .ok_or_else(|| format!("index unknown to the global index: {id}"))?;
-        let index: Index = RonFile::read(&entry.location().resolve(&self.directory))?;
+        let index: Index = self.placement.read(entry.location())?;
         if index.id() != id {
             return Err(format!(
                 "index identity differs from the global index: {}",
@@ -116,13 +48,6 @@ impl StorageManager {
             .into());
         }
         Ok(index)
-    }
-
-    pub(crate) fn read_record<R: Indexable>(
-        &self,
-        location: &Location,
-    ) -> Result<R, Box<dyn Error>> {
-        RonFile::read(&location.resolve(&self.directory))
     }
 
     /// File of the record `id`, through the id indexes matching `criteria` and
@@ -134,7 +59,7 @@ impl StorageManager {
         id: IdUuidV7,
     ) -> Result<Option<Location>, Box<dyn Error>> {
         for (index, _) in self.shards(criteria, partition, id)? {
-            if let Index::Id(ids) = self.open(index)?
+            if let Index::Id(ids) = self.index(index)?
                 && let Some(location) = ids.entries().get(&id)
             {
                 return Ok(Some(location.clone()));
@@ -152,7 +77,7 @@ impl StorageManager {
     ) -> Result<Vec<(IdUuidV7, Location)>, Box<dyn Error>> {
         let mut found = Vec::new();
         for (index, _) in self.shards(criteria, partition, referenced)? {
-            if let Index::Reference(references) = self.open(index)?
+            if let Index::Reference(references) = self.index(index)?
                 && let Some(referrers) = references.entries().get(&referenced)
             {
                 found.extend(
@@ -174,7 +99,8 @@ impl StorageManager {
         let mut query = criteria.clone();
         query.insert(Partition::coordinate(&partition.segments(key)?)?);
         Ok(self
-            .global
+            .placement
+            .global()
             .find(&query)
             .into_iter()
             .map(|(id, entry)| (id, entry.location().clone()))
@@ -188,7 +114,7 @@ impl StorageManager {
         criteria: &BTreeSet<Criterion>,
         tag: &TagId,
     ) -> Result<Vec<R>, Box<dyn Error>> {
-        let matches = self.global.find(criteria);
+        let matches = self.placement.global().find(criteria);
         let locations: BTreeSet<&Location> =
             matches.iter().map(|(_, entry)| entry.location()).collect();
         let mut records = Vec::new();
@@ -212,7 +138,7 @@ impl StorageManager {
         tag: &TagId,
         records: &mut Vec<R>,
     ) -> Result<(), Box<dyn Error>> {
-        match self.open(index)? {
+        match self.index(index)? {
             Index::Intermediate(intermediate) => {
                 for (child, reference) in intermediate.children() {
                     if reference.tags().contains(tag) {
@@ -222,7 +148,8 @@ impl StorageManager {
             }
             Index::Terminal(terminal) => {
                 let folder = self
-                    .global
+                    .placement
+                    .global()
                     .get(index)
                     .and_then(|entry| entry.location().directory())
                     .ok_or("index without folder")?;
@@ -230,7 +157,7 @@ impl StorageManager {
                     if !tags.contains(tag) {
                         continue;
                     }
-                    let record: R = self.read_record(&folder.join(&id.file_name())?)?;
+                    let record: R = self.placement.read(&folder.join(&id.file_name())?)?;
                     if record.id() != *id || record.tags() != tags {
                         return Err(format!("stale index entry for record {id}").into());
                     }
@@ -242,54 +169,8 @@ impl StorageManager {
         Ok(())
     }
 
-    /// Record first, global index last: the global index is the commit point.
-    /// On failure every applied change is reverted.
-    pub(crate) fn commit(
-        &mut self,
-        file: RecordFile,
-        changes: IndexChanges,
-    ) -> Result<(), Box<dyn Error>> {
-        let directory = self.directory.clone();
-        let mut transaction = WriteTransaction::begin();
-        let outcome = (|| -> Result<(), Box<dyn Error>> {
-            let (location, bytes, create) = file.parts();
-            let path = location.resolve(&directory);
-            transaction.create_directories(path.parent().ok_or("record without folder")?)?;
-            for (index, _) in changes.indexes() {
-                let index_path = index.resolve(&directory);
-                transaction
-                    .create_directories(index_path.parent().ok_or("index without folder")?)?;
-            }
-            if create {
-                transaction.create_file(&path, bytes)?;
-            } else {
-                transaction.replace_file(&path, bytes)?;
-            }
-            for (index, bytes) in changes.indexes() {
-                transaction.replace_file(&index.resolve(&directory), bytes)?;
-            }
-            transaction.replace_file(&self.global_index_path(), changes.global_bytes())
-        })();
-        match outcome {
-            Ok(()) => {
-                transaction.commit();
-                self.replace_global(changes.into_global());
-                Ok(())
-            }
-            Err(error) => match transaction.rollback() {
-                Ok(()) => Err(error),
-                Err(failures) => Err(format!("{error}; rollback incomplete: {failures}").into()),
-            },
-        }
-    }
-
-    /// Whether a file already exists at `location`.
-    pub(crate) fn contains(&self, location: &Location) -> bool {
-        location.resolve(&self.directory).exists()
-    }
-
     fn check_registered(&self, tags: &BTreeSet<TagId>) -> Result<(), Box<dyn Error>> {
-        if tags.iter().any(|tag| !self.tags.contains(tag)) {
+        if tags.iter().any(|tag| !self.placement.tags().contains(tag)) {
             return Err("unregistered tag reference".into());
         }
         Ok(())
@@ -303,7 +184,7 @@ impl StorageManager {
         let mut records: BTreeMap<IdUuidV7, Location> = BTreeMap::new();
         let mut located: BTreeMap<IdUuidV7, Location> = BTreeMap::new();
         let mut referrers = Vec::new();
-        for (id, entry) in self.global.iter() {
+        for (id, entry) in self.placement.global().iter() {
             let location = entry.location();
             if location.file_name() != Some(INDEX_FILE_NAME.as_ref())
                 || location.directory().is_none()
@@ -318,7 +199,7 @@ impl StorageManager {
                 .into());
             }
 
-            let index = self.open(id)?;
+            let index = self.index(id)?;
             let tags = index.tags();
             self.check_registered(&tags)?;
             if tags != index.aggregate() {
@@ -331,7 +212,7 @@ impl StorageManager {
                     for (record, entry_tags) in terminal.entries() {
                         self.check_registered(entry_tags)?;
                         let file = folder.join(&record.file_name())?;
-                        if !file.resolve(&self.directory).is_file() {
+                        if !self.placement.contains_file(&file) {
                             return Err(format!("missing record file: {file}").into());
                         }
                         if records.insert(*record, file).is_some() {
@@ -363,10 +244,15 @@ impl StorageManager {
         let mut parents: BTreeMap<IndexId, IndexId> = BTreeMap::new();
         for (parent, child, reference) in &children {
             let entry = self
-                .global
+                .placement
+                .global()
                 .get(*child)
                 .ok_or_else(|| format!("child unknown to the global index: {child}"))?;
-            let parent_location = self.global.get(*parent).map(|entry| entry.location());
+            let parent_location = self
+                .placement
+                .global()
+                .get(*parent)
+                .map(|entry| entry.location());
             if entry.location() != reference.location()
                 || index_tags.get(child) != Some(reference.tags())
             {
@@ -422,7 +308,7 @@ impl StorageManager {
             }
         }
         // Every parent chain must end at a root: no index may belong to a cycle.
-        let limit = self.global.iter().count();
+        let limit = self.placement.global().iter().count();
         for start in parents.keys() {
             let mut current = start;
             let mut steps = 0;
