@@ -66,4 +66,4 @@ Reference: [memory_ai_system.md](memory_ai_system.md).
 
 ---
 
-[← Back to the developer guide](../FOR_DEVELOPERS.md)
+[← Back to the developer guide](../../FOR_DEVELOPERS.md)

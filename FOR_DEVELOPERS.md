@@ -38,13 +38,13 @@ Important areas include:
 
 To understand the current technical architecture:
 
-[Read the architecture documentation →](docs/architecture.md)
+[Read the architecture documentation →](docs/en/architecture.md)
 
 ## Current Development Work
 
 To see remaining implementation and validation work:
 
-[View the current TODO →](docs/todo.md)
+[View the current TODO →](docs/en/todo.md)
 
 ## Contributing
 

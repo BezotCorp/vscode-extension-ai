@@ -290,4 +290,4 @@ Some runtime behavior still requires validation in the VS Code Extension Develop
 
 ---
 
-[← Back to the developer guide](../FOR_DEVELOPERS.md)
+[← Back to the developer guide](../../FOR_DEVELOPERS.md)

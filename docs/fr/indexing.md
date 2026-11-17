@@ -120,4 +120,4 @@ Ce contrat **ne valide pas automatiquement** les classes existantes. Dans `stand
 
 Ces constats servent à **auditer les écarts**, non à imposer un renommage ou une réécriture générale. Toute remise en conformité doit commencer par des tests de comportement et préserver les données RON ; un changement de format exige une migration vérifiée.
 
-Référence complémentaire : [README du Standardizer](../../tools/rust/standardizer/README.md), qui décrit les formats et le fonctionnement actuel.
+Référence complémentaire : [README du Standardizer](../../tools/rust/standardizer/README.md), qui décrit les formats et le fonctionnement actuel. [Version anglaise du contrat](../en/indexing.md).
