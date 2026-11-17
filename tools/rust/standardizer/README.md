@@ -46,7 +46,7 @@ it does not use interpretations.
 
 ## Transactions
 
-Creating a record (`RecordWriter::add`) or retagging one (`RecordWriter::replace`) is one
+Creating a record (`RecordCreationPipeline`) or retagging one (`RecordReplacementPipeline`) is one
 transaction: file, terminal and categorical indexes, parent indexes, then the global index (commit
 point). On failure the changes are reverted. A mutation is written first, then applied step by step
 (node, edges found through the reference index, indexes, aggregates) and marked `done`; steps are

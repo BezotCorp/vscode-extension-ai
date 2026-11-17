@@ -1,7 +1,6 @@
 use crate::{
     conformance_intent::ConformanceIntent,
-    criterion::Criterion,
-    graph_system::{Edge, EdgeId, GraphReader, Interpretation, Node, NodeId},
+    graph_system::{Edge, EdgeId, Node, NodeId},
     operation::Operation,
     tag_registry::TagRegistry,
     tool::Tool,
@@ -12,6 +11,10 @@ use std::{
     path::Path,
 };
 
+mod routing_graph_loading_pipeline;
+
+pub(crate) use routing_graph_loading_pipeline::RoutingGraphLoadingPipeline;
+
 pub(crate) struct RoutingGraph {
     tags: TagRegistry,
     nodes: BTreeMap<NodeId, Node>,
@@ -19,49 +22,6 @@ pub(crate) struct RoutingGraph {
 }
 
 impl RoutingGraph {
-    /// Loads the graph by tag: the global index orients toward the physical
-    /// hierarchy of each domain, whose aggregated tags then lead to the records.
-    pub(crate) fn load(directory: &Path) -> Result<Self, Box<dyn Error>> {
-        let store = GraphReader::open(directory)?;
-        let reader = GraphReader::new(&store);
-        let mut nodes = BTreeMap::new();
-        let criteria = |domain: &str| Criterion::set(&[domain, "physical"]);
-        for node in
-            reader.records_tagged::<Node>(&criteria("node")?, &store.tags().find("node")?)?
-        {
-            if nodes.insert(node.base().id(), node).is_some() {
-                return Err("duplicate node identity".into());
-            }
-        }
-        let mut edges = BTreeMap::new();
-        for edge in
-            reader.records_tagged::<Edge>(&criteria("edge")?, &store.tags().find("edge")?)?
-        {
-            if edge.nodes().is_empty() || edge.nodes().iter().any(|node| !nodes.contains_key(node))
-            {
-                return Err("edge links an unknown node or none".into());
-            }
-            if edges.insert(edge.base().id(), edge).is_some() {
-                return Err("duplicate edge identity".into());
-            }
-        }
-        let tag = store.tags().find("interpretation")?;
-        for interpretation in
-            reader.records_tagged::<Interpretation>(&criteria("interpretation")?, &tag)?
-        {
-            if !edges.contains_key(&interpretation.edge()) {
-                return Err("interpretation of an unknown edge".into());
-            }
-        }
-        let graph = Self {
-            tags: store.into_tags(),
-            nodes,
-            edges,
-        };
-        graph.validate_connections()?;
-        Ok(graph)
-    }
-
     fn tagged(&self, name: &str) -> Result<Vec<&Node>, Box<dyn Error>> {
         let tag = self.tags.find(name)?;
         Ok(self

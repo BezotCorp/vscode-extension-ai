@@ -10,9 +10,12 @@ use crate::{
     mutation::Mutation,
     mutation_base::MutationBase,
     mutation_operation::MutationOperation,
-    record_writer::RecordWriter,
+    record_creation_pipeline::RecordCreationPipeline,
     tag_id::TagId,
 };
+mod mutation_application_pipeline;
+
+use self::mutation_application_pipeline::MutationApplicationPipeline;
 use std::{collections::BTreeSet, error::Error};
 
 /// Creation and mutation of routing graph data. Each domain's structural tag is
@@ -35,7 +38,7 @@ impl RoutingWriter {
         build: impl FnOnce(NodeBase) -> Node,
     ) -> Result<NodeId, Box<dyn Error>> {
         let domain = self.store.tags().find("node")?;
-        let id = RecordWriter::add(&mut self.store, &domain, tags, |id, tags| {
+        let id = RecordCreationPipeline::run(&mut self.store, &domain, tags, |id, tags| {
             build(NodeBase::new(id.into(), tags))
         })?;
         Ok(id.into())
@@ -48,7 +51,7 @@ impl RoutingWriter {
         }
         let tags = self.node_tags(&nodes)?;
         let domain = self.store.tags().find("edge")?;
-        let id = RecordWriter::add(&mut self.store, &domain, tags, |id, tags| {
+        let id = RecordCreationPipeline::run(&mut self.store, &domain, tags, |id, tags| {
             Edge::new(EdgeBase::new(id.into(), tags), nodes)
         })?;
         Ok(id.into())
@@ -62,7 +65,7 @@ impl RoutingWriter {
     ) -> Result<IdUuidV7, Box<dyn Error>> {
         self.record::<Edge>("edge", edge.id_uuid_v7())?;
         let domain = self.store.tags().find("interpretation")?;
-        RecordWriter::add(&mut self.store, &domain, tags, |id, tags| {
+        RecordCreationPipeline::run(&mut self.store, &domain, tags, |id, tags| {
             Interpretation::new(InterpretationBase::new(id, tags), edge)
         })
     }
@@ -81,14 +84,14 @@ impl RoutingWriter {
         }
         let domain = self.store.tags().find("mutation")?;
         let pending = self.store.tags().find("pending")?;
-        let id = RecordWriter::add(
+        let id = RecordCreationPipeline::run(
             &mut self.store,
             &domain,
             BTreeSet::from([pending]),
             |id, tags| Mutation::new(MutationBase::new(id, tags), operation),
         )?;
         let (mutation, location) = self.record::<Mutation>("mutation", id)?;
-        self.apply(mutation, &location)?;
+        MutationApplicationPipeline::run(self, mutation, &location)?;
         Ok(id)
     }
 
@@ -100,53 +103,9 @@ impl RoutingWriter {
         let count = found.len();
         for mutation in found {
             let (mutation, location) = self.record::<Mutation>("mutation", mutation.id())?;
-            self.apply(mutation, &location)?;
+            MutationApplicationPipeline::run(self, mutation, &location)?;
         }
         Ok(count)
-    }
-
-    /// Idempotent: each step checks what is already done, so a crash anywhere
-    /// leaves a pending mutation that can be applied again.
-    fn apply(&mut self, mut mutation: Mutation, location: &Location) -> Result<(), Box<dyn Error>> {
-        let (node_id, tag, add) = match mutation.operation() {
-            MutationOperation::AddNodeTag { node, tag } => (node, tag, true),
-            MutationOperation::RemoveNodeTag { node, tag } => (node, tag, false),
-        };
-        let (mut node, node_location) = self.record::<Node>("node", node_id.id_uuid_v7())?;
-        let mut tags = node.base().tags().clone();
-        if add {
-            tags.insert(tag);
-        } else {
-            tags.remove(&tag);
-        }
-        node.set_tags(tags);
-        // Always replayed: identical files are skipped and indexes are recomputed,
-        // which also repairs a replay after a crash between a file and its indexes.
-        RecordWriter::replace(&mut self.store, &node, &node_location)?;
-        let edge_tag = self.store.tags().find("edge")?;
-        let partition = self.store.destinations().for_tag(&edge_tag)?.partition();
-        let referrers = GraphReader::new(&self.store).referrers(
-            &Criterion::set(&["edge", "node", "reference"])?,
-            partition,
-            node_id.id_uuid_v7(),
-        )?;
-        for (edge_id, edge_location) in referrers {
-            let mut edge: Edge = self.store.read(&edge_location)?;
-            if edge.id() != edge_id || !edge.nodes().contains(&node_id) {
-                return Err("stale edge reference index".into());
-            }
-            let mut expected = self.node_tags(edge.nodes())?;
-            expected.insert(edge_tag);
-            edge.set_tags(expected);
-            RecordWriter::replace(&mut self.store, &edge, &edge_location)?;
-        }
-        let pending = self.store.tags().find("pending")?;
-        let done = self.store.tags().find("done")?;
-        let mut tags = mutation.tags().clone();
-        tags.remove(&pending);
-        tags.insert(done);
-        mutation.set_tags(tags);
-        RecordWriter::replace(&mut self.store, &mutation, location)
     }
 
     /// Union of the non-structural tags of the given nodes.

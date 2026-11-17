@@ -62,20 +62,21 @@ impl StorageManager {
     ) -> Result<(), Box<dyn Error>> {
         let mut transaction = WriteTransaction::begin();
         let outcome = (|| -> Result<(), Box<dyn Error>> {
-            let path = record.location.resolve(&self.directory);
+            let path = record.location().resolve(&self.directory);
             transaction.create_directories(path.parent().ok_or("record without folder")?)?;
             for index in &indexes {
-                let index_path = index.location.resolve(&self.directory);
+                let index_path = index.location().resolve(&self.directory);
                 transaction
                     .create_directories(index_path.parent().ok_or("index without folder")?)?;
             }
-            if record.create {
-                transaction.create_file(&path, &record.bytes)?;
+            if record.creates() {
+                transaction.create_file(&path, record.bytes())?;
             } else {
-                transaction.replace_file(&path, &record.bytes)?;
+                transaction.replace_file(&path, record.bytes())?;
             }
             for index in &indexes {
-                transaction.replace_file(&index.location.resolve(&self.directory), &index.bytes)?;
+                transaction
+                    .replace_file(&index.location().resolve(&self.directory), index.bytes())?;
             }
             transaction.replace_file(&self.directory.join(GLOBAL_INDEX_FILE), global)
         })();

@@ -2,21 +2,21 @@ use crate::{
     data_placement::{DataPlacementOrchestrator, RecordFile},
     graph_system::{IdIndex, Index, IndexOrchestrator, Indexable, ReferenceIndex, TerminalIndex},
     id_uuid_v7::IdUuidV7,
-    location::Location,
     lookup_kind::LookupKind,
     tag_id::TagId,
 };
 use std::{collections::BTreeSet, error::Error};
 
-/// Creates or retags records and keeps every index consistent, for any domain.
-pub(crate) struct RecordWriter;
+/// Creation of a record: identity and tags, routing, physical and categorical
+/// indexes, then persistence of the record, its indexes and the global index.
+pub(crate) struct RecordCreationPipeline;
 
-impl RecordWriter {
+impl RecordCreationPipeline {
     /// Creates a record tagged with `domain` plus `tags`, written where the write
     /// configuration routes those tags. Either the record is reachable through
     /// its physical indexes, its categorical indexes and the global index, or
     /// nothing changed.
-    pub(crate) fn add<R: Indexable>(
+    pub(crate) fn run<R: Indexable>(
         store: &mut DataPlacementOrchestrator,
         domain: &TagId,
         tags: BTreeSet<TagId>,
@@ -89,38 +89,5 @@ impl RecordWriter {
             global,
         )?;
         Ok(id)
-    }
-
-    /// Rewrites an existing record after its tags changed and refreshes the
-    /// aggregated tags of every index above it. References must not change.
-    pub(crate) fn replace<R: Indexable>(
-        store: &mut DataPlacementOrchestrator,
-        record: &R,
-        location: &Location,
-    ) -> Result<(), Box<dyn Error>> {
-        store.require_initialized()?;
-        let destination = store.destinations().select(record.tags())?;
-        let mut workspace = IndexOrchestrator::new(store);
-        let segments = destination.partition().segments(record.id())?;
-        let leaf = workspace.open(
-            destination.root(),
-            &segments,
-            destination.criteria(),
-            &|index| Index::Terminal(TerminalIndex::new(index)),
-        )?;
-        if leaf.directory() != location.directory() {
-            return Err("record is not stored where its identity routes it".into());
-        }
-        match workspace.index_mut(&leaf)? {
-            Index::Terminal(terminal) => terminal.retag(record.id(), record.tags().clone())?,
-            _ => return Err("physical leaf is not a terminal index".into()),
-        }
-        let changes = workspace.finish()?;
-        let (indexes, global) = changes.into_parts();
-        store.persist(
-            RecordFile::replace(location.clone(), record),
-            &indexes,
-            global,
-        )
     }
 }

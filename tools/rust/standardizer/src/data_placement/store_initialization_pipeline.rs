@@ -7,12 +7,12 @@ use crate::{
 };
 use std::{error::Error, path::Path};
 
-/// The only code allowed to bring a store to the initialized state, and only on
+/// Initialization or adoption of a store. The only code allowed to bring a store to the initialized state, and only on
 /// explicit request. Normal operation never reaches it. The caller supplies the
 /// verification of the stored graph, which is a domain rule.
-pub(crate) struct StoreInitializer;
+pub(crate) struct StoreInitializationPipeline;
 
-impl StoreInitializer {
+impl StoreInitializationPipeline {
     /// Creates a new, empty system in a really virgin location from the given
     /// tag registry and write configuration. `.lock` is created last, after the
     /// whole store loads and verifies; any earlier failure removes what this call created.

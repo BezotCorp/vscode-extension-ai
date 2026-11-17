@@ -1,6 +1,11 @@
 use crate::{
-    biome::Biome, conformance_intent::ConformanceIntent, data_placement::DataPlacementOrchestrator,
-    routing_graph::RoutingGraph, rustfmt::Rustfmt, tool::Tool, tracked_file::TrackedFile,
+    biome::Biome,
+    conformance_intent::ConformanceIntent,
+    data_placement::DataPlacementOrchestrator,
+    routing_graph::{RoutingGraph, RoutingGraphLoadingPipeline},
+    rustfmt::Rustfmt,
+    tool::Tool,
+    tracked_file::TrackedFile,
 };
 use std::{collections::BTreeMap, error::Error, path::Path};
 pub(crate) struct Conformance {
@@ -9,7 +14,9 @@ pub(crate) struct Conformance {
 impl Conformance {
     pub(crate) fn load() -> Result<Self, Box<dyn Error>> {
         Ok(Self {
-            graph: RoutingGraph::load(&DataPlacementOrchestrator::default_directory())?,
+            graph: RoutingGraphLoadingPipeline::run(
+                &DataPlacementOrchestrator::default_directory(),
+            )?,
         })
     }
     pub(crate) fn execute(

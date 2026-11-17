@@ -1,5 +1,5 @@
 use crate::{
-    data_placement::{DataPlacementOrchestrator, StoreInitializer},
+    data_placement::{DataPlacementOrchestrator, StoreInitializationPipeline},
     graph_system::GraphReader,
 };
 use std::{
@@ -47,7 +47,7 @@ impl StoreCommand {
                 tag_registry,
                 write_locations,
             } => {
-                StoreInitializer::initialize(
+                StoreInitializationPipeline::initialize(
                     &directory,
                     &fs::read_to_string(tag_registry)?,
                     &fs::read_to_string(write_locations)?,
@@ -57,7 +57,7 @@ impl StoreCommand {
             }
             Self::Adopt => {
                 let directory = DataPlacementOrchestrator::default_directory();
-                StoreInitializer::adopt(&directory, Self::verify)?;
+                StoreInitializationPipeline::adopt(&directory, Self::verify)?;
                 ("adopted", directory)
             }
         };

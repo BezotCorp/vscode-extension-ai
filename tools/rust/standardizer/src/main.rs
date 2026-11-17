@@ -2,6 +2,7 @@ mod biome;
 mod cargo_metadata;
 mod conformance;
 mod conformance_intent;
+mod conformance_pipeline;
 mod creation_date;
 mod criterion;
 mod data_placement;
@@ -20,7 +21,8 @@ mod mutation_operation;
 mod operation;
 mod operation_node;
 mod partition;
-mod record_writer;
+mod record_creation_pipeline;
+mod record_replacement_pipeline;
 mod relative_path;
 mod repository;
 mod routing_graph;
@@ -37,8 +39,7 @@ mod tracked_file;
 mod write_destination;
 mod write_locations;
 
-use crate::conformance_intent::ConformanceIntent;
-use crate::repository::Repository;
+use crate::conformance_pipeline::ConformancePipeline;
 use crate::store_command::StoreCommand;
 use std::{error::Error, process::ExitCode};
 
@@ -57,9 +58,5 @@ fn run() -> Result<(), Box<dyn Error>> {
     if let Some(command) = StoreCommand::parse(&arguments)? {
         return command.run();
     }
-    let intent = ConformanceIntent::from_arguments(arguments.into_iter())?;
-    let repository = Repository::discover()?;
-    let files = repository.candidates()?;
-    repository.conform(&files, intent)?;
-    Ok(())
+    ConformancePipeline::run(arguments)
 }

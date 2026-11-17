@@ -34,7 +34,7 @@ impl DataPlacementOrchestrator {
     }
 
     /// Opens an existing store. It never creates one: a new system is only made by
-    /// `StoreInitializer`. A store waiting for adoption can be read, not written.
+    /// `StoreInitializationPipeline`. A store waiting for adoption can be read, not written.
     /// Domain verification of what was loaded is up to the caller.
     pub(crate) fn load(directory: &Path) -> Result<Self, Box<dyn Error>> {
         let storage = StorageManager::new(directory);
