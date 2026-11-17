@@ -2,8 +2,6 @@ use crate::{
     global_index::GlobalIndex,
     graph_store::{GraphStore, TAG_REGISTRY_FILE, WRITE_LOCATIONS_FILE},
     initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
-    lock_protection::LockProtection,
-    protection::Protection,
     ron_file::RonFile,
     store_lock::StoreLock,
     tag_registry::TagRegistry,
@@ -24,7 +22,7 @@ impl StoreInitializer {
         directory: &Path,
         tag_registry: &str,
         write_locations: &str,
-    ) -> Result<Protection, Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         Self::require(directory, InitializationState::Virgin, "initialize")?;
         let tags: TagRegistry = ron::from_str(tag_registry)?;
         tags.validate()?;
@@ -49,7 +47,7 @@ impl StoreInitializer {
         match outcome {
             Ok(()) => {
                 transaction.commit();
-                LockProtection::protect(directory)
+                Ok(())
             }
             Err(error) => match transaction.rollback() {
                 Ok(()) => Err(error),
@@ -60,11 +58,10 @@ impl StoreInitializer {
 
     /// Declares an existing store initialized, once. It verifies the store as it
     /// is; no index is created, no identity changes, no record is rewritten.
-    pub(crate) fn adopt(directory: &Path) -> Result<Protection, Box<dyn Error>> {
+    pub(crate) fn adopt(directory: &Path) -> Result<(), Box<dyn Error>> {
         Self::require(directory, InitializationState::AdoptionPending, "adopt")?;
         GraphStore::load(directory)?;
-        StoreLock::create(directory)?;
-        LockProtection::protect(directory)
+        StoreLock::create(directory)
     }
 
     fn require(

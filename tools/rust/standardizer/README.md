@@ -64,6 +64,6 @@ The Standardizer index architecture contract is available in [English](../../../
 
 A store is brought to the initialized state only by `standardizer init <directory> <tag_registry.ron> <write_locations.ron>`
 (virgin location) or `standardizer adopt` (existing system, once). Both create the empty witness `data/standardizer/.lock`
-last and protect it with a dedicated Git commit; `standardizer protect` finishes the commit or the publication separately.
+last, from the store's own files only (no Git, no network). Versioning `.lock` is left to the user.
 See `docs/en/indexing.md` section 10.
 
