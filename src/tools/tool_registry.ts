@@ -1,5 +1,6 @@
 import type { ToolAccessProfile } from '../permissions';
 import type { Tool, ToolDefinition, ToolExecutionContext, ToolExecutionResult, UnavailableTool } from '.';
+import type { FileObservation } from './file_observation';
 import { toolFailureFromException } from './tool_failure_from_exception';
 import { toolFailure } from './tool_result';
 import { validateToolInput } from './tool_validation';
@@ -8,6 +9,17 @@ export class ToolRegistry {
   private readonly tools = new Map<string, Tool>();
 
   private readonly unavailable: UnavailableTool[] = [];
+  private observationSource: (() => FileObservation[]) | undefined;
+
+  // Where the observations made by the tools come from (the tracker of the file tools). Only the tool loop reads them.
+  setObservationSource(source: () => FileObservation[]): void {
+    this.observationSource = source;
+  }
+
+  // What the tools remembered since the last call to this method; empty when nothing is observed.
+  takeObservations(): FileObservation[] {
+    return this.observationSource?.() ?? [];
+  }
 
   register(tool: Tool): void {
     this.tools.set(tool.id, tool);

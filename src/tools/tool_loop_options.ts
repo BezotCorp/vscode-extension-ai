@@ -87,6 +87,7 @@ export async function runToolLoop<TMessage>(options: ToolLoopOptions<TMessage>):
         }
 
         const serialized = serializeToolResult(result, options.maxResultChars);
+        const observations = tools.takeObservations();
 
         options.onToolResult?.(call, result);
         messages.push(options.toolMessage(call, serialized));
@@ -94,6 +95,7 @@ export async function runToolLoop<TMessage>(options: ToolLoopOptions<TMessage>):
           name: call.name,
           arguments: call.arguments,
           result: serialized,
+          ...(observations.length > 0 && { observations }),
         });
       }
     } finally {

@@ -83,7 +83,7 @@ export class CreateFileTool implements Tool {
       await Promise.resolve(vscode.workspace.fs.delete(temporary, { useTrash: false })).catch(() => undefined);
     }
 
-    this.versions.remember(resource, sha256Hex(bytes), content, true);
+    this.versions.remember(resource, sha256Hex(bytes), content, true, 'created');
 
     return toolSuccess(this.id, resource, {
       message: 'File created.',

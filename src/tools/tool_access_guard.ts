@@ -388,7 +388,7 @@ export class ToolAccessGuard {
     throw new PermissionError(
       'policy',
       'critical_justification_required',
-      `This operation touches a critical location (${request.access?.whyCritical ?? 'critical'}): ${request.action}. Nothing was executed. If you really need it, call the tool again with access {"kind":"critical","reason":"<why you must touch this location>"}; the user will then be asked to confirm.`,
+      `This operation targets a critical location (${request.access?.whyCritical ?? 'critical'}): ${request.action}. Nothing was executed. You need to call this tool again with access={"kind":"critical","reason":"<your technical justification>"}. The user will be asked to approve or deny the operation only if you use the tool.`,
       request.resources[0]?.path,
       {
         requiredAccess: 'critical',

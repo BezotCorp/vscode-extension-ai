@@ -125,7 +125,7 @@ export class ReadFileTool implements Tool {
 
     // A file with unsaved changes is not on the filesystem: nothing is remembered for it.
     if (!read.unsavedChanges) {
-      this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text);
+      this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text, 'read');
     }
 
     return delivered.result;

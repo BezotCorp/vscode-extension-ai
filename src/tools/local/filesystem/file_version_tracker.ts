@@ -1,3 +1,5 @@
+import type { FileObservation } from '../../file_observation';
+import type { FileObservationOrigin } from '../../file_observation_origin';
 import { MAX_SEGMENTS_PER_FILE, MAX_TRACKED_FILES } from './file_version_limits';
 import type { ReceivedPart } from './received_part';
 import type { SeenFile } from './seen_file';
@@ -8,10 +10,14 @@ import type { SeenFile } from './seen_file';
 export class FileVersionTracker {
   private readonly seenFiles = new Map<string, SeenFile>();
   private readonly conflictCounts = new Map<string, number>();
+  // What was remembered since the last call to takeObservations. Writing it never changes what the tracker decides.
+  private pending: FileObservation[] = [];
 
   // `received` is exactly what reached the model (see deliverFileContent), `sha` the SHA of the whole file at that
-  // time and `complete` whether `received` is the entire file.
-  remember(path: string, sha: string, received: string, complete: boolean): void {
+  // time and `complete` whether `received` is the entire file. `origin` only labels the record kept for the tool call.
+  remember(path: string, sha: string, received: string, complete: boolean, origin: FileObservationOrigin): void {
+    this.pending.push({ path, sha, complete, origin, ...(complete ? {} : { text: received }) });
+
     const previous = this.seenFiles.get(path);
 
     this.seenFiles.delete(path);
@@ -39,6 +45,16 @@ export class FileVersionTracker {
         this.seenFiles.delete(oldest);
       }
     }
+  }
+
+  // The observations made since the previous call to this method, oldest first. The tool loop takes them after each
+  // tool call, so each one is attached to the call that made it.
+  takeObservations(): FileObservation[] {
+    const taken = this.pending;
+
+    this.pending = [];
+
+    return taken;
   }
 
   // The whole-file fast path: only valid when the model received the entire file and it is byte-for-byte the same.

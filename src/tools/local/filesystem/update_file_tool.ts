@@ -298,7 +298,7 @@ export class UpdateFileTool implements Tool {
       projection.anchor === undefined ||
       prepared.part === undefined
     ) {
-      this.versions.remember(fsPath, sha, projection.after, true);
+      this.versions.remember(fsPath, sha, projection.after, true, 'written');
       return;
     }
 
@@ -306,7 +306,13 @@ export class UpdateFileTool implements Tool {
     const { text, start } = prepared.part;
     const at = offset - start;
 
-    this.versions.remember(fsPath, sha, text.slice(0, at) + newText + text.slice(at + oldText.length), false);
+    this.versions.remember(
+      fsPath,
+      sha,
+      text.slice(0, at) + newText + text.slice(at + oldText.length),
+      false,
+      'written',
+    );
   }
 
   // The file changed after the pipeline had started but before anything was written: same handling as any conflict.
@@ -386,7 +392,7 @@ export class UpdateFileTool implements Tool {
     // From here the AI holds this version, but only what really reaches it: that is what the next attempt is compared with.
     const delivered = deliverFileContent(read.text, build, maxResultChars);
 
-    this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text);
+    this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text, 'conflict');
 
     return delivered.result;
   }

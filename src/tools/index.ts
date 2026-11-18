@@ -1,4 +1,6 @@
 export { createBuiltInTools, createDefaultToolRegistry } from './default_tools';
+export { FileObservation } from './file_observation';
+export { FileObservationOrigin } from './file_observation_origin';
 export { GuardOptions } from './guard_options';
 export { listToolPermissions } from './list_tool_permissions';
 export { FileToolServices } from './local';

@@ -83,8 +83,11 @@ export function createBuiltInTools(
 // may run, and whether the user is asked first, is decided later by the access guard.
 export function createDefaultToolRegistry(accessGuard: ToolAccessGuard, files: FileToolServices): ToolRegistry {
   const registry = new ToolRegistry();
+  const versions = new FileVersionTracker();
 
-  for (const tool of createBuiltInTools(accessGuard, files)) {
+  registry.setObservationSource(() => versions.takeObservations());
+
+  for (const tool of createBuiltInTools(accessGuard, files, versions)) {
     const reason = accessGuard.unavailableReason(tool);
 
     if (reason) {

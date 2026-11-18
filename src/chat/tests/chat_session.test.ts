@@ -478,6 +478,77 @@ describe('chat_session', () => {
       ]);
     });
 
+    describe('file observations', () => {
+      const sha = 'e'.repeat(64);
+      const normalizeCall = (call: unknown) =>
+        normalizeChatSession({
+          messages: [
+            {
+              role: 'assistant',
+              content: 'x',
+              createdAt: '2026-11-01T09:00:00.000Z',
+              toolRounds: [{ content: '', calls: [call] }],
+            },
+          ],
+        }).messages[0]?.toolRounds?.[0]?.calls[0];
+
+      it('keeps a whole view without text and a partial view with its exact text', () => {
+        const call = normalizeCall({
+          name: 'read_file',
+          arguments: {},
+          result: 'r',
+          observations: [
+            { path: '/w/a.ts', sha, complete: true, origin: 'read', text: 'must not be kept' },
+            { path: '/w/b.ts', sha, complete: false, origin: 'conflict', text: '  exact\n' },
+          ],
+        });
+
+        expect(call?.observations).toEqual([
+          { path: '/w/a.ts', sha, complete: true, origin: 'read' },
+          { path: '/w/b.ts', sha, complete: false, origin: 'conflict', text: '  exact\n' },
+        ]);
+      });
+
+      it('drops malformed observations one by one and invents nothing', () => {
+        const call = normalizeCall({
+          name: 'read_file',
+          arguments: {},
+          result: 'r',
+          observations: [
+            null,
+            { path: '/w/a.ts', sha: 'short', complete: true, origin: 'read' },
+            { path: '/w/a.ts', sha, complete: false, origin: 'read' },
+            { path: '/w/a.ts', sha, complete: true, origin: 'guessed' },
+            { path: '/w/ok.ts', sha, complete: true, origin: 'written' },
+          ],
+        });
+
+        expect(call?.observations).toEqual([{ path: '/w/ok.ts', sha, complete: true, origin: 'written' }]);
+      });
+
+      it('reads an older conversation without observations as before', () => {
+        const call = normalizeCall({ name: 'read_file', arguments: { path: 'a' }, result: 'old result' });
+
+        expect(call).toEqual({ name: 'read_file', arguments: { path: 'a' }, result: 'old result' });
+        expect(call).not.toHaveProperty('observations');
+      });
+
+      it('survives a save and reload as JSON', () => {
+        const stored = [{ path: '/w/a.ts', sha, complete: false, origin: 'read', text: 'part' }];
+        const call = normalizeCall(
+          JSON.parse(JSON.stringify({ name: 'read_file', arguments: {}, result: 'r', observations: stored })),
+        );
+
+        expect(call?.observations).toEqual(stored);
+      });
+
+      it('keeps a result longer than the replay limit whole', () => {
+        const result = 'y'.repeat(20_000);
+
+        expect(normalizeCall({ name: 'read_file', arguments: {}, result })?.result).toBe(result);
+      });
+    });
+
     it('drops malformed tool calls but keeps the tool round', () => {
       const normalized = normalizeChatSession({
         messages: [
