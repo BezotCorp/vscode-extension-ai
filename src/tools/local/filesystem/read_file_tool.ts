@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import type { ToolAccessProfile } from '../../../permissions';
 import { findOpenDocument, type ResolvedPath, resolvePath, resourcePath, sha256Hex } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { getFileError } from '../../tool_error_codes';
 import { readNumberArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import { deliverFileContent } from './deliver_file_content';
@@ -52,7 +53,9 @@ export class ReadFileTool implements Tool {
     try {
       read = await this.read(this, resolved, READ_MODE_DIRECT, context?.signal);
     } catch (error) {
-      if (isNotFoundError(error)) {
+      const fileError = getFileError(error);
+
+      if (fileError?.reason === 'not_found') {
         return toolFailure('error', this.id, fsPath, {
           reason: 'not_found',
           message:
@@ -62,7 +65,7 @@ export class ReadFileTool implements Tool {
         });
       }
 
-      if (isDirectoryError(error)) {
+      if (fileError?.reason === 'is_a_directory') {
         return toolFailure('error', this.id, fsPath, {
           reason: 'is_a_directory',
           message: 'The requested path is a directory. Use list_files to inspect its contents.',
@@ -167,16 +170,4 @@ export class ReadFileTool implements Tool {
       unsavedChanges: buffered,
     };
   }
-}
-
-function isNotFoundError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-
-  return code === 'ENOENT' || code === 'FileNotFound';
-}
-
-function isDirectoryError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-
-  return code === 'EISDIR' || code === 'FileIsADirectory';
 }

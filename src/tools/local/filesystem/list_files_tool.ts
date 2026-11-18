@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 
 import { getWorkspaceRoots, IGNORED_DIRECTORIES, resolvePath, resourcePath } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { getFileError } from '../../tool_error_codes';
 import { readStringArrayArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import type { FileEntry } from './file_entry';
@@ -113,7 +114,7 @@ export class ListFilesTool implements Tool {
       try {
         stat = await vscode.workspace.fs.stat(resolved.uri);
       } catch (error) {
-        if (isNotFoundError(error)) {
+        if (getFileError(error)?.reason === 'not_found') {
           return toolFailure('error', this.id, resourcePath(resolved.uri), {
             reason: 'not_found',
             message:
@@ -281,10 +282,4 @@ function displayLabel(requestedPath: string, uri: vscode.Uri, all: boolean): str
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
-}
-
-function isNotFoundError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-
-  return code === 'ENOENT' || code === 'FileNotFound';
 }
