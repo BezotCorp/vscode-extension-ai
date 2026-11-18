@@ -1,7 +1,7 @@
 import type { ToolExecutionResult, ToolStatus } from '.';
 import type { FailureFields } from './failure_fields';
 import type { SuccessFields } from './success_fields';
-import { ERROR_CODES } from './tool_error_codes';
+import { getFileError } from './tool_error_codes';
 import { CUT_MARKER, MAX_FIELD_CHARS_WHEN_CUT, MAX_SERIALIZED_CHARS } from './tool_result_constants';
 
 export function toolSuccess(
@@ -36,7 +36,7 @@ export function toolErrorFromException(
   sideEffects: boolean,
 ): ToolExecutionResult {
   const code = (error as { code?: unknown } | null)?.code;
-  const known = typeof code === 'string' ? ERROR_CODES[code] : undefined;
+  const known = getFileError(error);
   const detail = error instanceof Error ? error.message : String(error);
 
   if (known) {

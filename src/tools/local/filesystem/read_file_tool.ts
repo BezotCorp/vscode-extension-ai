@@ -9,8 +9,7 @@ import { toolFailure, toolSuccess } from '../../tool_result';
 import { deliverFileContent } from './deliver_file_content';
 import type { FileRead } from './file_read';
 import type { FileVersionTracker } from './file_version_tracker';
-import type { ReadMode } from './read_mode';
-import { READ_MODE_COMPOSED, READ_MODE_DIRECT, READ_MODE_RECHECK } from './read_mode_values';
+import { READ_MODE_COMPOSED, READ_MODE_DIRECT, READ_MODE_RECHECK, type ReadMode } from './read_mode';
 
 export class ReadFileTool implements Tool {
   readonly id = 'read_file';
