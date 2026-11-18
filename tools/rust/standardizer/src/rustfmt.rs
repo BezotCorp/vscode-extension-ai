@@ -12,21 +12,29 @@ impl Rustfmt {
         if files.is_empty() {
             return Ok(true);
         }
+
         let metadata = CargoMetadata::load(root)?;
         let mut passed = true;
+
         for path in files {
+            let absolute = root.join(path);
             let mut command = Command::new("rustfmt");
+
             command.current_dir(root);
-            if let Some(edition) = metadata.edition(&root.join(path)) {
-                command.args(["--edition", edition.argument()]);
+
+            if let Some(edition) = metadata.edition(&absolute) {
+                command.args(["--edition", edition]);
             }
-            // Do not traverse modules outside the safety selection.
+
             command.args(["--config", "skip_children=true"]);
+
             if intent == ConformanceIntent::CheckConformance {
                 command.arg("--check");
             }
-            passed &= command.arg(root.join(path)).status()?.success();
+
+            passed &= command.arg(&absolute).status()?.success();
         }
+
         Ok(passed)
     }
 }

@@ -66,4 +66,3 @@ A store is brought to the initialized state only by `standardizer init <director
 (virgin location) or `standardizer adopt` (existing system, once). Both create the empty witness `data/standardizer/.lock`
 last, from the store's own files only (no Git, no network). Versioning `.lock` is left to the user.
 See `docs/en/indexing.md` section 10.
-

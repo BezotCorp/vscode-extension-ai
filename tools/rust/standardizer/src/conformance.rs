@@ -1,48 +1,40 @@
 use crate::{
-    biome::Biome, conformance_intent::ConformanceIntent, data_placement::DataPlacementOrchestrator,
-    routing_graph::RoutingGraph, routing_graph_loading_pipeline::RoutingGraphLoadingPipeline,
-    rustfmt::Rustfmt, tool::Tool, tracked_file::TrackedFile,
+    biome::Biome, conformance_intent::ConformanceIntent, routing::Routing, rustfmt::Rustfmt,
+    tool::Tool, tracked_file::TrackedFile,
 };
 use std::{collections::BTreeMap, error::Error, path::Path};
 
-pub(crate) struct Conformance {
-    graph: RoutingGraph,
-}
+pub(crate) struct Conformance;
 
 impl Conformance {
-    pub(crate) fn load() -> Result<Self, Box<dyn Error>> {
-        Ok(Self {
-            graph: RoutingGraphLoadingPipeline::run(
-                &DataPlacementOrchestrator::default_directory(),
-            )?,
-        })
-    }
-
     pub(crate) fn execute(
-        &self,
         root: &Path,
         files: &[TrackedFile],
         intent: ConformanceIntent,
     ) -> Result<(), Box<dyn Error>> {
-        let mut batches = BTreeMap::new();
+        let routing = Routing::load(root)?;
+        let mut batches: BTreeMap<Tool, Vec<&Path>> = BTreeMap::new();
+
         for file in files {
-            for tool in self.graph.tools(file.path(), intent)? {
-                batches
-                    .entry(tool)
-                    .or_insert_with(Vec::new)
-                    .push(file.path());
+            for tool in routing.tools(file.path()) {
+                batches.entry(tool).or_default().push(file.path());
             }
         }
+
         let mut passed = true;
+
         for (tool, paths) in batches {
-            passed &= match tool {
-                Tool::Rustfmt => Rustfmt::execute(root, &paths, intent)?,
+            let result = match tool {
                 Tool::Biome => Biome::execute(root, &paths, intent)?,
+                Tool::Rustfmt => Rustfmt::execute(root, &paths, intent)?,
             };
+            passed &= result;
         }
+
         if !passed {
             return Err("conformance failed".into());
         }
+
         Ok(())
     }
 }
