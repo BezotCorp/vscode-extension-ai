@@ -146,9 +146,9 @@ Example:
 
 ```json
 {
-	"bezotcorpAi.provider": "ollama",
-	"bezotcorpAi.providerUrl": "http://127.0.0.1:11434",
-	"bezotcorpAi.model": "qwen2.5-coder:7b"
+  "bezotcorpAi.provider": "ollama",
+  "bezotcorpAi.providerUrl": "http://127.0.0.1:11434",
+  "bezotcorpAi.model": "qwen2.5-coder:7b"
 }
 ```
 
@@ -158,9 +158,9 @@ Connect BezotCorp AI to your own backend.
 
 ```json
 {
-	"bezotcorpAi.provider": "customBackend",
-	"bezotcorpAi.providerUrl": "http://127.0.0.1:4188",
-	"bezotcorpAi.model": "custom-model"
+  "bezotcorpAi.provider": "customBackend",
+  "bezotcorpAi.providerUrl": "http://127.0.0.1:4188",
+  "bezotcorpAi.model": "custom-model"
 }
 ```
 
@@ -224,8 +224,7 @@ Privacy information will be documented separately before those services are made
 
 Want to understand the implementation or contribute to BezotCorp AI?
 
-- [Architecture](docs/architecture.md) — current technical architecture and implementation boundaries
-- [TODO](docs/todo.md) — remaining implementation and validation work
+Start with the [documentation index — English / Français](docs/docs_index.md) for the architecture, specifications and remaining work.
 
 The extension is written in TypeScript for VS Code.
 

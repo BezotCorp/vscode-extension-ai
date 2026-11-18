@@ -1,5 +1,7 @@
 # BezotCorp AI — TODO
 
+[Documentation](../docs_index.md) · [Français](../fr/todo.md)
+
 This document tracks only work that remains open.
 
 ## Runtime Validation
@@ -66,4 +68,4 @@ Reference: [memory_ai_system.md](memory_ai_system.md).
 
 ---
 
-[← Back to the developer guide](../FOR_DEVELOPERS.md)
+[← Back to the developer guide](../../FOR_DEVELOPERS.md)

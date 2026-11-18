@@ -1,5 +1,5 @@
 export function getModelManagementStyles(): string {
-	return `
+  return `
 #model-card {
   display: flex;
   flex-direction: column;

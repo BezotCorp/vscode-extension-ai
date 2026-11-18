@@ -1,16 +1,28 @@
 {
-	"files": {
-		"includes": ["**", "!!out"]
-	},
-	"formatter": {
-		"indentStyle": "tab",
-		"lineWidth": 120
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "single",
-			"semicolons": "always",
-			"trailingCommas": "all"
-		}
-	}
+  "files": {
+    "includes": [
+      "**",
+      "!!dist",
+      "!!coverage",
+      "!!target",
+      "!!package.nls*.json",
+      "!!node_modules",
+      "!!pnpm-lock.yaml",
+      "!!Cargo.lock"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  }
 }

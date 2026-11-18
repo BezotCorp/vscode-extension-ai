@@ -3,36 +3,36 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 export function findOpenDocument(uri: vscode.Uri): vscode.TextDocument | undefined {
-	const target = realPathOrSelf(uri.fsPath);
+  const target = realPathOrSelf(uri.fsPath);
 
-	return vscode.workspace.textDocuments.find(
-		(document) => document.uri.scheme === 'file' && realPathOrSelf(document.uri.fsPath) === target,
-	);
+  return vscode.workspace.textDocuments.find(
+    (document) => document.uri.scheme === 'file' && realPathOrSelf(document.uri.fsPath) === target,
+  );
 }
 
 // Open documents with unsaved changes at, or below, the given path.
 export function findDirtyDocuments(uri: vscode.Uri): vscode.TextDocument[] {
-	const target = realPathOrSelf(uri.fsPath);
+  const target = realPathOrSelf(uri.fsPath);
 
-	return vscode.workspace.textDocuments.filter((document) => {
-		if (document.uri.scheme !== 'file' || !document.isDirty) {
-			return false;
-		}
+  return vscode.workspace.textDocuments.filter((document) => {
+    if (document.uri.scheme !== 'file' || !document.isDirty) {
+      return false;
+    }
 
-		const relative = path.relative(target, realPathOrSelf(document.uri.fsPath));
+    const relative = path.relative(target, realPathOrSelf(document.uri.fsPath));
 
-		return !isParentRelative(relative) && !path.isAbsolute(relative);
-	});
+    return !isParentRelative(relative) && !path.isAbsolute(relative);
+  });
 }
 
 function isParentRelative(relative: string): boolean {
-	return relative === '..' || relative.startsWith(`..${path.sep}`);
+  return relative === '..' || relative.startsWith(`..${path.sep}`);
 }
 
 function realPathOrSelf(target: string): string {
-	try {
-		return fs.realpathSync(target);
-	} catch {
-		return target;
-	}
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return target;
+  }
 }

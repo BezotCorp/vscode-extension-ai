@@ -1,0 +1,6 @@
+(
+    routes: [
+        (extensions: ["rs"], tools: [Rustfmt]),
+        (extensions: ["js", "jsx", "ts", "tsx", "json", "jsonc", "css", "graphql", "gql"], tools: [Biome]),
+    ],
+)

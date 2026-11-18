@@ -1,4 +1,4 @@
 export type OllamaModel = {
-	name?: string;
-	model?: string;
+  name?: string;
+  model?: string;
 };

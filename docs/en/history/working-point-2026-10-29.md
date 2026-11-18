@@ -1,5 +1,7 @@
 # BezotCorp AI — Working Point
 
+[Documentation](../../docs_index.md) · [Français](../../fr/history/working-point-2026-10-29.md)
+
 **Date:** 2026-10-29
 **Scope:** Implemented source code as of this date.
 

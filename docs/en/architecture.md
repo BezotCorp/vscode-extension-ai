@@ -1,5 +1,7 @@
 # BezotCorp AI — Architecture
 
+[Documentation](../docs_index.md) · [Français](../fr/architecture.md)
+
 This document describes the current technical architecture of BezotCorp AI.
 
 Historical dated working-point documents are snapshots and are not updated when the implementation evolves.
@@ -290,4 +292,4 @@ Some runtime behavior still requires validation in the VS Code Extension Develop
 
 ---
 
-[← Back to the developer guide](../FOR_DEVELOPERS.md)
+[← Back to the developer guide](../../FOR_DEVELOPERS.md)

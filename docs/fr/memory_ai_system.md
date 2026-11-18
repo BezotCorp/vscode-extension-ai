@@ -1,5 +1,7 @@
 # BezotCorp AI — Spécification générale du système de mémoire persistante, structurée et évolutive
 
+[Documentation](../docs_index.md) · [English](../en/memory_ai_system.md)
+
 ## Objet du document
 
 Ce document constitue la spécification de référence pour l'implémentation d'un système de mémoire persistante au sein de l'extension VS Code **BezotCorp AI**.

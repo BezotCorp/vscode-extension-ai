@@ -10,360 +10,360 @@ import { MAX_BODY_BYTES, TIMEOUT_MS } from './web_fetch_limits';
 import { ALLOWED_METHODS, SAFE_METHODS } from './web_fetch_methods';
 
 export class WebFetchTool implements Tool {
-	readonly id = 'web_fetch';
-	readonly name = 'Web Fetch';
-	// Even a GET can have side effects on a remote service, so this is never offered in read-only mode.
-	readonly readOnlyCompatible = false;
-	readonly permissionDefault = 'ask' as const;
-	readonly description =
-		'Sends an HTTP(S) request and returns the HTTP status, content type and body as received. Redirects are not followed: call again with the Location URL.';
-	readonly parameters = {
-		type: 'object' as const,
-		properties: {
-			url: { type: 'string', description: 'http(s) URL to request.' },
-			method: {
-				type: 'string',
-				description: 'GET (default), HEAD, POST, PUT, PATCH or DELETE.',
-			},
-			body: {
-				type: 'string',
-				description: 'Optional request body for POST, PUT and PATCH.',
-			},
-		},
-		required: ['url'],
-	};
+  readonly id = 'web_fetch';
+  readonly name = 'Web Fetch';
+  // Even a GET can have side effects on a remote service, so this is never offered in read-only mode.
+  readonly readOnlyCompatible = false;
+  readonly permissionDefault = 'ask' as const;
+  readonly description =
+    'Sends an HTTP(S) request and returns the HTTP status, content type and body as received. Redirects are not followed: call again with the Location URL.';
+  readonly parameters = {
+    type: 'object' as const,
+    properties: {
+      url: { type: 'string', description: 'http(s) URL to request.' },
+      method: {
+        type: 'string',
+        description: 'GET (default), HEAD, POST, PUT, PATCH or DELETE.',
+      },
+      body: {
+        type: 'string',
+        description: 'Optional request body for POST, PUT and PATCH.',
+      },
+    },
+    required: ['url'],
+  };
 
-	constructor(private readonly accessGuard: ToolAccessGuard) {}
+  constructor(private readonly accessGuard: ToolAccessGuard) {}
 
-	async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
-		const rawUrl = readStringArg(input, 'url') ?? '';
-		const method = (readStringArg(input, 'method') ?? 'GET').toUpperCase();
-		const body = (input as { body?: unknown } | null)?.body;
-		const bodyText = typeof body === 'string' ? body : undefined;
-		const safe = SAFE_METHODS.has(method);
-		const invalid = (reason: string, message: string) =>
-			toolFailure('error', this.id, rawUrl, {
-				reason,
-				message,
-				executed: false,
-				retryable: false,
-			});
+  async execute(input: unknown, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
+    const rawUrl = readStringArg(input, 'url') ?? '';
+    const method = (readStringArg(input, 'method') ?? 'GET').toUpperCase();
+    const body = (input as { body?: unknown } | null)?.body;
+    const bodyText = typeof body === 'string' ? body : undefined;
+    const safe = SAFE_METHODS.has(method);
+    const invalid = (reason: string, message: string) =>
+      toolFailure('error', this.id, rawUrl, {
+        reason,
+        message,
+        executed: false,
+        retryable: false,
+      });
 
-		if (!ALLOWED_METHODS.has(method)) {
-			return invalid('unsupported_method', `Unsupported method: ${method}.`);
-		}
+    if (!ALLOWED_METHODS.has(method)) {
+      return invalid('unsupported_method', `Unsupported method: ${method}.`);
+    }
 
-		let url: URL;
+    let url: URL;
 
-		try {
-			url = new URL(rawUrl);
-		} catch {
-			return invalid('invalid_url', `"${rawUrl}" is not a valid absolute URL.`);
-		}
+    try {
+      url = new URL(rawUrl);
+    } catch {
+      return invalid('invalid_url', `"${rawUrl}" is not a valid absolute URL.`);
+    }
 
-		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-			return invalid('unsupported_protocol', 'Only http and https URLs are supported.');
-		}
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return invalid('unsupported_protocol', 'Only http and https URLs are supported.');
+    }
 
-		const resource = `${method} ${url.href}`;
+    const resource = `${method} ${url.href}`;
 
-		await this.accessGuard.authorize(
-			{
-				tool: this,
-				action: `send a ${method} request to ${sanitizeForPrompt(url.host)}`,
-				actionLabel: t('action.web.request', {
-					method,
-					host: sanitizeForPrompt(url.host),
-				}),
-				resources: [],
-				// A refusal covers every method to that server.
-				effects: [networkEffect(url.hostname.toLowerCase())],
-				detail: [
-					`${method} ${url.origin}${url.pathname}`,
-					bodyText ? t('detail.body', { content: describeContent(bodyText) }) : undefined,
-				]
-					.filter(Boolean)
-					.join('\n'),
-				warning: isLocalOrPrivateHost(url.hostname) ? t('warning.privateNetwork') : undefined,
-			},
-			context?.signal,
-		);
+    await this.accessGuard.authorize(
+      {
+        tool: this,
+        action: `send a ${method} request to ${sanitizeForPrompt(url.host)}`,
+        actionLabel: t('action.web.request', {
+          method,
+          host: sanitizeForPrompt(url.host),
+        }),
+        resources: [],
+        // A refusal covers every method to that server.
+        effects: [networkEffect(url.hostname.toLowerCase())],
+        detail: [
+          `${method} ${url.origin}${url.pathname}`,
+          bodyText ? t('detail.body', { content: describeContent(bodyText) }) : undefined,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        warning: isLocalOrPrivateHost(url.hostname) ? t('warning.privateNetwork') : undefined,
+      },
+      context?.signal,
+    );
 
-		const startedAt = Date.now();
-		const timeout = AbortSignal.timeout(TIMEOUT_MS);
-		const signal = context?.signal ? AbortSignal.any([context.signal, timeout]) : timeout;
+    const startedAt = Date.now();
+    const timeout = AbortSignal.timeout(TIMEOUT_MS);
+    const signal = context?.signal ? AbortSignal.any([context.signal, timeout]) : timeout;
 
-		let response: Response;
+    let response: Response;
 
-		try {
-			response = await fetch(url, {
-				method,
-				body: safe ? undefined : bodyText,
-				redirect: 'manual',
-				signal,
-			});
-		} catch (error) {
-			return this.requestFailure(error, resource, safe, context?.signal, timeout);
-		}
+    try {
+      response = await fetch(url, {
+        method,
+        body: safe ? undefined : bodyText,
+        redirect: 'manual',
+        signal,
+      });
+    } catch (error) {
+      return this.requestFailure(error, resource, safe, context?.signal, timeout);
+    }
 
-		const received = {
-			method,
-			httpStatus: response.status,
-			statusText: response.statusText,
-			contentType: response.headers.get('content-type') ?? undefined,
-			contentLengthHeader: response.headers.get('content-length') ?? undefined,
-			...(response.headers.get('location') && {
-				location: response.headers.get('location'),
-			}),
-		};
+    const received = {
+      method,
+      httpStatus: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type') ?? undefined,
+      contentLengthHeader: response.headers.get('content-length') ?? undefined,
+      ...(response.headers.get('location') && {
+        location: response.headers.get('location'),
+      }),
+    };
 
-		let bytes: Uint8Array;
-		let bodyCut: boolean;
+    let bytes: Uint8Array;
+    let bodyCut: boolean;
 
-		try {
-			({ bytes, cut: bodyCut } =
-				method === 'HEAD' ? { bytes: new Uint8Array(), cut: false } : await readLimited(response, signal));
-		} catch (error) {
-			const failure = this.requestFailure(error, resource, safe, context?.signal, timeout);
+    try {
+      ({ bytes, cut: bodyCut } =
+        method === 'HEAD' ? { bytes: new Uint8Array(), cut: false } : await readLimited(response, signal));
+    } catch (error) {
+      const failure = this.requestFailure(error, resource, safe, context?.signal, timeout);
 
-			return {
-				...failure,
-				reason: `body_read_${failure.reason}`,
-				details: { ...received, ...failure.details },
-			};
-		}
+      return {
+        ...failure,
+        reason: `body_read_${failure.reason}`,
+        details: { ...received, ...failure.details },
+      };
+    }
 
-		const decoded = decodeBody(bytes, received.contentType, bodyCut, method === 'HEAD');
-		const truncated = truncateText(decoded.text ?? '');
-		const details = {
-			...received,
-			bytesRead: bytes.length,
-			bodyCutAtByteLimit: bodyCut,
-			decoding: decoded.decoding,
-			truncatedForContext: truncated.truncated,
-			durationMs: Date.now() - startedAt,
-		};
-		const content = decoded.text === undefined ? undefined : truncated.text;
+    const decoded = decodeBody(bytes, received.contentType, bodyCut, method === 'HEAD');
+    const truncated = truncateText(decoded.text ?? '');
+    const details = {
+      ...received,
+      bytesRead: bytes.length,
+      bodyCutAtByteLimit: bodyCut,
+      decoding: decoded.decoding,
+      truncatedForContext: truncated.truncated,
+      durationMs: Date.now() - startedAt,
+    };
+    const content = decoded.text === undefined ? undefined : truncated.text;
 
-		if (response.status >= 400) {
-			const serverFault = response.status >= 500;
+    if (response.status >= 400) {
+      const serverFault = response.status >= 500;
 
-			return toolFailure(serverFault && !safe ? 'unknown' : 'error', this.id, resource, {
-				reason: 'http_error',
-				message: `The server answered HTTP ${response.status} ${response.statusText}.${serverFault && !safe ? ' Whether the server applied the request is unknown.' : ''}`,
-				executed: true,
-				retryable: safe && (serverFault || response.status === 429 || response.status === 408),
-				content,
-				details,
-			});
-		}
+      return toolFailure(serverFault && !safe ? 'unknown' : 'error', this.id, resource, {
+        reason: 'http_error',
+        message: `The server answered HTTP ${response.status} ${response.statusText}.${serverFault && !safe ? ' Whether the server applied the request is unknown.' : ''}`,
+        executed: true,
+        retryable: safe && (serverFault || response.status === 429 || response.status === 408),
+        content,
+        details,
+      });
+    }
 
-		const redirected = response.status >= 300 && response.status < 400;
+    const redirected = response.status >= 300 && response.status < 400;
 
-		return toolSuccess(this.id, resource, {
-			message: redirected ? 'Redirect not followed. Call again with the Location URL.' : undefined,
-			content,
-			details,
-		});
-	}
+    return toolSuccess(this.id, resource, {
+      message: redirected ? 'Redirect not followed. Call again with the Location URL.' : undefined,
+      content,
+      details,
+    });
+  }
 
-	private requestFailure(
-		error: unknown,
-		resource: string,
-		safe: boolean,
-		userSignal: AbortSignal | undefined,
-		timeout: AbortSignal,
-	): ToolExecutionResult {
-		const name = (error as { name?: string } | null)?.name;
-		const cause = (error as { cause?: { code?: string; message?: string } } | null)?.cause;
-		const code = cause?.code;
-		const message = error instanceof Error ? error.message : String(error);
+  private requestFailure(
+    error: unknown,
+    resource: string,
+    safe: boolean,
+    userSignal: AbortSignal | undefined,
+    timeout: AbortSignal,
+  ): ToolExecutionResult {
+    const name = (error as { name?: string } | null)?.name;
+    const cause = (error as { cause?: { code?: string; message?: string } } | null)?.cause;
+    const code = cause?.code;
+    const message = error instanceof Error ? error.message : String(error);
 
-		if (userSignal?.aborted) {
-			return toolFailure('cancelled', this.id, resource, {
-				reason: 'cancelled_by_user',
-				message: safe
-					? 'The request was cancelled.'
-					: 'The request was cancelled while in flight. The server may have received and applied it.',
-				executed: safe ? true : 'unknown',
-				retryable: false,
-			});
-		}
+    if (userSignal?.aborted) {
+      return toolFailure('cancelled', this.id, resource, {
+        reason: 'cancelled_by_user',
+        message: safe
+          ? 'The request was cancelled.'
+          : 'The request was cancelled while in flight. The server may have received and applied it.',
+        executed: safe ? true : 'unknown',
+        retryable: false,
+      });
+    }
 
-		if (timeout.aborted || name === 'TimeoutError') {
-			return toolFailure(safe ? 'error' : 'unknown', this.id, resource, {
-				reason: 'timeout',
-				message: safe
-					? `No complete answer within ${TIMEOUT_MS} ms.`
-					: `No answer within ${TIMEOUT_MS} ms. The server may have applied the request.`,
-				executed: true,
-				retryable: safe,
-			});
-		}
+    if (timeout.aborted || name === 'TimeoutError') {
+      return toolFailure(safe ? 'error' : 'unknown', this.id, resource, {
+        reason: 'timeout',
+        message: safe
+          ? `No complete answer within ${TIMEOUT_MS} ms.`
+          : `No answer within ${TIMEOUT_MS} ms. The server may have applied the request.`,
+        executed: true,
+        retryable: safe,
+      });
+    }
 
-		// The runtime also refuses some requests itself (for example restricted ports) before sending anything.
-		const notDelivered = (code !== undefined && NOT_DELIVERED_CODES.has(code)) || cause?.message === 'bad port';
+    // The runtime also refuses some requests itself (for example restricted ports) before sending anything.
+    const notDelivered = (code !== undefined && NOT_DELIVERED_CODES.has(code)) || cause?.message === 'bad port';
 
-		return toolFailure(safe || notDelivered ? 'error' : 'unknown', this.id, resource, {
-			reason: 'network_error',
-			message: safe || notDelivered ? message : `${message}. The server may have applied the request.`,
-			executed: notDelivered ? false : safe ? true : 'unknown',
-			retryable: safe || notDelivered,
-			details: { code, cause: cause?.message },
-		});
-	}
+    return toolFailure(safe || notDelivered ? 'error' : 'unknown', this.id, resource, {
+      reason: 'network_error',
+      message: safe || notDelivered ? message : `${message}. The server may have applied the request.`,
+      executed: notDelivered ? false : safe ? true : 'unknown',
+      retryable: safe || notDelivered,
+      details: { code, cause: cause?.message },
+    });
+  }
 }
 
 async function readLimited(response: Response, signal: AbortSignal): Promise<{ bytes: Uint8Array; cut: boolean }> {
-	if (!response.body) {
-		return { bytes: new Uint8Array(), cut: false };
-	}
+  if (!response.body) {
+    return { bytes: new Uint8Array(), cut: false };
+  }
 
-	const reader = response.body.getReader();
-	const chunks: Uint8Array[] = [];
-	let received = 0;
-	let cut = false;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let cut = false;
 
-	while (true) {
-		if (signal.aborted) {
-			await reader.cancel().catch(() => undefined);
-			throw signal.reason ?? new Error('Aborted');
-		}
+  while (true) {
+    if (signal.aborted) {
+      await reader.cancel().catch(() => undefined);
+      throw signal.reason ?? new Error('Aborted');
+    }
 
-		const { done, value } = await reader.read();
+    const { done, value } = await reader.read();
 
-		if (done) {
-			break;
-		}
+    if (done) {
+      break;
+    }
 
-		chunks.push(value);
-		received += value.length;
+    chunks.push(value);
+    received += value.length;
 
-		if (received >= MAX_BODY_BYTES) {
-			cut = true;
-			await reader.cancel().catch(() => undefined);
-			break;
-		}
-	}
+    if (received >= MAX_BODY_BYTES) {
+      cut = true;
+      await reader.cancel().catch(() => undefined);
+      break;
+    }
+  }
 
-	const bytes = new Uint8Array(Math.min(received, MAX_BODY_BYTES));
-	let offset = 0;
+  const bytes = new Uint8Array(Math.min(received, MAX_BODY_BYTES));
+  let offset = 0;
 
-	for (const chunk of chunks) {
-		const part = chunk.subarray(0, bytes.length - offset);
+  for (const chunk of chunks) {
+    const part = chunk.subarray(0, bytes.length - offset);
 
-		bytes.set(part, offset);
-		offset += part.length;
-	}
+    bytes.set(part, offset);
+    offset += part.length;
+  }
 
-	return { bytes, cut };
+  return { bytes, cut };
 }
 
 // Separates what was received from what could be decoded: the raw text is returned as is, and the decoding
 // outcome (format, success, parse error) is reported alongside.
 function decodeBody(
-	bytes: Uint8Array,
-	contentType: string | undefined,
-	cut: boolean,
-	noBody: boolean,
+  bytes: Uint8Array,
+  contentType: string | undefined,
+  cut: boolean,
+  noBody: boolean,
 ): { text?: string; decoding: Decoding } {
-	if (noBody || bytes.length === 0) {
-		return {
-			text: noBody ? undefined : '',
-			decoding: { format: 'none', ok: true },
-		};
-	}
+  if (noBody || bytes.length === 0) {
+    return {
+      text: noBody ? undefined : '',
+      decoding: { format: 'none', ok: true },
+    };
+  }
 
-	const mime = (contentType ?? '').split(';')[0].trim().toLowerCase();
-	const textual =
-		mime === '' ||
-		mime.startsWith('text/') ||
-		mime.includes('json') ||
-		mime.includes('xml') ||
-		mime.includes('javascript') ||
-		mime.includes('yaml') ||
-		mime === 'application/x-www-form-urlencoded';
+  const mime = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  const textual =
+    mime === '' ||
+    mime.startsWith('text/') ||
+    mime.includes('json') ||
+    mime.includes('xml') ||
+    mime.includes('javascript') ||
+    mime.includes('yaml') ||
+    mime === 'application/x-www-form-urlencoded';
 
-	if (!textual || bytes.subarray(0, 8000).includes(0)) {
-		return {
-			decoding: {
-				format: 'binary',
-				ok: false,
-				error: `Body not decoded (content type: ${mime || 'unknown'}).`,
-			},
-		};
-	}
+  if (!textual || bytes.subarray(0, 8000).includes(0)) {
+    return {
+      decoding: {
+        format: 'binary',
+        ok: false,
+        error: `Body not decoded (content type: ${mime || 'unknown'}).`,
+      },
+    };
+  }
 
-	const text = new TextDecoder(charsetOf(contentType)).decode(bytes);
+  const text = new TextDecoder(charsetOf(contentType)).decode(bytes);
 
-	if (!mime.includes('json')) {
-		return { text, decoding: { format: 'text', ok: true } };
-	}
+  if (!mime.includes('json')) {
+    return { text, decoding: { format: 'text', ok: true } };
+  }
 
-	if (cut) {
-		return {
-			text,
-			decoding: {
-				format: 'json',
-				ok: false,
-				error: 'Body cut at the size limit; JSON not parsed.',
-			},
-		};
-	}
+  if (cut) {
+    return {
+      text,
+      decoding: {
+        format: 'json',
+        ok: false,
+        error: 'Body cut at the size limit; JSON not parsed.',
+      },
+    };
+  }
 
-	try {
-		JSON.parse(text);
-		return { text, decoding: { format: 'json', ok: true } };
-	} catch (error) {
-		return {
-			text,
-			decoding: {
-				format: 'json',
-				ok: false,
-				error: `Invalid JSON: ${(error as Error).message}`,
-			},
-		};
-	}
+  try {
+    JSON.parse(text);
+    return { text, decoding: { format: 'json', ok: true } };
+  } catch (error) {
+    return {
+      text,
+      decoding: {
+        format: 'json',
+        ok: false,
+        error: `Invalid JSON: ${(error as Error).message}`,
+      },
+    };
+  }
 }
 
 function charsetOf(contentType: string | undefined): string {
-	const charset =
-		/charset=([^;]+)/i
-			.exec(contentType ?? '')?.[1]
-			?.trim()
-			.replace(/["']/g, '') ?? 'utf-8';
+  const charset =
+    /charset=([^;]+)/i
+      .exec(contentType ?? '')?.[1]
+      ?.trim()
+      .replace(/["']/g, '') ?? 'utf-8';
 
-	try {
-		new TextDecoder(charset);
-		return charset;
-	} catch {
-		return 'utf-8';
-	}
+  try {
+    new TextDecoder(charset);
+    return charset;
+  } catch {
+    return 'utf-8';
+  }
 }
 
 // Loopback, link-local (cloud metadata), private ranges and local names: services that were never meant to be public.
 function isLocalOrPrivateHost(hostname: string): boolean {
-	const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
 
-	if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
-		return true;
-	}
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
+    return true;
+  }
 
-	const octets = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
+  const octets = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
 
-	if (octets) {
-		const [first, second] = [Number(octets[1]), Number(octets[2])];
+  if (octets) {
+    const [first, second] = [Number(octets[1]), Number(octets[2])];
 
-		return (
-			first === 0 ||
-			first === 10 ||
-			first === 127 ||
-			(first === 169 && second === 254) ||
-			(first === 172 && second >= 16 && second <= 31) ||
-			(first === 192 && second === 168)
-		);
-	}
+    return (
+      first === 0 ||
+      first === 10 ||
+      first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    );
+  }
 
-	// IPv6 literals only: a name such as "fcdn.example.com" is not a unique-local address.
-	return host.includes(':') && (host === '::1' || host === '::' || /^f[cd]/.test(host) || /^fe[89ab]/.test(host));
+  // IPv6 literals only: a name such as "fcdn.example.com" is not a unique-local address.
+  return host.includes(':') && (host === '::1' || host === '::' || /^f[cd]/.test(host) || /^fe[89ab]/.test(host));
 }

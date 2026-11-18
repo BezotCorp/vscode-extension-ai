@@ -6,11 +6,7 @@ export { globMatches } from './glob_matches';
 export { managePermissions } from './manage_permissions';
 export { pathMatches } from './path_matches';
 export { PermissionCapability } from './permission_capability';
-export {
-	contentEffect,
-	networkEffect,
-	removalEffect,
-} from './permission_effects';
+export { contentEffect, networkEffect, removalEffect } from './permission_effects';
 export { PermissionEntry } from './permission_entry';
 export { PermissionError } from './permission_error';
 export { PermissionFailureKind } from './permission_failure_kind';
@@ -20,10 +16,7 @@ export { PermissionRequest } from './permission_request';
 export { PermissionResolution } from './permission_resolution';
 export { PermissionResource } from './permission_resource';
 export { PermissionStore } from './permission_store';
-export {
-	getProtectedPatterns,
-	isProtectedResource,
-} from './protected_resources';
+export { getProtectedPatterns, isProtectedResource } from './protected_resources';
 export { ResourceBoundary } from './resource_boundary';
 export { ResourcePermissionGrant } from './resource_permission_grant';
 export { ResourcePermissionKind } from './resource_permission_kind';

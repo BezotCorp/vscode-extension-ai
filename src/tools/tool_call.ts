@@ -1,4 +1,4 @@
 export type ToolCall = {
-	name: string;
-	arguments: unknown;
+  name: string;
+  arguments: unknown;
 };
