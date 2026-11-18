@@ -1,24 +1,30 @@
 use super::{
-    GLOBAL_INDEX_FILE, InitializationState, RonFile, StoreLock, StoredFile, WriteTransaction,
+    initialization_state::{GLOBAL_INDEX_FILE, InitializationState},
+    record_file::RecordFile,
+    ron_file::RonFile,
+    store_lock::StoreLock,
+    stored_file::StoredFile,
+    write_transaction::WriteTransaction,
 };
 use crate::location::Location;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 use std::{
     error::Error,
     path::{Path, PathBuf},
 };
 
-pub(crate) const TAG_REGISTRY_FILE: &str = "tag_registry.ron";
-pub(crate) const WRITE_LOCATIONS_FILE: &str = "write_locations.ron";
 
 /// Manager of the persistent storage (local files): the only code that reads or
 /// writes them. It knows locations, formats and transactions, and nothing of
 /// what the stored data means.
-pub(crate) struct StorageManager {
+pub(crate) struct DiskManager {
     directory: PathBuf,
 }
 
-impl StorageManager {
+impl DiskManager {
+    pub(crate) const TAG_REGISTRY_FILE: &'static str = "tag_registry.ron";
+    pub(crate) const WRITE_LOCATIONS_FILE: &'static str = "write_locations.ron";
+    pub(crate) const GLOBAL_INDEX_FILE: &'static str = GLOBAL_INDEX_FILE;
     pub(crate) fn new(directory: &Path) -> Self {
         Self {
             directory: directory.to_path_buf(),
@@ -52,9 +58,32 @@ impl StorageManager {
         location.resolve(&self.directory).is_file()
     }
 
+    /// Encodes and persists records and indexes on local disk.
+    pub(crate) fn persist<R: Serialize, I: Serialize, G: Serialize>(
+        &self,
+        record: RecordFile<'_, R>,
+        indexes: &[(Location, I)],
+        global: &G,
+    ) -> Result<(), Box<dyn Error>> {
+        let record = match record {
+            RecordFile::Create(path, value) =>
+                StoredFile::create(path, RonFile::render_compact(value)?),
+            RecordFile::Replace(path, value) =>
+                StoredFile::replace(path, RonFile::render_compact(value)?),
+        };
+        let indexes = indexes.iter().map(|(path, value)| {
+            Ok(StoredFile::replace(
+                path.clone(),
+                RonFile::render_pretty(value)?,
+            ))
+        }).collect::<Result<Vec<_>, Box<dyn Error>>>()?;
+        let global = RonFile::render_pretty(global)?;
+        self.commit_files(record, indexes, &global)
+    }
+
     /// Record first, global index last: the global index is the commit point.
     /// On failure every applied change is reverted.
-    pub(crate) fn commit(
+    fn commit_files(
         &self,
         record: StoredFile,
         indexes: Vec<StoredFile>,
@@ -94,19 +123,27 @@ impl StorageManager {
 
     /// Creates the folder and `files`, runs `verify` on what was created, then
     /// creates `.lock` last. Any earlier failure removes what this call created.
-    pub(crate) fn create_store(
+    pub(crate) fn create_store<G: Serialize>(
         &self,
-        files: &[(&str, &[u8])],
+        tags: &str,
+        locations: &str,
+        global: &G,
         verify: impl FnOnce() -> Result<(), Box<dyn Error>>,
     ) -> Result<(), Box<dyn Error>> {
+        let global_bytes = RonFile::render_pretty(global)?;
+        let files: [(&str, &[u8]); 3] = [
+            (Self::TAG_REGISTRY_FILE, tags.as_bytes()),
+            (Self::WRITE_LOCATIONS_FILE, locations.as_bytes()),
+            (Self::GLOBAL_INDEX_FILE, &global_bytes),
+        ];
         let mut transaction = WriteTransaction::begin();
         let outcome = (|| -> Result<(), Box<dyn Error>> {
             transaction.create_directories(&self.directory)?;
-            for (name, bytes) in files {
+            for (name, bytes) in &files {
                 transaction.create_file(&self.directory.join(name), bytes)?;
             }
             verify()?;
-            StoreLock::create(&self.directory)
+            transaction.create_file(&StoreLock::path(&self.directory), &[])
         })();
         match outcome {
             Ok(()) => {

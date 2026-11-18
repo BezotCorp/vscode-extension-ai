@@ -1,7 +1,7 @@
-use super::RoutingGraph;
 use crate::{
     criterion::Criterion,
     graph_system::{Edge, GraphReader, Interpretation, Node},
+    routing_graph::RoutingGraph,
 };
 use std::{collections::BTreeMap, error::Error, path::Path};
 
@@ -44,11 +44,11 @@ impl RoutingGraphLoadingPipeline {
                 return Err("interpretation of an unknown edge".into());
             }
         }
-        let graph = RoutingGraph {
-            tags: store.into_tags(),
+        let graph = RoutingGraph::new(
+            store.into_tags(),
             nodes,
             edges,
-        };
+        );
         graph.validate_connections()?;
         Ok(graph)
     }

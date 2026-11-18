@@ -1,7 +1,7 @@
 use crate::{
-    file_type_node::FileTypeNode, graph_system::Indexable, graph_system::NodeBase,
-    id_uuid_v7::IdUuidV7, intent_node::IntentNode, operation_node::OperationNode, tag_id::TagId,
-    tool_node::ToolNode,
+    graph_system::{FileTypeNode, Indexable, IntentNode, NodeBase, OperationNode, ToolNode},
+    id_uuid_v7::IdUuidV7,
+    tag_id::TagId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

@@ -1,6 +1,8 @@
 use crate::{cargo_metadata::CargoMetadata, conformance_intent::ConformanceIntent};
 use std::{error::Error, path::Path, process::Command};
+
 pub(crate) struct Rustfmt;
+
 impl Rustfmt {
     pub(crate) fn execute(
         root: &Path,

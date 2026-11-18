@@ -1,7 +1,4 @@
-use super::storage::{
-    GLOBAL_INDEX_FILE, InitializationState, RonFile, StorageManager, TAG_REGISTRY_FILE,
-    WRITE_LOCATIONS_FILE,
-};
+use crate::data_placement::{DiskManager, InitializationState};
 use crate::{
     graph_system::GlobalIndex, tag_registry::TagRegistry, write_locations::WriteLocations,
 };
@@ -22,20 +19,17 @@ impl StoreInitializationPipeline {
         write_locations: &str,
         verify: impl FnOnce(&Path) -> Result<(), Box<dyn Error>>,
     ) -> Result<(), Box<dyn Error>> {
-        let storage = StorageManager::new(directory);
+        let storage = DiskManager::new(directory);
         Self::require(&storage, InitializationState::Virgin, "initialize")?;
         let tags: TagRegistry = ron::from_str(tag_registry)?;
         tags.validate()?;
         let locations: WriteLocations = ron::from_str(write_locations)?;
         locations.validate(&tags)?;
 
-        let global = RonFile::render_pretty(&GlobalIndex::empty())?;
         storage.create_store(
-            &[
-                (TAG_REGISTRY_FILE, tag_registry.as_bytes()),
-                (WRITE_LOCATIONS_FILE, write_locations.as_bytes()),
-                (GLOBAL_INDEX_FILE, &global),
-            ],
+            tag_registry,
+            write_locations,
+            &GlobalIndex::empty(),
             || verify(directory),
         )
     }
@@ -46,13 +40,13 @@ impl StoreInitializationPipeline {
         directory: &Path,
         verify: impl FnOnce(&Path) -> Result<(), Box<dyn Error>>,
     ) -> Result<(), Box<dyn Error>> {
-        let storage = StorageManager::new(directory);
+        let storage = DiskManager::new(directory);
         Self::require(&storage, InitializationState::AdoptionPending, "adopt")?;
         storage.seal(|| verify(directory))
     }
 
     fn require(
-        storage: &StorageManager,
+        storage: &DiskManager,
         expected: InitializationState,
         action: &str,
     ) -> Result<(), Box<dyn Error>> {

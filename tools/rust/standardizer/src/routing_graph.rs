@@ -11,10 +11,6 @@ use std::{
     path::Path,
 };
 
-mod routing_graph_loading_pipeline;
-
-pub(crate) use routing_graph_loading_pipeline::RoutingGraphLoadingPipeline;
-
 pub(crate) struct RoutingGraph {
     tags: TagRegistry,
     nodes: BTreeMap<NodeId, Node>,
@@ -22,6 +18,14 @@ pub(crate) struct RoutingGraph {
 }
 
 impl RoutingGraph {
+    pub(crate) fn new(
+        tags: TagRegistry,
+        nodes: BTreeMap<NodeId, Node>,
+        edges: BTreeMap<EdgeId, Edge>,
+    ) -> Self {
+        Self { tags, nodes, edges }
+    }
+
     fn tagged(&self, name: &str) -> Result<Vec<&Node>, Box<dyn Error>> {
         let tag = self.tags.find(name)?;
         Ok(self

@@ -1,4 +1,3 @@
-use super::RoutingWriter;
 use crate::{
     criterion::Criterion,
     graph_system::{Edge, GraphReader, Indexable, Node},
@@ -6,6 +5,7 @@ use crate::{
     mutation::Mutation,
     mutation_operation::MutationOperation,
     record_replacement_pipeline::RecordReplacementPipeline,
+    routing_writer::RoutingWriter,
 };
 use std::error::Error;
 
@@ -35,30 +35,34 @@ impl MutationApplicationPipeline {
         node.set_tags(tags);
         // Always replayed: identical files are skipped and indexes are recomputed,
         // which also repairs a replay after a crash between a file and its indexes.
-        RecordReplacementPipeline::run(&mut writer.store, &node, &node_location)?;
-        let edge_tag = writer.store.tags().find("edge")?;
-        let partition = writer.store.destinations().for_tag(&edge_tag)?.partition();
-        let referrers = GraphReader::new(&writer.store).referrers(
+        RecordReplacementPipeline::run(&mut writer.store(), &node, &node_location)?;
+        let edge_tag = writer.store().tags().find("edge")?;
+        let partition = writer
+            .store()
+            .destinations()
+            .for_tag(&edge_tag)?
+            .partition();
+        let referrers = GraphReader::new(&writer.store()).referrers(
             &Criterion::set(&["edge", "node", "reference"])?,
             partition,
             node_id.id_uuid_v7(),
         )?;
         for (edge_id, edge_location) in referrers {
-            let mut edge: Edge = writer.store.read(&edge_location)?;
+            let mut edge: Edge = writer.store().read(&edge_location)?;
             if edge.id() != edge_id || !edge.nodes().contains(&node_id) {
                 return Err("stale edge reference index".into());
             }
             let mut expected = writer.node_tags(edge.nodes())?;
             expected.insert(edge_tag);
             edge.set_tags(expected);
-            RecordReplacementPipeline::run(&mut writer.store, &edge, &edge_location)?;
+            RecordReplacementPipeline::run(&mut writer.store(), &edge, &edge_location)?;
         }
-        let pending = writer.store.tags().find("pending")?;
-        let done = writer.store.tags().find("done")?;
+        let pending = writer.store().tags().find("pending")?;
+        let done = writer.store().tags().find("done")?;
         let mut tags = mutation.tags().clone();
         tags.remove(&pending);
         tags.insert(done);
         mutation.set_tags(tags);
-        RecordReplacementPipeline::run(&mut writer.store, &mutation, location)
+        RecordReplacementPipeline::run(&mut writer.store(), &mutation, location)
     }
 }

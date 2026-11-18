@@ -1,5 +1,6 @@
 use crate::{
-    data_placement::{DataPlacementOrchestrator, StoreInitializationPipeline},
+    data_placement::DataPlacementOrchestrator,
+    store_initialization_pipeline::StoreInitializationPipeline,
     graph_system::GraphReader,
 };
 use std::{
@@ -8,6 +9,8 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+
+const ADOPT: &str = "adopt";
 
 /// Explicit operations on the store life cycle, distinct from conformance.
 pub(crate) enum StoreCommand {
@@ -33,8 +36,8 @@ impl StoreCommand {
                 })),
                 _ => Err(usage.into()),
             },
-            Some("adopt") if arguments.len() == 1 => Ok(Some(Self::Adopt)),
-            Some("adopt") => Err(usage.into()),
+            Some(ADOPT) if arguments.len() == 1 => Ok(Some(Self::Adopt)),
+            Some(ADOPT) => Err(usage.into()),
             _ => Ok(None),
         }
     }

@@ -9,11 +9,11 @@ use std::{
     process::Command,
 };
 
-pub(crate) struct Repository {
+pub(crate) struct GitRepository {
     root: PathBuf,
 }
 
-impl Repository {
+impl GitRepository {
     pub(crate) fn discover() -> Result<Self, Box<dyn Error>> {
         let output = Command::new("git")
             .args(["rev-parse", "--show-toplevel"])
