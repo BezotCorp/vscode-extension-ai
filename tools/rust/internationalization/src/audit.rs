@@ -6,10 +6,10 @@
 //
 // Optional data/i18n/sources/namespaces.ron maps a source path prefix to the namespaces it may use, for example
 //   { "src/chat/": ["chat", "global"], "src/permissions/": ["permissions", "global"] }
-
 use crate::id::Id;
 use crate::locale::Locale;
 use crate::part::Part;
+use crate::paths::NAMESPACES_RON;
 use crate::scanner::literals;
 use crate::source::GLOBAL_NAMESPACE;
 use std::collections::{BTreeMap, BTreeSet};
@@ -23,7 +23,7 @@ pub fn audit(root: &Path, reference: &Locale) -> Result<Vec<String>, Box<dyn Err
         .iter()
         .map(|(namespace, _)| namespace.as_str())
         .collect();
-    let rules = load_rules(&root.join("data/i18n/sources/namespaces.ron"))?;
+    let rules = load_rules(&root.join(NAMESPACES_RON))?;
     let mut used: BTreeSet<(String, String)> = BTreeSet::new();
     let mut problems = Vec::new();
 
