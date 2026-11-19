@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 concurrency:
   group: release-main
@@ -13,27 +12,28 @@ permissions:
   contents: read
 
 jobs:
+  platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.config.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load targets
+        id: config
+        shell: bash
+        run: echo "matrix=$(tr -d '\n' < .github/release-platforms.json)" >> "$GITHUB_OUTPUT"
+
   prepare:
     name: Prepare (${{ matrix.target }})
+    needs: platforms
     runs-on: ${{ matrix.os }}
-
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-
+      contents: read
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: linux-x64
-          - os: windows-latest
-            target: win32-x64
-
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -44,36 +44,50 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VSCE_TARGET: ${{ matrix.target }}
-        run: pnpm run release -- --extends ./release.package.config.cjs
+        run: pnpm run release --extends ./release.package.config.cjs
+
+      - name: Record platform result
+        shell: bash
+        run: cargo run --release --quiet --locked --package release-preparer -- record .release-state "${{ matrix.target }}" "$GITHUB_SHA" . .
+
+      - name: Upload platform state
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-${{ matrix.target }}
+          path: .release-state/${{ matrix.target }}.bin
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Upload VSIX
         if: hashFiles('*.vsix') != ''
         uses: actions/upload-artifact@v4
         with:
           name: vsix-${{ matrix.target }}
-          path: "*.vsix"
+          path: '*.vsix'
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload release manifest
-        if: matrix.target == 'linux-x64' && hashFiles('*.vsix') != ''
+      - name: Upload prepared manifest
+        if: strategy.job-index == 0 && hashFiles('*.vsix') != ''
         uses: actions/upload-artifact@v4
         with:
           name: release-manifest
-          path: package.json
+          path: |
+            package.json
+            CHANGELOG.md
           if-no-files-found: error
           retention-days: 1
 
   publish:
     name: Publish release
-    needs: prepare
+    needs: [platforms, prepare]
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
       issues: write
       pull-requests: write
-
+      id-token: write
     steps:
       - name: Create release bot token
         uses: actions/create-github-app-token@v2
@@ -82,107 +96,65 @@ jobs:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.5.1
+          version: 12.21.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26.13.0
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download prepared packages
+      - name: Download platform states
+        uses: actions/download-artifact@v4
+        with:
+          pattern: state-*
+          path: .release-state
+          merge-multiple: true
+
+      - name: Decide release
+        id: decision
+        shell: bash
+        run: cargo run --release --quiet --locked --package release-preparer -- decision .release-state .github/release-platforms.json "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Download VSIX
+        if: steps.decision.outputs.publish == 'true'
         uses: actions/download-artifact@v4
         with:
           pattern: vsix-*
           merge-multiple: true
 
-      - name: Detect release packages
-        id: packages
-        shell: bash
-        run: |
-          if compgen -G '*.vsix' > /dev/null; then
-            echo 'available=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'available=false' >> "$GITHUB_OUTPUT"
-            echo 'No new release to publish.'
-          fi
-
-      - name: Download versioned manifest
-        if: steps.packages.outputs.available == 'true'
+      - name: Download prepared manifest
+        if: steps.decision.outputs.publish == 'true'
         uses: actions/download-artifact@v4
         with:
           name: release-manifest
+          path: .release-prepared
 
-      - name: Verify release packages
-        if: steps.packages.outputs.available == 'true'
+      - name: Verify release artifacts
+        if: steps.decision.outputs.publish == 'true'
+        run: cargo run --release --quiet --locked --package release-preparer -- verify .release-state .github/release-platforms.json "$GITHUB_SHA" .release-prepared .
+
+      - name: Restore prepared version
+        if: steps.decision.outputs.publish == 'true'
         shell: bash
         run: |
-          python3 - <<'CHECK'
-          import glob
-          import json
-          import zipfile
-          import xml.etree.ElementTree as ET
+          cp .release-prepared/package.json package.json
+          cp .release-prepared/CHANGELOG.md CHANGELOG.md
 
-          expected = {"linux-x64", "win32-x64"}
-          files = glob.glob("*.vsix")
-          version = json.load(open("package.json", encoding="utf-8"))["version"]
-          found = set()
-
-          if len(files) != len(expected):
-              raise SystemExit(f"Expected {len(expected)} VSIX files, found {len(files)}")
-
-          for file in files:
-              with zipfile.ZipFile(file) as archive:
-                  entries = set(archive.namelist())
-                  manifest = ET.fromstring(archive.read("extension.vsixmanifest"))
-                  identity = manifest.find(".//{*}Identity")
-
-                  if identity is None:
-                      raise SystemExit(f"Missing VSIX identity: {file}")
-
-                  target = identity.attrib.get("TargetPlatform")
-                  if target not in expected or target in found:
-                      raise SystemExit(f"Unexpected or duplicate target: {target}")
-
-                  found.add(target)
-
-                  packaged = json.loads(archive.read("extension/package.json"))
-                  if packaged["version"] != version:
-                      raise SystemExit(f"Version mismatch: {file}")
-
-                  required = {
-                      "extension/package.nls.json",
-                      "extension/dist/i18n/catalog.js",
-                      "extension/data/i18n/output/en.bin",
-                      "extension/data/i18n/output/fr.bin",
-                  }
-
-                  if not required <= entries:
-                      raise SystemExit(f"Missing required files in {file}: {required - entries}")
-
-          if found != expected:
-              raise SystemExit(f"Missing targets: {expected - found}")
-
-          print(f"Validated {len(files)} VSIX packages, version {version}")
-          CHECK
-
-      - name: Release
-        if: steps.packages.outputs.available == 'true'
+      - name: Publish to registries and GitHub
+        if: steps.decision.outputs.publish == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: pnpm run release -- --extends ./release.publish.config.cjs
+        run: pnpm run release --extends ./release.publish.config.cjs

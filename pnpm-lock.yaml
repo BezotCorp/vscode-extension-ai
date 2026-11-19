@@ -41,6 +41,9 @@ importers:
       '@vscode/vsce':
         specifier: ^4.1.1
         version: 4.1.1(supports-color@7.2.0)
+      ovsx:
+        specifier: ^1.4.0
+        version: 1.4.0(@types/node@26.6.6)(supports-color@7.2.0)
       semantic-release:
         specifier: ^26.0.1
         version: 26.0.1(supports-color@7.2.0)
@@ -2275,8 +2278,8 @@ packages:
     resolution: {integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==}
     engines: {node: '>=18'}
 
-  npm@12.2.2:
-    resolution: {integrity: sha512-KglgbZyacf7jH+FHuNRqVuCzQi8VhI2a7J87Ix43FsPTuZoGWmIXXGdZtBUOA79vwL+IJREqURVzupA7PsQTcA==}
+  npm@12.2.3:
+    resolution: {integrity: sha512-ovmNRRe76Jvcp1E6iOePQ6H9Zr4XMOrqgfaeGNhtRvP3XSl2Lo/a9C1N5/jRlLLrsqCem/omgGdZHpZ5a6yn1Q==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
     hasBin: true
     bundledDependencies:
@@ -3981,7 +3984,7 @@ snapshots:
       lodash-es: 4.18.1
       nerf-dart: 1.0.0
       normalize-url: 9.0.1
-      npm: 12.2.2
+      npm: 12.2.3
       rc: 1.2.8
       read-pkg: 10.1.0
       registry-auth-token: 5.1.1
@@ -5416,7 +5419,7 @@ snapshots:
       path-key: 4.0.0
       unicorn-magic: 0.3.0
 
-  npm@12.2.2: {}
+  npm@12.2.3: {}
 
   nth-check@2.1.1:
     dependencies:

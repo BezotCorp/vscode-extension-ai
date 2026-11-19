@@ -11,3 +11,6 @@ target/**
 tools/**
 Cargo.toml
 Cargo.lock
+.github/**
+release.package.config.cjs
+release.publish.config.cjs

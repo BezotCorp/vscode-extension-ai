@@ -207,6 +207,7 @@
     "@types/vscode": "^1.146.0",
     "@vitest/coverage-v8": "5.1.1",
     "@vscode/vsce": "^4.1.1",
+    "ovsx": "^1.4.0",
     "semantic-release": "^26.0.1",
     "semantic-release-stop-before-publish": "^2.0.0",
     "semantic-release-vsce": "^6.1.8",
