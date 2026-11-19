@@ -3,7 +3,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
@@ -38,6 +38,14 @@ pub(crate) fn packages(directory: &Path) -> Result<Vec<PathBuf>> {
 
     found.sort();
     Ok(found)
+}
+
+fn reject_duplicate_names<R: Read + Seek>(archive: &ZipArchive<R>) -> Result<()> {
+    if archive.has_duplicate_names() {
+        return Err(invalid("Duplicate VSIX entry names").into());
+    }
+
+    Ok(())
 }
 
 fn read_entry(archive: &mut ZipArchive<fs::File>, name: &str) -> Result<Vec<u8>> {
@@ -102,6 +110,13 @@ fn catalog(bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
+fn package_target(identity: roxmltree::Node<'_, '_>) -> String {
+    identity
+        .attribute("TargetPlatform")
+        .unwrap_or("universal")
+        .to_owned()
+}
+
 pub(crate) fn verify(path: &Path, manifest: &Value) -> Result<Package> {
     let mut archive = ZipArchive::new(fs::File::open(path)?)?;
 
@@ -109,7 +124,10 @@ pub(crate) fn verify(path: &Path, manifest: &Value) -> Result<Package> {
         return Err(invalid("Too many VSIX entries").into());
     }
 
-    // Reject duplicate critical entries before reading by name.
+    // Reject duplicate entry names before inspecting required files.
+    reject_duplicate_names(&archive)?;
+
+    // Verify every required entry is present.
     for required in REQUIRED
         .iter()
         .copied()
@@ -136,10 +154,7 @@ pub(crate) fn verify(path: &Path, manifest: &Value) -> Result<Package> {
         .find(|node| node.is_element() && node.tag_name().name() == "Identity")
         .ok_or_else(|| invalid("Missing VSIX identity"))?;
 
-    let target = identity
-        .attribute("TargetPlatform")
-        .ok_or_else(|| invalid("Missing VSIX target"))?
-        .to_owned();
+    let target = package_target(identity);
 
     let version = identity
         .attribute("Version")
@@ -191,4 +206,85 @@ pub(crate) fn verify(path: &Path, manifest: &Value) -> Result<Package> {
         digest: state::checksum(path)?,
         translations,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Cursor, Write};
+    use zip::{ZipWriter, write::SimpleFileOptions};
+
+    #[test]
+    fn duplicate_zip_names_are_rejected() -> Result<()> {
+        let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+
+        writer.start_file("extension/package-a.json", SimpleFileOptions::default())?;
+        writer.write_all(b"first")?;
+
+        writer.start_file("extension/package-b.json", SimpleFileOptions::default())?;
+        writer.write_all(b"second")?;
+
+        let mut bytes = writer.finish()?.into_inner();
+
+        // Alter only the last central-directory filename. The ZIP reader
+        // must detect two names referring to the same critical resource.
+        let offset = bytes
+            .windows(4)
+            .rposition(|part| part == b"PK\x01\x02")
+            .ok_or_else(|| invalid("Missing ZIP central directory"))?
+            + 46;
+
+        let original = b"extension/package-b.json";
+        let duplicate = b"extension/package-a.json";
+
+        if bytes.get(offset..offset + original.len()) != Some(original.as_slice()) {
+            return Err(invalid("Unexpected ZIP central directory entry").into());
+        }
+
+        bytes[offset..offset + original.len()].copy_from_slice(duplicate);
+
+        let archive = ZipArchive::new(Cursor::new(bytes))?;
+
+        assert!(archive.has_duplicate_names());
+        assert!(reject_duplicate_names(&archive).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn targeted_and_universal_manifests_are_recognized() -> Result<()> {
+        for (source, expected) in [
+            (
+                r#"<Package><Identity TargetPlatform="linux-x64" /></Package>"#,
+                "linux-x64",
+            ),
+            (
+                r#"<Package><Identity TargetPlatform="win32-x64" /></Package>"#,
+                "win32-x64",
+            ),
+            (r#"<Package><Identity /></Package>"#, "universal"),
+        ] {
+            let document = roxmltree::Document::parse(source)?;
+            let identity = document
+                .descendants()
+                .find(|node| node.is_element() && node.tag_name().name() == "Identity")
+                .ok_or_else(|| invalid("Missing test identity"))?;
+
+            assert_eq!(package_target(identity), expected);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn unique_zip_names_are_accepted() -> Result<()> {
+        let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+        writer.start_file("extension/package.json", SimpleFileOptions::default())?;
+        writer.write_all(b"test")?;
+
+        let archive = ZipArchive::new(writer.finish()?)?;
+
+        reject_duplicate_names(&archive)?;
+        Ok(())
+    }
 }

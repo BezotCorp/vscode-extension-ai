@@ -13,7 +13,8 @@ module.exports = {
     [
       '@semantic-release/exec',
       {
-        prepareCmd: 'for file in *.vsix; do pnpm exec vsce publish --oidc --skip-duplicate --packagePath "$file" && pnpm exec ovsx publish "$file" --trusted-publishing --skip-duplicate || exit 1; done',
+        prepareCmd:
+          'set -e; for file in *.vsix; do case "$file" in *@linux-x64.vsix) target=linux-x64 ;; *@win32-x64.vsix) target=win32-x64 ;; *@*.vsix) echo "Unexpected VSIX target: $file" >&2; exit 1 ;; *) target=universal ;; esac; pnpm exec vsce publish --oidc --skip-duplicate --packagePath "$file"; if [ "$target" = universal ]; then pnpm exec ovsx publish "$file" --trusted-publishing --skip-duplicate; else pnpm exec ovsx publish "$file" --target "$target" --trusted-publishing --skip-duplicate; fi; done',
       },
     ],
     [

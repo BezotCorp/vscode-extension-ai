@@ -31,29 +31,36 @@ export function pathMatches(pattern: string, target: string, workspaceRoots: str
   return localPathMatches(pattern, target, workspaceRoots);
 }
 
+function localGlobMatches(pattern: string, target: string): boolean {
+  if (process.platform !== 'win32') {
+    return globMatches(pattern, target);
+  }
+
+  const normalized = (value: string) => value.replaceAll('\\', '/').toLowerCase();
+  return globMatches(normalized(pattern), normalized(target));
+}
+
 function localPathMatches(pattern: string, target: string, workspaceRoots: string[]): boolean {
   const resolved = path.resolve(target);
 
   if (pattern.startsWith('//')) {
-    const absolute =
-      process.platform === 'win32' ? path.win32.normalize(pattern.slice(2).replaceAll('/', '\\')) : pattern.slice(1);
-
-    return globMatches(absolute, resolved);
+    const absolute = process.platform === 'win32' ? pattern.slice(2) : pattern.slice(1);
+    return localGlobMatches(absolute, resolved);
   }
 
   if (pattern.startsWith('~/')) {
-    return globMatches(path.join(os.homedir(), pattern.slice(2)), resolved);
+    return localGlobMatches(path.join(os.homedir(), pattern.slice(2)), resolved);
   }
 
   const relative = pattern.replace(/^\.\//, '');
 
   if (!pattern.startsWith('/') && !relative.includes('/')) {
-    return resolved.split(path.sep).some((segment) => segment !== '' && globMatches(relative, segment));
+    return resolved.split(path.sep).some((segment) => segment !== '' && localGlobMatches(relative, segment));
   }
 
   return workspaceRoots
     .filter((root) => parseResourceUri(root) === undefined)
-    .some((root) => globMatches(path.join(root, relative.replace(/^\//, '')), resolved));
+    .some((root) => localGlobMatches(path.join(root, relative.replace(/^\//, '')), resolved));
 }
 
 function uriPathMatches(pattern: string, target: vscode.Uri, workspaceRoots: string[]): boolean {

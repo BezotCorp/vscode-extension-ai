@@ -30,6 +30,32 @@ describe('pathMatches on local paths', () => {
     expect(pathMatches(pattern, path.join(root, 'etc', 'other'), [root])).toBe(false);
   });
 
+  it('matches Windows absolute protected globs across nested folders and drive casing', () => {
+    if (process.platform !== 'win32') {
+      return;
+    }
+
+    const directory = path.join(root, 'protected');
+    const pattern = `//${directory.replaceAll('\\', '/')}/**/private.txt`;
+
+    expect(pathMatches(pattern, path.join(directory, 'private.txt'), [root])).toBe(true);
+    expect(pathMatches(pattern, path.join(directory, 'nested', 'private.txt'), [root])).toBe(true);
+    expect(pathMatches(pattern, path.join(directory, 'nested', 'deeper', 'private.txt'), [root])).toBe(true);
+    expect(pathMatches(pattern.toUpperCase(), path.join(directory, 'nested', 'private.txt'), [root])).toBe(true);
+    expect(pathMatches(pattern.toUpperCase(), path.join(directory, 'nested', 'deeper', 'private.txt'), [root])).toBe(
+      true,
+    );
+    expect(pathMatches(pattern, path.join(directory, 'nested', 'public.txt'), [root])).toBe(false);
+  });
+
+  it('matches Windows protected filenames case-insensitively', () => {
+    if (process.platform !== 'win32') {
+      return;
+    }
+
+    expect(pathMatches('.env', path.join(root, 'SENSITIVE', '.ENV'), [root])).toBe(true);
+  });
+
   it('matches a home-relative path', () => {
     expect(pathMatches('~/.ssh', path.join(os.homedir(), '.ssh', 'id_rsa'), [root])).toBe(true);
     expect(pathMatches('~/.ssh', path.join(os.homedir(), 'notes'), [root])).toBe(false);
@@ -68,6 +94,7 @@ describe('pathMatches on URI resources', () => {
   it('matches a bare name against a URI path segment', () => {
     expect(pathMatches('a.ts', file, [folder])).toBe(true);
     expect(pathMatches('b.ts', file, [folder])).toBe(false);
+    expect(pathMatches('A.TS', file, [folder])).toBe(false);
   });
 
   it('matches a folder-relative pattern in the same scheme and authority', () => {
