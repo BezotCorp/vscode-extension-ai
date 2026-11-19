@@ -13,7 +13,7 @@ module.exports = {
     [
       '@semantic-release/exec',
       {
-        publishCmd: 'for file in *.vsix; do pnpm exec vsce publish --oidc --packagePath "$file" && pnpm exec ovsx publish "$file" --trusted-publishing || exit 1; done',
+        prepareCmd: 'for file in *.vsix; do pnpm exec vsce publish --oidc --skip-duplicate --packagePath "$file" && pnpm exec ovsx publish "$file" --trusted-publishing --skip-duplicate || exit 1; done',
       },
     ],
     [

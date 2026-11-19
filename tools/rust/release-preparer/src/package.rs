@@ -145,6 +145,19 @@ pub(crate) fn verify(path: &Path, manifest: &Value) -> Result<Package> {
         .attribute("Version")
         .ok_or_else(|| invalid("Missing VSIX version"))?;
 
+    let identity_name = identity
+        .attribute("Id")
+        .ok_or_else(|| invalid("Missing VSIX identity name"))?;
+    let identity_publisher = identity
+        .attribute("Publisher")
+        .ok_or_else(|| invalid("Missing VSIX identity publisher"))?;
+
+    if manifest["name"].as_str() != Some(identity_name)
+        || manifest["publisher"].as_str() != Some(identity_publisher)
+    {
+        return Err(invalid("VSIX identity mismatch").into());
+    }
+
     let packaged: Value =
         serde_json::from_slice(&read_entry(&mut archive, "extension/package.json")?)?;
 
