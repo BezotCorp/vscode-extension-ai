@@ -54,8 +54,16 @@ export class GenerationController {
     }
   }
 
-  private async createTools(accessGuard: ToolAccessGuard, signal: AbortSignal): Promise<ToolRegistry> {
-    const registry = createDefaultToolRegistry(accessGuard, this.files);
+  private async createTools(
+    accessGuard: ToolAccessGuard,
+    signal: AbortSignal,
+    messages: readonly ChatMessage[],
+  ): Promise<ToolRegistry> {
+    const observations = messages.flatMap((message) =>
+      (message.toolRounds ?? []).flatMap((round) => round.calls.flatMap((call) => call.observations ?? [])),
+    );
+
+    const registry = createDefaultToolRegistry(accessGuard, this.files, observations);
 
     if (accessGuard.mode !== 'readOnly') {
       try {
@@ -158,7 +166,9 @@ export class GenerationController {
 
       sendChatStore(webviewView, this.chatManager);
 
-      const tools = provider.supportsTools ? await this.createTools(accessGuard, abortController.signal) : undefined;
+      const tools = provider.supportsTools
+        ? await this.createTools(accessGuard, abortController.signal, sessionMessages)
+        : undefined;
 
       await provider.streamChat(
         {

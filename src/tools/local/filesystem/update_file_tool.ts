@@ -370,10 +370,10 @@ export class UpdateFileTool implements Tool {
         : toolFailure('error', this.id, fsPath, {
             reason: 'file_changed',
             message: !known
-              ? 'You had not read the current version of this file. Nothing was written. Its current content is below: redo your change from this version and call update_file again.'
+              ? 'You had not read the current version of this file in this conversation. Nothing was written. Its current content is below: redo your change from this version and call update_file again.'
               : partial
                 ? 'Your context does not cover the whole file as it is now, and a whole replacement needs all of it. Nothing was written. Its current content is below: redo your change from it and call update_file again, with old_text and new_text if the change is local.'
-                : 'What you read is no longer what the file contains around your change. Nothing was written. Its current content is below: redo your change from this version and call update_file again.',
+                : 'This file was observed earlier, but your current context no longer establishes a safe basis for this change. Nothing was written. Its current content is below: redo your change from this version and call update_file again.',
             executed: false,
             retryable: true,
             details: {

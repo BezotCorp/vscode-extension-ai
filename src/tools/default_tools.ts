@@ -1,3 +1,4 @@
+import type { FileObservation } from './file_observation';
 import {
   CreateFilesTool,
   CreateFileTool,
@@ -81,9 +82,15 @@ export function createBuiltInTools(
 // The tools offered to the model. A tool that cannot be used now (read-only mode, denied, untrusted workspace) is
 // left out and recorded with its reason, so the model knows it cannot do that and can say so. Whether an operation
 // may run, and whether the user is asked first, is decided later by the access guard.
-export function createDefaultToolRegistry(accessGuard: ToolAccessGuard, files: FileToolServices): ToolRegistry {
+export function createDefaultToolRegistry(
+  accessGuard: ToolAccessGuard,
+  files: FileToolServices,
+  history: readonly FileObservation[] = [],
+): ToolRegistry {
   const registry = new ToolRegistry();
   const versions = new FileVersionTracker();
+
+  versions.restoreHistory(history);
 
   registry.setObservationSource(() => versions.takeObservations());
 
