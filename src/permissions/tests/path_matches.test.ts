@@ -77,6 +77,6 @@ describe('pathMatches on URI resources', () => {
   });
 
   it('does not take a Windows drive path for a URI', () => {
-    expect(pathMatches('//C:/x', 'C:\\x\\a.txt', [])).toBe(false);
+    expect(pathMatches('//C:/x', 'vscode-vfs://github/owner/repo/C:/x/a.txt', [folder])).toBe(false);
   });
 });
