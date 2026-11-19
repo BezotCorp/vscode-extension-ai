@@ -13,12 +13,14 @@ impl Biome {
             return Ok(true);
         }
 
-        let local = root.join("node_modules/.bin/biome");
+        let binary = if cfg!(windows) { "biome.cmd" } else { "biome" };
+
+        let local = root.join("node_modules/.bin").join(binary);
 
         let executable = if local.is_file() {
             local.into_os_string()
         } else {
-            OsString::from("biome")
+            OsString::from(binary)
         };
 
         let mut passed = true;
