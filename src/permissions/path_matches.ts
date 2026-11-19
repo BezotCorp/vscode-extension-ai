@@ -35,7 +35,10 @@ function localPathMatches(pattern: string, target: string, workspaceRoots: strin
   const resolved = path.resolve(target);
 
   if (pattern.startsWith('//')) {
-    return globMatches(pattern.slice(1), resolved);
+    const absolute =
+      process.platform === 'win32' ? path.win32.normalize(pattern.slice(2).replaceAll('/', '\\')) : pattern.slice(1);
+
+    return globMatches(absolute, resolved);
   }
 
   if (pattern.startsWith('~/')) {

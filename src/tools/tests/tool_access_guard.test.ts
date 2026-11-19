@@ -542,7 +542,9 @@ describe('ToolAccessGuard', () => {
         WORKSPACE_ALL,
         NO,
       ]);
-      expect(lastDialog()?.detail).toContain(`"kind":"cargo","root":"${outside}"`);
+      expect(lastDialog()?.detail).toContain(
+        `dialog.reason.structural:${JSON.stringify({ kind: 'cargo', root: outside })}`,
+      );
     });
 
     it('lets the user allow the whole structural workspace, and then covers what is below it', async () => {
@@ -665,7 +667,9 @@ describe('ToolAccessGuard', () => {
         access: { kind: 'critical', reason: 'because' },
       });
 
-      expect(lastDialog()?.detail).toContain(`dialog.target:{"target":"${root} -> ${path.join(root, 'moved')}"}`);
+      expect(lastDialog()?.detail).toContain(
+        `dialog.target:${JSON.stringify({ target: `${root} -> ${path.join(root, 'moved')}` })}`,
+      );
     });
 
     it('treats a system location as critical even inside the window', async () => {
@@ -769,7 +773,7 @@ describe('ToolAccessGuard', () => {
       expect(request.resources.map((resource) => resource.boundary.kind)).toEqual(['currentWindow', 'external']);
       expect(request.access?.required).toBe('elevated');
       expect(request.detail?.split('\n')).toEqual([
-        `detail.destination:{"path":"${path.join(outside, 'b.ts')}"}`,
+        `detail.destination:${JSON.stringify({ path: path.join(outside, 'b.ts') })}`,
         'extra',
         'detail.protectedInside:{"path":"/x/.env"}',
       ]);

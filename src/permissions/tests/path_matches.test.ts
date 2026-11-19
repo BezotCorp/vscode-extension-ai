@@ -23,8 +23,11 @@ const root = path.resolve('/work/project');
 
 describe('pathMatches on local paths', () => {
   it('matches an explicit absolute path with the // form', () => {
-    expect(pathMatches('//etc/ssh', '/etc/ssh/config', [root])).toBe(true);
-    expect(pathMatches('//etc/ssh', '/etc/other', [root])).toBe(false);
+    const directory = path.join(root, 'etc', 'ssh');
+    const pattern = process.platform === 'win32' ? `//${directory.replaceAll('\\', '/')}` : `/${directory}`;
+
+    expect(pathMatches(pattern, path.join(directory, 'config'), [root])).toBe(true);
+    expect(pathMatches(pattern, path.join(root, 'etc', 'other'), [root])).toBe(false);
   });
 
   it('matches a home-relative path', () => {
