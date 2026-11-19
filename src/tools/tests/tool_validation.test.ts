@@ -67,4 +67,8 @@ describe('validateToolInput', () => {
   it('does not check a parameter without a type', () => {
     expect(validateToolInput(schema, { path: 'a', any: { x: 1 } })).toBeUndefined();
   });
+
+  it('returns undefined for a missing input', () => {
+    expect(validateToolInput(schema, undefined)).toBe('missing required argument "path"');
+  });
 });

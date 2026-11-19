@@ -34,6 +34,10 @@ describe('toolSuccess and toolFailure', () => {
       retryable: false,
     });
   });
+
+  it('returns undefined for a missing input', () => {
+    expect(toolSuccess('read_file', '/a', { content: 'x' })).toBeDefined();
+  });
 });
 
 describe('toolErrorFromException', () => {
@@ -62,6 +66,10 @@ describe('toolErrorFromException', () => {
     const error = Object.assign(new Error('odd'), { code: 'EWHATEVER' });
 
     expect(toolErrorFromException('read_file', '/a', error, false).reason).toBe('exception');
+  });
+
+  it('returns undefined for a missing input', () => {
+    expect(toolErrorFromException('read_file', '/a', new Error('boom'), false)).toBeDefined();
   });
 });
 
