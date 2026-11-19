@@ -1,0 +1,44 @@
+name: Prepare and verify project
+description: Run project conformity, generation, compilation and tests
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 11.5.1
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Check project conformity
+      shell: bash
+      run: |
+        set -e
+        cargo run --release --quiet --locked --package standardizer -- check
+        cargo run --release --quiet --manifest-path tools/rust/internationalization/Cargo.toml -- .
+
+    - name: Verify project conformity
+      shell: bash
+      run: git diff --exit-code
+
+    - name: Run Rust tests
+      shell: bash
+      run: cargo test --workspace
+
+    - name: Compile TypeScript
+      shell: bash
+      run: pnpm compile
+
+    - name: Run TypeScript tests
+      shell: bash
+      run: pnpm test

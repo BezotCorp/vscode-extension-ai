@@ -5,14 +5,74 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  release:
+  prepare:
+    name: Prepare (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare and verify
+        uses: ./.github/actions/verify
+
+      - name: Build versioned VSIX
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VSCE_TARGET: ${{ matrix.target }}
+        run: pnpm run release -- --extends ./release.package.config.cjs
+
+      - name: Upload VSIX
+        if: hashFiles('*.vsix') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.target }}
+          path: "*.vsix"
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload release manifest
+        if: matrix.target == 'linux-x64' && hashFiles('*.vsix') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: package.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish release
+    needs: prepare
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Create release bot token
@@ -43,12 +103,86 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Compile
-        run: pnpm run compile
+      - name: Download prepared packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vsix-*
+          merge-multiple: true
+
+      - name: Detect release packages
+        id: packages
+        shell: bash
+        run: |
+          if compgen -G '*.vsix' > /dev/null; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'No new release to publish.'
+          fi
+
+      - name: Download versioned manifest
+        if: steps.packages.outputs.available == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+
+      - name: Verify release packages
+        if: steps.packages.outputs.available == 'true'
+        shell: bash
+        run: |
+          python3 - <<'CHECK'
+          import glob
+          import json
+          import zipfile
+          import xml.etree.ElementTree as ET
+
+          expected = {"linux-x64", "win32-x64"}
+          files = glob.glob("*.vsix")
+          version = json.load(open("package.json", encoding="utf-8"))["version"]
+          found = set()
+
+          if len(files) != len(expected):
+              raise SystemExit(f"Expected {len(expected)} VSIX files, found {len(files)}")
+
+          for file in files:
+              with zipfile.ZipFile(file) as archive:
+                  entries = set(archive.namelist())
+                  manifest = ET.fromstring(archive.read("extension.vsixmanifest"))
+                  identity = manifest.find(".//{*}Identity")
+
+                  if identity is None:
+                      raise SystemExit(f"Missing VSIX identity: {file}")
+
+                  target = identity.attrib.get("TargetPlatform")
+                  if target not in expected or target in found:
+                      raise SystemExit(f"Unexpected or duplicate target: {target}")
+
+                  found.add(target)
+
+                  packaged = json.loads(archive.read("extension/package.json"))
+                  if packaged["version"] != version:
+                      raise SystemExit(f"Version mismatch: {file}")
+
+                  required = {
+                      "extension/package.nls.json",
+                      "extension/dist/i18n/catalog.js",
+                      "extension/data/i18n/output/en.bin",
+                      "extension/data/i18n/output/fr.bin",
+                  }
+
+                  if not required <= entries:
+                      raise SystemExit(f"Missing required files in {file}: {required - entries}")
+
+          if found != expected:
+              raise SystemExit(f"Missing targets: {expected - found}")
+
+          print(f"Validated {len(files)} VSIX packages, version {version}")
+          CHECK
 
       - name: Release
+        if: steps.packages.outputs.available == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: pnpm run release
+        run: pnpm run release -- --extends ./release.publish.config.cjs

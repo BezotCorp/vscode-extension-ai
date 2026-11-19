@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import { detectStructuralWorkspace } from './detect_structural_workspace';
+import { isUriInside } from './path_relations';
 import { parseResourceUri, type ResolvedPath } from './resolved_path';
 
 export async function resolvePath(inputPath: string): Promise<ResolvedPath> {
@@ -14,7 +15,7 @@ export async function resolvePath(inputPath: string): Promise<ResolvedPath> {
 
   const canonicalRoots = await Promise.all(roots.map(canonicalize));
 
-  const container = canonicalRoots.find((root) => isInside(root, target));
+  const container = canonicalRoots.find((root) => isUriInside(root, target, 'filesystem'));
 
   const structuralWorkspace = container ? undefined : await detectStructuralWorkspace(target, canonicalRoots);
 
@@ -138,28 +139,4 @@ async function realPath(target: string): Promise<string> {
 
     return path.join(await realPath(parent), path.basename(target));
   }
-}
-
-function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
-  if (parent.scheme !== child.scheme || parent.authority !== child.authority) {
-    return false;
-  }
-
-  if (parent.scheme === 'file' && child.scheme === 'file') {
-    const relative = path.relative(parent.fsPath, child.fsPath);
-
-    return relative === '' || (!isNativeParentRelative(relative) && !path.isAbsolute(relative));
-  }
-
-  const relative = path.posix.relative(parent.path, child.path);
-
-  return relative === '' || (!isPosixParentRelative(relative) && !path.posix.isAbsolute(relative));
-}
-
-function isNativeParentRelative(relative: string): boolean {
-  return relative === '..' || relative.startsWith(`..${path.sep}`);
-}
-
-function isPosixParentRelative(relative: string): boolean {
-  return relative === '..' || relative.startsWith('../');
 }

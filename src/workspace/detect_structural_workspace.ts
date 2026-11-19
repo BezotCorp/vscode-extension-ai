@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
+import { isUriInside } from './path_relations';
 import type { StructuralWorkspace } from './structural_workspace';
 import { MAX_MANIFEST_BYTES } from './structural_workspace_limits';
 
@@ -14,7 +15,7 @@ export async function detectStructuralWorkspace(
     for (const parent of parents(root)) {
       const detected = await detectAt(parent);
 
-      if (detected && isInside(detected.root, root) && isInside(detected.root, target)) {
+      if (detected && isUriInside(detected.root, root, 'uri') && isUriInside(detected.root, target, 'uri')) {
         candidates.set(detected.root.toString(), detected);
       }
     }
@@ -124,18 +125,4 @@ function parents(start: vscode.Uri): vscode.Uri[] {
       fragment: '',
     });
   }
-}
-
-function isInside(parent: vscode.Uri, child: vscode.Uri): boolean {
-  if (parent.scheme !== child.scheme || parent.authority !== child.authority) {
-    return false;
-  }
-
-  const relative = path.posix.relative(parent.path, child.path);
-
-  return relative === '' || (!isParentRelative(relative) && !path.posix.isAbsolute(relative));
-}
-
-function isParentRelative(relative: string): boolean {
-  return relative === '..' || relative.startsWith('../');
 }

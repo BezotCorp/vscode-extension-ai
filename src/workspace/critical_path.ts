@@ -1,9 +1,9 @@
-import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import type { ResolvedPath } from '.';
+import { isParentRelative, realPathOrFallback } from './path_relations';
 
 // Where the operating system keeps what it runs on. Touching these is what "critical" means beyond the user's own
 // folders: a mistake there can make the machine or a service unusable.
@@ -64,8 +64,8 @@ export function describeCriticalPath(resolved: ResolvedPath): string | undefined
     return undefined;
   }
 
-  const target = realPathOrSelf(resolved.uri.fsPath);
-  const home = realPathOrSelf(os.homedir());
+  const target = realPathOrFallback(resolved.uri.fsPath, 'absolute');
+  const home = realPathOrFallback(os.homedir(), 'absolute');
 
   if (isInsideOrSame(home, target)) {
     return 'the home folder or one of its parents';
@@ -73,7 +73,7 @@ export function describeCriticalPath(resolved: ResolvedPath): string | undefined
 
   const roots = (vscode.workspace.workspaceFolders ?? [])
     .filter((folder) => folder.uri.scheme === 'file')
-    .map((folder) => realPathOrSelf(folder.uri.fsPath));
+    .map((folder) => realPathOrFallback(folder.uri.fsPath, 'absolute'));
 
   for (const root of roots) {
     if (isInsideOrSame(root, target)) {
@@ -85,7 +85,9 @@ export function describeCriticalPath(resolved: ResolvedPath): string | undefined
     }
   }
 
-  return systemRoots().some((root) => isInsideOrSame(target, realPathOrSelf(root))) ? 'a system location' : undefined;
+  return systemRoots().some((root) => isInsideOrSame(target, realPathOrFallback(root, 'absolute')))
+    ? 'a system location'
+    : undefined;
 }
 
 // True when `child` is `parent` itself or lies below it.
@@ -96,17 +98,5 @@ function isInsideOrSame(child: string, parent: string): boolean {
 function isStrictlyInside(parent: string, child: string): boolean {
   const relative = path.relative(path.resolve(parent), path.resolve(child));
 
-  return relative !== '' && !isParentRelative(relative) && !path.isAbsolute(relative);
-}
-
-function isParentRelative(relative: string): boolean {
-  return relative === '..' || relative.startsWith(`..${path.sep}`);
-}
-
-function realPathOrSelf(target: string): string {
-  try {
-    return fs.realpathSync(target);
-  } catch {
-    return path.resolve(target);
-  }
+  return relative !== '' && !isParentRelative(relative, 'native') && !path.isAbsolute(relative);
 }
