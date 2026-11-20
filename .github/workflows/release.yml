@@ -2,18 +2,100 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  release:
+  platforms:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.config.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load targets
+        id: config
+        shell: bash
+        run: echo "matrix=$(tr -d '\n' < .github/release-platforms.json)" >> "$GITHUB_OUTPUT"
 
+  prepare:
+    name: Prepare (${{ matrix.target }})
+    needs: platforms
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare and verify
+        uses: ./.github/actions/verify
+
+      - name: Create release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Build versioned VSIX
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          VSCE_TARGET: ${{ matrix.target }}
+        run: pnpm run release --extends ./release.package.config.cjs
+
+      - name: Record platform result
+        shell: bash
+        run: cargo run --release --quiet --locked --package release-preparer -- record .release-state "${{ matrix.target }}" "$GITHUB_SHA" . .
+
+      - name: Upload platform state
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-${{ matrix.target }}
+          path: .release-state/${{ matrix.target }}.bin
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload VSIX
+        if: hashFiles('*.vsix') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.target }}
+          path: '*.vsix'
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload prepared manifest
+        if: strategy.job-index == 0 && hashFiles('*.vsix') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: |
+            package.json
+            CHANGELOG.md
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish release
+    needs: [platforms, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
     steps:
       - name: Create release bot token
         uses: actions/create-github-app-token@v2
@@ -22,8 +104,7 @@ jobs:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -31,24 +112,63 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.5.1
+          version: 12.21.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26.13.0
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Compile
-        run: pnpm run compile
+      - name: Download platform states
+        uses: actions/download-artifact@v4
+        with:
+          pattern: state-*
+          path: .release-state
+          merge-multiple: true
 
-      - name: Release
+      - name: Decide release
+        id: decision
+        shell: bash
+        run: cargo run --release --quiet --locked --package release-preparer -- decision .release-state .github/release-platforms.json "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Download VSIX
+        if: steps.decision.outputs.publish == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vsix-*
+          merge-multiple: true
+
+      - name: Download prepared manifest
+        if: steps.decision.outputs.publish == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: .release-prepared
+
+      - name: Verify release artifacts
+        if: steps.decision.outputs.publish == 'true'
+        run: cargo run --release --quiet --locked --package release-preparer -- verify .release-state .github/release-platforms.json "$GITHUB_SHA" .release-prepared .
+
+      - name: Restore prepared version
+        if: steps.decision.outputs.publish == 'true'
+        shell: bash
+        run: |
+          cp .release-prepared/package.json package.json
+          cp .release-prepared/CHANGELOG.md CHANGELOG.md
+
+      - name: Publish to registries and GitHub
+        if: steps.decision.outputs.publish == 'true'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: pnpm run release
+        run: |
+          set -e
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)"
+          pnpm run release --extends ./release.publish.config.cjs

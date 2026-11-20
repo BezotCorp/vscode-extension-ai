@@ -1,0 +1,1 @@
+export const MAX_MANIFEST_BYTES = 1_000_000;

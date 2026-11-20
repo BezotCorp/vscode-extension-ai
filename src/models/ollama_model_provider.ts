@@ -1,15 +1,7 @@
-import { AiProviderKind } from '../config/extension_config';
-import { ModelInfo } from './model_info';
-import { ModelProvider } from './model_provider';
-
-type OllamaTagsResponse = {
-  models?: OllamaModel[];
-};
-
-type OllamaModel = {
-  name?: string;
-  model?: string;
-};
+import type { AiProviderKind } from '../config/ai_provider_kind';
+import type { ModelInfo } from './model_info';
+import type { ModelProvider } from './model_provider';
+import type { OllamaTagsResponse } from './ollama_tags_response';
 
 export class OllamaModelProvider implements ModelProvider {
   private readonly provider: AiProviderKind = 'ollama';
@@ -35,8 +27,6 @@ export class OllamaModelProvider implements ModelProvider {
         id: name,
         name,
         provider: this.provider,
-        supportsStreaming: true,
-        supportsTools: false,
       }));
   }
 }

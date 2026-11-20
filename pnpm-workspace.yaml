@@ -10,4 +10,8 @@ allowBuilds:
   "keytar": true
 
 minimumReleaseAgeExclude:
-  - '@types/node@25.9.2'
+  - "@types/node@25.9.2"
+  - "@vitest/mocker@5.1.1"
+  - "@vitest/spy@5.1.1"
+  - vitest@5.1.1
+  - "@vitest/coverage-v8@5.1.1"

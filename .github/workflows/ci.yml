@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.config.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load targets
+        id: config
+        shell: bash
+        run: echo "matrix=$(tr -d '\n' < .github/release-platforms.json)" >> "$GITHUB_OUTPUT"
+
+  ci-control:
+    name: CI control (${{ matrix.target }})
+    needs: platforms
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and verify
+        uses: ./.github/actions/verify
+      - name: Package extension
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        shell: bash
+        run: |
+          if [[ '${{ matrix.target }}' == 'universal' ]]; then
+            pnpm run package
+          else
+            pnpm run package --target '${{ matrix.target }}'
+          fi

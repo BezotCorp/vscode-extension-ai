@@ -1,7 +1,8 @@
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 
 import { getExtensionConfig } from '../config/extension_config';
-import { ModelManager } from '../models/model_manager';
+import { t } from '../i18n';
+import type { ModelManager } from '../models/model_manager';
 import { createProvider } from '../providers/provider_factory';
 
 export async function sendModelState(webviewView: vscode.WebviewView, modelManager: ModelManager): Promise<void> {
@@ -20,7 +21,7 @@ export async function testConnection(webviewView: vscode.WebviewView): Promise<v
     type: 'backendStatus',
     status: 'connecting',
     backendUrl: config.providerUrl,
-    text: `Connecting to ${config.provider}...`,
+    text: t('status.connecting', { provider: config.provider }),
   });
 
   const provider = createProvider(config);

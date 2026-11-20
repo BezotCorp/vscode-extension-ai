@@ -1,20 +1,14 @@
+import type { AiProviderKind } from '../config/ai_provider_kind';
+
 import {
-  AiProviderKind,
-  ExtensionConfig,
+  type ExtensionConfig,
   getExtensionConfig,
   updateExtensionModel,
   updateExtensionProviderSettings,
 } from '../config/extension_config';
-import { ModelInfo } from './model_info';
+import type { ModelInfo } from './model_info';
 import { createModelProvider } from './model_registry';
-
-export type ModelState = {
-  provider: ExtensionConfig['provider'];
-  providerUrl: string;
-  activeModel: string;
-  models: ModelInfo[];
-  error?: string;
-};
+import type { ModelState } from './model_state';
 
 export class ModelManager {
   async getState(): Promise<ModelState> {
@@ -39,8 +33,6 @@ export class ModelManager {
             id: config.model,
             name: config.model,
             provider: config.provider,
-            supportsStreaming: true,
-            supportsTools: false,
           },
         ],
         error: String(error),
@@ -71,8 +63,6 @@ function ensureActiveModelExists(models: ModelInfo[], config: ExtensionConfig): 
       id: config.model,
       name: config.model,
       provider: config.provider,
-      supportsStreaming: true,
-      supportsTools: false,
     },
     ...models,
   ];

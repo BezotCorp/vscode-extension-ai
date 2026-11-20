@@ -1,5 +1,6 @@
-import { ExtensionConfig } from '../config/extension_config';
-import { AiProvider } from './ai_provider';
+import type { ExtensionConfig } from '../config/extension_config';
+import { t } from '../i18n';
+import type { AiProvider } from './ai_provider';
 import { CustomBackendProvider } from './custom_backend_provider';
 import { OllamaProvider } from './ollama_provider';
 
@@ -13,23 +14,25 @@ export function createProvider(config: ExtensionConfig): AiProvider {
   }
 
   return {
+    supportsTools: false,
+
     async health() {
       return {
         status: 'disconnected',
         providerUrl: config.providerUrl,
-        text: 'BezotCorp hosted backend is not available yet.',
+        text: t('status.hostedUnavailable'),
       };
     },
 
     async chat() {
       return {
-        text: 'BezotCorp hosted backend is not available yet. Please use Ollama or a custom backend for now.',
+        text: t('status.hostedUnavailableChat'),
       };
     },
 
     async streamChat(_request, handler) {
       handler.onStart();
-      handler.onChunk('BezotCorp hosted backend is not available yet. Please use Ollama or a custom backend for now.');
+      handler.onChunk(t('status.hostedUnavailableChat'));
       handler.onEnd();
     },
   };

@@ -4,3 +4,13 @@ scripts/**
 .git/**
 pnpm-lock.yaml
 tsconfig.json
+data/i18n/sources/**
+data/standardizer/**
+coverage/**
+target/**
+tools/**
+Cargo.toml
+Cargo.lock
+.github/**
+release.package.config.cjs
+release.publish.config.cjs
