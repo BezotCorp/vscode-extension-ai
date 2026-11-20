@@ -2,7 +2,7 @@
   "name": "bezotcorp-ai",
   "displayName": "%app.name%",
   "description": "%description%",
-  "version": "1.8.0",
+  "version": "2.0.0",
   "publisher": "bezotcorp",
   "icon": "assets/icon.png",
   "galleryBanner": {
