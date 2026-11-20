@@ -13,12 +13,15 @@ mod locale;
 mod messages;
 mod output;
 mod part;
+mod paths;
 mod scanner;
 mod source;
 mod validate;
 
 use source::DEFAULT_LOCALE;
 use std::{env, error::Error, path::PathBuf, process};
+
+use crate::paths::{I18N_OUTPUT_DIR, I18N_SOURCES_DIR};
 
 fn main() {
     if let Err(error) = run() {
@@ -47,7 +50,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         None => env::current_dir()?,
     };
 
-    let locales = source::load(&root.join("data/i18n/sources"))?;
+    let locales = source::load(&root.join(I18N_SOURCES_DIR))?;
     let mut problems = validate::validate(&locales);
 
     // Keep validation and TypeScript usage audit unchanged.
@@ -69,7 +72,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     for locale in &locales {
         projections.push(output::package_nls(&root, &locales, locale)?);
-        projections.push(output::catalog(&root.join("data/i18n/output"), locale)?);
+        projections.push(output::catalog(&root.join(I18N_OUTPUT_DIR), locale)?);
     }
 
     let summary = output::synchronize(&projections)?;

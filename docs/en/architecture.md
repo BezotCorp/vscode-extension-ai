@@ -34,6 +34,10 @@ Archived and trashed sessions cannot become active until restored.
 
 Conversation history preserves tool calls and tool results required by subsequent model turns.
 
+Tool results are stored whole in `chat.json`. The limit on what an earlier turn may contribute to a request is applied only when history is replayed to the model. This exhaustive storage is transitional: the four memory levels are specified but not implemented, so it does not yet follow any level's retention contract.
+
+Each stored tool call may also carry file observations: what the file tools remembered of a file during that call (SHA-256 of the whole file, whether the model received all of it, the exact text of a partial view, and how the model came to know it). They are a record of the past, never sent to the model, and say nothing about what a later request contains. Whole views keep only the SHA; no file position is recorded. Conversations stored before this field existed load without observations.
+
 ## Context
 
 The active editor file is attached automatically when available.

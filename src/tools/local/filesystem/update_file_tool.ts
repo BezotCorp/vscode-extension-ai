@@ -17,8 +17,7 @@ import type { FileRead } from './file_read';
 import type { FileVersionTracker } from './file_version_tracker';
 import type { PreparedUpdate } from './prepared_update';
 import type { ReadFileTool } from './read_file_tool';
-import type { ReadMode } from './read_mode';
-import { READ_MODE_COMPOSED, READ_MODE_RECHECK } from './read_mode_values';
+import { READ_MODE_COMPOSED, READ_MODE_RECHECK, type ReadMode } from './read_mode';
 import { unsavedChangesFailure } from './unsaved_changes_failure';
 import { MAX_RETRY } from './update_file_limits';
 import { projectUpdate } from './update_projection';
@@ -298,7 +297,7 @@ export class UpdateFileTool implements Tool {
       projection.anchor === undefined ||
       prepared.part === undefined
     ) {
-      this.versions.remember(fsPath, sha, projection.after, true);
+      this.versions.remember(fsPath, sha, projection.after, true, 'written');
       return;
     }
 
@@ -306,7 +305,13 @@ export class UpdateFileTool implements Tool {
     const { text, start } = prepared.part;
     const at = offset - start;
 
-    this.versions.remember(fsPath, sha, text.slice(0, at) + newText + text.slice(at + oldText.length), false);
+    this.versions.remember(
+      fsPath,
+      sha,
+      text.slice(0, at) + newText + text.slice(at + oldText.length),
+      false,
+      'written',
+    );
   }
 
   // The file changed after the pipeline had started but before anything was written: same handling as any conflict.
@@ -365,10 +370,10 @@ export class UpdateFileTool implements Tool {
         : toolFailure('error', this.id, fsPath, {
             reason: 'file_changed',
             message: !known
-              ? 'You had not read the current version of this file. Nothing was written. Its current content is below: redo your change from this version and call update_file again.'
+              ? 'You had not read the current version of this file in this conversation. Nothing was written. Its current content is below: redo your change from this version and call update_file again.'
               : partial
                 ? 'Your context does not cover the whole file as it is now, and a whole replacement needs all of it. Nothing was written. Its current content is below: redo your change from it and call update_file again, with old_text and new_text if the change is local.'
-                : 'What you read is no longer what the file contains around your change. Nothing was written. Its current content is below: redo your change from this version and call update_file again.',
+                : 'This file was observed earlier, but your current context no longer establishes a safe basis for this change. Nothing was written. Its current content is below: redo your change from this version and call update_file again.',
             executed: false,
             retryable: true,
             details: {
@@ -386,7 +391,7 @@ export class UpdateFileTool implements Tool {
     // From here the AI holds this version, but only what really reaches it: that is what the next attempt is compared with.
     const delivered = deliverFileContent(read.text, build, maxResultChars);
 
-    this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text);
+    this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text, 'conflict');
 
     return delivered.result;
   }

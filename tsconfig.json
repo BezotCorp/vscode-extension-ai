@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "vscode"]
   },
-  "exclude": ["dist", "src/**/tests/**/*.test.ts", "src/**/tests/**/*.spec.ts"]
+  "exclude": ["dist", "src/**/tests/**/*.test.ts", "src/**/tests/**/*.spec.ts", "src/**/tests/support/**"]
 }

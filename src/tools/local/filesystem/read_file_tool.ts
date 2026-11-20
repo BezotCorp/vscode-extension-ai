@@ -3,13 +3,13 @@ import * as vscode from 'vscode';
 import type { ToolAccessProfile } from '../../../permissions';
 import { findOpenDocument, type ResolvedPath, resolvePath, resourcePath, sha256Hex } from '../../../workspace';
 import type { Tool, ToolAccessGuard, ToolExecutionContext, ToolExecutionResult } from '../..';
+import { getFileError } from '../../tool_error_codes';
 import { readNumberArg, readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import { deliverFileContent } from './deliver_file_content';
 import type { FileRead } from './file_read';
 import type { FileVersionTracker } from './file_version_tracker';
-import type { ReadMode } from './read_mode';
-import { READ_MODE_COMPOSED, READ_MODE_DIRECT, READ_MODE_RECHECK } from './read_mode_values';
+import { READ_MODE_COMPOSED, READ_MODE_DIRECT, READ_MODE_RECHECK, type ReadMode } from './read_mode';
 
 export class ReadFileTool implements Tool {
   readonly id = 'read_file';
@@ -52,7 +52,9 @@ export class ReadFileTool implements Tool {
     try {
       read = await this.read(this, resolved, READ_MODE_DIRECT, context?.signal);
     } catch (error) {
-      if (isNotFoundError(error)) {
+      const fileError = getFileError(error);
+
+      if (fileError?.reason === 'not_found') {
         return toolFailure('error', this.id, fsPath, {
           reason: 'not_found',
           message:
@@ -62,7 +64,7 @@ export class ReadFileTool implements Tool {
         });
       }
 
-      if (isDirectoryError(error)) {
+      if (fileError?.reason === 'is_a_directory') {
         return toolFailure('error', this.id, fsPath, {
           reason: 'is_a_directory',
           message: 'The requested path is a directory. Use list_files to inspect its contents.',
@@ -125,7 +127,7 @@ export class ReadFileTool implements Tool {
 
     // A file with unsaved changes is not on the filesystem: nothing is remembered for it.
     if (!read.unsavedChanges) {
-      this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text);
+      this.versions.remember(fsPath, read.sha, delivered.received, delivered.received === read.text, 'read');
     }
 
     return delivered.result;
@@ -167,16 +169,4 @@ export class ReadFileTool implements Tool {
       unsavedChanges: buffered,
     };
   }
-}
-
-function isNotFoundError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-
-  return code === 'ENOENT' || code === 'FileNotFound';
-}
-
-function isDirectoryError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-
-  return code === 'EISDIR' || code === 'FileIsADirectory';
 }

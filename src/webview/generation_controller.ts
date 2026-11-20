@@ -3,7 +3,7 @@ import { DEFAULT_HISTORY_CHARACTERS, HISTORY_CONTEXT_SHARE, MAX_HISTORY_MESSAGES
 import type { ChatManager } from '../chat/chat_manager';
 import { type ChatMessage, closingText } from '../chat/chat_message';
 import type { ChatRole } from '../chat/chat_role';
-import { MAX_STORED_RESULT_CHARACTERS } from '../chat/tool_round_storage_limits';
+import { replayToolRound } from '../chat/replay_tool_round';
 import { getExtensionConfig } from '../config/extension_config';
 import { buildAiContext, estimatedCharacterBudget } from '../context';
 import { t } from '../i18n';
@@ -54,8 +54,16 @@ export class GenerationController {
     }
   }
 
-  private async createTools(accessGuard: ToolAccessGuard, signal: AbortSignal): Promise<ToolRegistry> {
-    const registry = createDefaultToolRegistry(accessGuard, this.files);
+  private async createTools(
+    accessGuard: ToolAccessGuard,
+    signal: AbortSignal,
+    messages: readonly ChatMessage[],
+  ): Promise<ToolRegistry> {
+    const observations = messages.flatMap((message) =>
+      (message.toolRounds ?? []).flatMap((round) => round.calls.flatMap((call) => call.observations ?? [])),
+    );
+
+    const registry = createDefaultToolRegistry(accessGuard, this.files, observations);
 
     if (accessGuard.mode !== 'readOnly') {
       try {
@@ -158,7 +166,9 @@ export class GenerationController {
 
       sendChatStore(webviewView, this.chatManager);
 
-      const tools = provider.supportsTools ? await this.createTools(accessGuard, abortController.signal) : undefined;
+      const tools = provider.supportsTools
+        ? await this.createTools(accessGuard, abortController.signal, sessionMessages)
+        : undefined;
 
       await provider.streamChat(
         {
@@ -185,7 +195,7 @@ export class GenerationController {
           },
           onToolCall: (call) => sendToolCall(webviewView, sessionId, call),
           onToolResult: (_call, result) => sendToolResult(webviewView, sessionId, result),
-          onToolRound: (round) => toolRounds.push(compactRound(round)),
+          onToolRound: (round) => toolRounds.push(round),
           onNotice: (text) => sendToolNotice(webviewView, sessionId, text),
           onEnd: () => {},
         },
@@ -239,20 +249,6 @@ export class GenerationController {
   }
 }
 
-// Results are stored cut down: the model only needs enough of them to remember what it did.
-function compactRound(round: ToolRound): ToolRound {
-  return {
-    content: round.content,
-    calls: round.calls.map((call) => ({
-      ...call,
-      result:
-        call.result.length > MAX_STORED_RESULT_CHARACTERS
-          ? `${call.result.slice(0, MAX_STORED_RESULT_CHARACTERS)}\n/* result cut when stored */`
-          : call.result,
-    })),
-  };
-}
-
 // Keeps the most recent turns that fit the budget, so long conversations do not overflow the model context.
 function selectHistory(messages: ChatMessage[], budget: number): ChatHistoryMessage[] {
   const selected: ChatHistoryMessage[] = [];
@@ -297,7 +293,7 @@ function toHistoryMessage(message: ChatMessage): ChatHistoryMessage {
   return {
     role: message.role,
     content: closingText(message),
-    toolRounds: message.toolRounds,
+    toolRounds: message.toolRounds.map(replayToolRound),
   };
 }
 

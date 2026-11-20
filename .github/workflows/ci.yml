@@ -2,57 +2,36 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - dev
-      - main
+    branches: [dev, main]
   push:
-    branches:
-      - dev
+    branches: [dev, main]
 
 permissions:
   contents: read
 
 jobs:
-  ci-control:
-    name: CI control
+  platforms:
     runs-on: ubuntu-latest
-
+    outputs:
+      matrix: ${{ steps.config.outputs.matrix }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Load targets
+        id: config
+        shell: bash
+        run: echo "matrix=$(tr -d '\n' < .github/release-platforms.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.5.1
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check project conformity
-        run: |
-          cargo run --release --quiet --locked --package standardizer -- check
-          cargo run --release --quiet --manifest-path tools/rust/internationalization/Cargo.toml -- .
-
-      - name: Verify project conformity
-        run: git diff --exit-code
-
-      - name: Run Rust tests
-        run: cargo test --workspace
-
-      - name: Compile TypeScript
-        run: pnpm compile
-
-      - name: Run TypeScript tests
-        run: pnpm test
-
+  ci-control:
+    name: CI control (${{ matrix.target }})
+    needs: platforms
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and verify
+        uses: ./.github/actions/verify
       - name: Package extension
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
-        run: pnpm package
+        run: pnpm run package --target ${{ matrix.target }}

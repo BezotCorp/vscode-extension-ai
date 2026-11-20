@@ -1,3 +1,5 @@
+import type { FileObservation } from '../../file_observation';
+import type { FileObservationOrigin } from '../../file_observation_origin';
 import { MAX_SEGMENTS_PER_FILE, MAX_TRACKED_FILES } from './file_version_limits';
 import type { ReceivedPart } from './received_part';
 import type { SeenFile } from './seen_file';
@@ -7,11 +9,16 @@ import type { SeenFile } from './seen_file';
 // never sees any of it.
 export class FileVersionTracker {
   private readonly seenFiles = new Map<string, SeenFile>();
+  private readonly historicalFiles = new Set<string>();
   private readonly conflictCounts = new Map<string, number>();
+  // What was remembered since the last call to takeObservations. Writing it never changes what the tracker decides.
+  private pending: FileObservation[] = [];
 
   // `received` is exactly what reached the model (see deliverFileContent), `sha` the SHA of the whole file at that
-  // time and `complete` whether `received` is the entire file.
-  remember(path: string, sha: string, received: string, complete: boolean): void {
+  // time and `complete` whether `received` is the entire file. `origin` only labels the record kept for the tool call.
+  remember(path: string, sha: string, received: string, complete: boolean, origin: FileObservationOrigin): void {
+    this.pending.push({ path, sha, complete, origin, ...(complete ? {} : { text: received }) });
+
     const previous = this.seenFiles.get(path);
 
     this.seenFiles.delete(path);
@@ -41,6 +48,37 @@ export class FileVersionTracker {
     }
   }
 
+  // Persisted observations establish provenance, not current write authority.
+  // Only a fresh observation can establish the context required for editing.
+  restoreHistory(observations: readonly FileObservation[]): void {
+    for (const observation of observations) {
+      if (!observation.path || !/^[0-9a-f]{64}$/.test(observation.sha)) {
+        continue;
+      }
+
+      this.historicalFiles.delete(observation.path);
+      this.historicalFiles.add(observation.path);
+
+      if (this.historicalFiles.size > MAX_TRACKED_FILES) {
+        const oldest = this.historicalFiles.values().next().value;
+
+        if (oldest !== undefined) {
+          this.historicalFiles.delete(oldest);
+        }
+      }
+    }
+  }
+
+  // The observations made since the previous call to this method, oldest first. The tool loop takes them after each
+  // tool call, so each one is attached to the call that made it.
+  takeObservations(): FileObservation[] {
+    const taken = this.pending;
+
+    this.pending = [];
+
+    return taken;
+  }
+
   // The whole-file fast path: only valid when the model received the entire file and it is byte-for-byte the same.
   isCurrent(path: string, sha: string): boolean {
     const seen = this.seenFiles.get(path);
@@ -54,7 +92,7 @@ export class FileVersionTracker {
   }
 
   hasSeen(path: string): boolean {
-    return this.seenFiles.has(path);
+    return this.seenFiles.has(path) || this.historicalFiles.has(path);
   }
 
   // The file changed, or the model only received part of it. A local change may go on only if the context it rests

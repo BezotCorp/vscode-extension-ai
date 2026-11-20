@@ -34,6 +34,10 @@ Les sessions archivées ou dans la corbeille ne peuvent pas devenir actives avan
 
 L'historique conserve les appels et résultats d'outils nécessaires aux échanges suivants avec le modèle.
 
+Les résultats d'outils sont stockés entiers dans `chat.json`. La limite de ce qu'un tour antérieur peut apporter à une requête n'est appliquée qu'au moment où l'historique est rejoué au modèle. Ce stockage exhaustif est transitoire : les quatre niveaux de mémoire sont spécifiés mais pas implémentés, il ne suit donc encore le contrat de rétention d'aucun niveau.
+
+Chaque appel d'outil stocké peut aussi porter des observations de fichiers : ce que les outils fichiers ont retenu d'un fichier pendant cet appel (SHA-256 du fichier entier, si le modèle l'a reçu en entier, texte exact d'une vue partielle, et comment le modèle a connu cette version). Elles décrivent le passé, ne sont jamais envoyées au modèle et ne disent rien du contenu d'une requête ultérieure. Une vue complète ne garde que le SHA ; aucune position dans le fichier n'est enregistrée. Les conversations stockées avant ce champ se chargent sans observations.
+
 ## Contexte
 
 Le fichier actif dans l'éditeur est joint automatiquement lorsqu'il est disponible.

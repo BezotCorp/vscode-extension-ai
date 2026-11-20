@@ -10,3 +10,6 @@ __pycache__/
 /data/i18n/output/
 
 /dump.local.sh
+
+# Temporary release preparation state
+/.release-state/

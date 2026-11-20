@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { defaultChatTitle, isDefaultChatTitle } from '../i18n';
+import type { FileObservation } from '../tools/file_observation';
 import type { ToolRound } from '../tools/tool_round';
 import { type ChatMessage, cloneChatMessage, createChatMessage } from './chat_message';
 import type { ChatRole } from './chat_role';
@@ -250,11 +251,55 @@ function normalizeToolCall(call: unknown): ToolRound['calls'][number] | undefine
     return undefined;
   }
 
+  const observations = normalizeObservations(candidate.observations);
+
   return {
     name: candidate.name,
     arguments: candidate.arguments,
     result: candidate.result,
+    ...(observations && { observations }),
   };
+}
+
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const OBSERVATION_ORIGINS: readonly unknown[] = ['read', 'created', 'written', 'conflict'];
+
+/**
+ * Keeps only the file observations of a stored call that are well formed. A view that is not the whole file must carry
+ * its text; a whole view carries none. Nothing is inferred for an observation that is missing or malformed.
+ */
+function normalizeObservations(observations: unknown): FileObservation[] | undefined {
+  if (!Array.isArray(observations)) {
+    return undefined;
+  }
+
+  const normalized: FileObservation[] = [];
+
+  for (const observation of observations) {
+    const candidate = toRecord(observation);
+
+    if (
+      !candidate ||
+      typeof candidate.path !== 'string' ||
+      typeof candidate.sha !== 'string' ||
+      !SHA256_PATTERN.test(candidate.sha) ||
+      typeof candidate.complete !== 'boolean' ||
+      !OBSERVATION_ORIGINS.includes(candidate.origin) ||
+      (!candidate.complete && typeof candidate.text !== 'string')
+    ) {
+      continue;
+    }
+
+    normalized.push({
+      path: candidate.path,
+      sha: candidate.sha,
+      complete: candidate.complete,
+      origin: candidate.origin as FileObservation['origin'],
+      ...(!candidate.complete && { text: candidate.text as string }),
+    });
+  }
+
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function isChatRole(value: unknown): value is ChatRole {

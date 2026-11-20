@@ -6,7 +6,7 @@ import { readStringArg } from '../../tool_input';
 import { toolFailure, toolSuccess } from '../../tool_result';
 import type { FileRead } from './file_read';
 import type { ReadFileTool } from './read_file_tool';
-import { READ_MODE_SEARCH } from './read_mode_values';
+import { READ_MODE_SEARCH } from './read_mode';
 import { MAX_FILE_BYTES, MAX_FILES, MAX_LINE_CHARS, MAX_MATCHES } from './search_text_limits';
 
 export class SearchTextTool implements Tool {

@@ -10,4 +10,13 @@
 //     that the file is still what the user approved, or handing the current content back on a conflict). This mode
 //     forces filesystem content and remembers nothing. It does not change permission semantics: every acquisition
 //     of file content still consults the current permission state before bytes are read.
-export type ReadMode = 0 | 1 | 2 | 3;
+export const READ_MODE_DIRECT = 0;
+export const READ_MODE_COMPOSED = 1;
+export const READ_MODE_SEARCH = 2;
+export const READ_MODE_RECHECK = 3;
+
+export type ReadMode =
+  | typeof READ_MODE_DIRECT
+  | typeof READ_MODE_COMPOSED
+  | typeof READ_MODE_SEARCH
+  | typeof READ_MODE_RECHECK;
