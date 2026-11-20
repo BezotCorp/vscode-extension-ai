@@ -52,7 +52,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           VSCE_TARGET: ${{ matrix.target }}
-        run: pnpm run release --extends ./release.package.config.cjs
+          BEZOTCORP_RELEASE_PHASE: package
+        run: pnpm run release
 
       - name: Record platform result
         shell: bash
@@ -166,9 +167,10 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          BEZOTCORP_RELEASE_PHASE: publish
         run: |
           set -e
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)"
-          pnpm run release --extends ./release.publish.config.cjs
+          pnpm run release
