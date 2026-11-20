@@ -34,4 +34,10 @@ jobs:
         uses: ./.github/actions/verify
       - name: Package extension
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
-        run: pnpm run package --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [[ '${{ matrix.target }}' == 'universal' ]]; then
+            pnpm run package
+          else
+            pnpm run package --target '${{ matrix.target }}'
+          fi
