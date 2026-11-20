@@ -1,4 +1,4 @@
 [workspace]
 resolver = "3"
 
-members = ["tools/rust/internationalization", "tools/rust/standardizer", "tools/rust/release-preparer"]
+members = ["tools/rust/internationalization", "tools/rust/release-preparer"]

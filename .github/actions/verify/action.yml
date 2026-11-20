@@ -20,11 +20,15 @@ runs:
       shell: bash
       run: pnpm install --frozen-lockfile
 
+    - name: Install Standardizer
+      shell: bash
+      run: cargo install --locked --version 1.0.0 standardizer
+
     - name: Check project conformity
       shell: bash
       run: |
         set -e
-        cargo run --release --quiet --locked --package standardizer -- check
+        standardizer check
         cargo run --release --quiet --manifest-path tools/rust/internationalization/Cargo.toml -- .
 
     - name: Verify project conformity

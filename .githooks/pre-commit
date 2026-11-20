@@ -2,4 +2,4 @@
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
-exec cargo run --release --quiet --locked --package standardizer -- fix
+exec standardizer fix
