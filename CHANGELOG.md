@@ -1,3 +1,18 @@
+# [2.0.0](https://github.com/BezotCorp/vscode-extension-ai/compare/v1.8.0...v2.0.0) (2026-11-20)
+
+### Features
+
+- add assistant response copying ([7ba8c8a](https://github.com/BezotCorp/vscode-extension-ai/commit/7ba8c8a329c7dc5fac8439ce22b597fa15864cc2))
+- expand tools and add resource permissions, chat management and FR/EN localization ([3064ef6](https://github.com/BezotCorp/vscode-extension-ai/commit/3064ef6731173d804c83614b2f0a273dd9277d82))
+- integrate AI tools, MCP and permission management ([76ca3c9](https://github.com/BezotCorp/vscode-extension-ai/commit/76ca3c999ea3f296aba63557acd95aad41491746))
+- overhaul AI tool architecture and execution safety ([ef9c346](https://github.com/BezotCorp/vscode-extension-ai/commit/ef9c346ad2ca7a8ab34fc7b200c580f8cd49abb9))
+- persist file observations with tool calls ([701ca67](https://github.com/BezotCorp/vscode-extension-ai/commit/701ca67c2ada9c4d3b801e7dfbd59ae63254e827))
+- redesign file tools and access safety ([077314b](https://github.com/BezotCorp/vscode-extension-ai/commit/077314b81e0025ce13177c2b818e9c49b3b6157a))
+
+### BREAKING CHANGES
+
+- remove workspace-scoped tool permissions, the contextMode setting, context selection controls, and the selectedText and workspaceTree tools. Existing workspace-scoped permission decisions are discarded when upgrading.
+
 # [1.8.0](https://github.com/Bezot-Corp/vscode-extension-ai/compare/v1.7.0...v1.8.0) (2026-06-08)
 
 ### Bug Fixes
